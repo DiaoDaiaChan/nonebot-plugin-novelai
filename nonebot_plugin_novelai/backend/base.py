@@ -12,6 +12,7 @@ from PIL import Image
 from ..config import config
 from ..utils import png2jpg
 from ..utils.data import shapemap
+from ..utils.load_balance import sd_LoadBalance
 
 
 class AIDRAW_BASE:
@@ -20,8 +21,8 @@ class AIDRAW_BASE:
 
     def __init__(
         self,
-        user_id: str,
-        group_id: str,
+        user_id: str = None,
+        group_id: str = None,
         tags: str = "",
         ntags: str = "",
         seed: int = None,
@@ -32,6 +33,8 @@ class AIDRAW_BASE:
         noise: float = None,
         shape: str = "p",
         model: str = None,
+        sampler: str = config.novelai_sampler or "k_euler_ancestral",
+        backend_index: int = None,
         **kwargs,
     ):
         """
@@ -61,6 +64,14 @@ class AIDRAW_BASE:
         :cost: 记录了本次生成需要花费多少点数，自动计算
         :signal: asyncio.Event类,可以作为信号使用。仅占位，需要自行实现相关方法
         """
+        if config.novelai_load_balance == True:
+            resp_tuple = asyncio.run(self.__async_init__())
+            self.backend_index: int = resp_tuple[0]
+            self.backend_site: str = resp_tuple[1][0]
+            self.backend_name: str = resp_tuple[1][1]
+            self.vram: str = resp_tuple[2]
+        if config.novelai_random_ratio == True:
+            self.width, self.height = self.extract_shape(shape or self.weighted_choice())
         self.status: int = 0
         self.result: list = []
         self.signal: asyncio.Event = None
@@ -79,6 +90,11 @@ class AIDRAW_BASE:
         self.img2img: bool = False
         self.image: str = None
         self.width, self.height = self.extract_shape(shape)
+        self.model: str = ""
+        self.sampler: str = sampler
+        self.backend_index: int = backend_index
+        self.start_time: float = None
+        self.spend_time: float = None
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
             self.steps = 28
@@ -164,20 +180,22 @@ class AIDRAW_BASE:
         self.img2img = True
         self.update_cost()
 
-    def shape_set(self, width: int, height: int):
+    def shape_set(self, width: int, height: int, extra_limit: None or int):
         """
         设置宽高
         """
-        limit = 1024 if config.paid else 640
-        if width * height > pow(min(config.novelai_size, limit), 2):
+        limit = extra_limit or 1024 if config.paid else 640
+        if width * height > pow(min(extra_limit or config.novelai_size, limit), 2):
             if width <= height:
                 ratio = height / width
-                width: float = config.novelai_size / pow(ratio, 0.5)
+                width: float = extra_limit or config.novelai_size / pow(ratio, 0.5)
                 height: float = width * ratio
             else:
                 ratio = width / height
-                height: float = config.novelai_size / pow(ratio, 0.5)
+                height: float = extra_limit or config.novelai_size / pow(ratio, 0.5)
                 width: float = height * ratio
+            if extra_limit:
+                return width, height
         base = round(max(width, height) / 64)
         if base > self.max_resolution:
             base = self.max_resolution
@@ -254,9 +272,34 @@ class AIDRAW_BASE:
 
     def __repr__(self):
         return (
-            f"time={self.time}\nuser_id={self.user_id}\ngroup_id={self.group_id}\ncost={self.cost}\nbatch={self.batch}\n"
+            f"time={self.time}\nuser_id={self.user_id}\ngroup_id={self.group_id}\ncost={self.cost}\nbatch={self.batch}\nsampler={self.sampler}\n"
             + "".join(self.format())
         )
 
     def __str__(self):
         return self.__repr__().replace("\n", ";")
+    
+    async def __async_init__(self):
+        resp_tuple = await sd_LoadBalance()
+        return resp_tuple
+    
+    def weighted_choice(choices: config.novelai_random_ratio_list):
+        total = sum(w for c, w in choices)
+        r = random.uniform(0, total)
+        upto = 0
+        for c, w in choices:
+            if upto + w > r:
+                return c
+            upto += w
+
+    async def get_webui_config(self, url: str):
+        api = "http://" + url + "/sdapi/v1/options"
+        # 请求交互
+        async with aiohttp.ClientSessionr() as session:
+            # 向服务器发送请求
+            async with session.get(api) as resp:
+                webui_config = await resp.json(encoding="utf-8")
+                # currents_model = webui_config["sd_model_checkpoint"]
+        return webui_config
+
+

@@ -3,6 +3,7 @@ from PIL import Image
 import re
 import aiohttp
 import base64
+import random
 
 
 async def check_last_version(package: str):
@@ -32,11 +33,12 @@ async def sendtosuperuser(message):
     superusers = get_driver().config.superusers
     bot = get_bot()
     for superuser in superusers:
-        await bot.call_api('send_msg', **{
+        message_data = await bot.call_api('send_msg', **{
             'message': message,
             'user_id': superuser,
         })
         await asyncio.sleep(5)
+        return message_data
 
 
 async def png2jpg(raw: bytes):

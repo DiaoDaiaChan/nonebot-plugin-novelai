@@ -8,7 +8,7 @@ from argparse import Namespace
 from asyncio import get_running_loop
 from nonebot import get_bot, on_shell_command
 
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot, ActionFailed
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
@@ -19,6 +19,7 @@ from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_check, anlas_set
 from .extension.daylimit import DayLimit
+from .extension.explicit_api import check_safe_method
 from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
 from .version import version
@@ -47,10 +48,16 @@ aidraw_parser.add_argument("-n", "--noise", "-噪声",
                            type=float, help="修改噪声", dest="noise")
 aidraw_parser.add_argument("-o", "--override", "-不优化",
                            action='store_true', help="不使用内置优化参数", dest="override")
+aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,
+                           help="select backend", dest="backend")
+aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
+                           help="选择采样器", dest="sampler")
+aidraw_parser.add_argument("-nt", "--no-tran", "-后端",type=str,
+                           help="不需要翻译的字符串", dest="no_trans")
 
 aidraw = on_shell_command(
     ".aidraw",
-    aliases={"绘画", "咏唱", "召唤", "约稿", "aidraw"},
+    aliases={"绘画", "咏唱", "召唤", "约稿", "aidraw", "画"},
     parser=aidraw_parser,
     priority=5
 )
@@ -83,18 +90,36 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
         else:
             cd[user_id] = nowtime
         # 初始化参数
-        args.tags = await prepocess_tags(args.tags)
+        try: # 检查翻译API是否失效
+            args.tags = await prepocess_tags(args.tags)
+        except Exception as e:
+            logger.debug(str(e))
+            await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         args.ntags = await prepocess_tags(args.ntags)
+        if args.no_trans: # 不希望翻译的tags
+            args.tags = args.tags + args.no_trans
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
         # 检测是否有18+词条
-        if not config.novelai_h:
-            pattern = re.compile(f"(\s|,|^)({htags})(\s|,|$)")
-            if (re.search(pattern, fifo.tags) is not None):
+        pattern = re.compile(f"(\s|^)({htags})(?!\w)(\s|$)", re.IGNORECASE)
+        if config.novelai_h == 0:
+            if re.search(pattern, fifo.tags) is not None:
                 await aidraw.finish(f"H是不行的!")
+        elif config.novelai_h == 1:
+            re_list = re.findall(pattern, fifo.tags)
+            if not re_list:
+                pass
+            else:
+                for i in re_list:
+                    fifo.tags = fifo.tags.replace(i, "")
+                    await bot.send(event=event, 
+                                   message=f"H是不行的!已经排除掉以下单词{re_list}", 
+                                   reply_message=True)
         if not args.override:
-            fifo.tags = basetag + await config.get_value(group_id, "tags") + "," + fifo.tags
-            fifo.ntags = lowQuality + fifo.ntags
-
+            global pre_tags
+            pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags
+            pre_ntags = lowQuality + config.novelai_ntags
+            fifo.tags = pre_tags + "," + fifo.tags
+            fifo.ntags = pre_ntags + fifo.ntags
         # 以图生图预处理
         img_url = ""
         reply = event.reply
@@ -127,9 +152,17 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
 
 async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
+    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure == True and config.novelai_load_balance == True: # 纯净模式额外信息
+        user_input = fifo.tags.replace(pre_tags, "")
+        extra_message = f"后端{fifo.backend_name}, 你的prompt是{user_input}"
+    else:
+        extra_message= ""
     list_len = wait_len()
     has_wait = f"排队中，你的前面还有{list_len}人"+message
-    no_wait = "请稍等，图片生成中"+message
+    try:
+        no_wait = f"请稍等，图片生成中，{extra_message}"+message
+    except ActionFailed:
+        logger.info("被风控了")
     if anlas:
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
@@ -177,7 +210,7 @@ async def fifo_gennerate(fifo: AIDRAW = None, bot: Bot = None):
             )
         else:
             logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
-            if await config.get_value(fifo.group_id, "pure"):
+            if await config.get_value(fifo.group_id, "pure") or config.novelai_pure == True:
                 message = MessageSegment.at(fifo.user_id)
                 for i in im["image"]:
                     message += i
@@ -234,12 +267,12 @@ async def _run_gennerate(fifo: AIDRAW):
         await sendtosuperuser(f"远程服务器崩掉了欸……")
         raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
     # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
-    # message = await check_safe_method(fifo, img_bytes, message)
     # 构造消息体并保存图片
     message = f"{config.novelai_mode}绘画完成~"
-    for i in fifo.result:
-        await save_img(fifo, i, fifo.group_id)
-        message += MessageSegment.image(i)
+    message = await check_safe_method(fifo, fifo.result, message)
+    # for i in fifo.result:
+    #     await save_img(fifo, i, fifo.group_id)
+    #     message += MessageSegment.image(i)
     for i in fifo.format():
         message += MessageSegment.text(i)
     # 扣除点数

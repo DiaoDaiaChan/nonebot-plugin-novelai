@@ -13,5 +13,5 @@ async def save_img(fifo, img_bytes: bytes, extra: str = "unknown"):
         async with aiofiles.open(str(file) + ".jpg", "wb") as f:
             await f.write(img_bytes)
         if config.novelai_save==2:
-            async with aiofiles.open(str(file) + ".txt", "w") as f:
+            async with aiofiles.open(str(file) + ".txt", "w", encoding="utf-8") as f:
                 await f.write(repr(fifo))
