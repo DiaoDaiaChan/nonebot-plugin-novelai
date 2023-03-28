@@ -31,7 +31,8 @@ class AIDRAW_BASE:
         batch: int = None,
         strength: float = None,
         noise: float = None,
-        shape: str = "p",
+        shape: str = None,
+        man_shape: str = None,
         model: str = "",
         sampler: None or str = None,
         backend_index: int = None,
@@ -64,18 +65,10 @@ class AIDRAW_BASE:
         :cost: 记录了本次生成需要花费多少点数，自动计算
         :signal: asyncio.Event类,可以作为信号使用。仅占位，需要自行实现相关方法
         """
-        # if config.novelai_load_balance == True:
-        #     task = asyncio.create_task(self.__async_init__())
-        #     time.sleep(2)
-        #     if task.done():
-        #         resp_tuple = task.result()
-        #     self.backend_index: int = resp_tuple[0]
-        #     self.backend_site: str = resp_tuple[1][0]
-        #     self.backend_name: str = resp_tuple[1][1]
-        #     self.vram: str = resp_tuple[2]
         if config.novelai_random_ratio == True:
             random_shape = self.weighted_choice()
-            self.width, self.height = self.extract_shape(random_shape)
+            shape = man_shape or "p" if man_shape else random_shape
+            self.width, self.height = self.extract_shape(shape)
         else:
             self.width, self.height = self.extract_shape(shape)
         self.status: int = 0
@@ -103,6 +96,7 @@ class AIDRAW_BASE:
         self.backend_index: int = backend_index
         self.vram: str = ""
         self.hiresfix: bool = True if config.novelai_hr else False
+        self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
         self.super_res_after_generate: bool = True if config.novelai_SuperRes_generate else False
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
@@ -189,7 +183,7 @@ class AIDRAW_BASE:
         self.img2img = True
         self.update_cost()
 
-    def shape_set(self, width: int, height: int, extra_limit: None or int):
+    def shape_set(self, width: int, height: int, extra_limit=None):
         """
         设置宽高
         """
@@ -264,6 +258,7 @@ class AIDRAW_BASE:
             "height",
             "img2img",
             "hiresfix",
+            "hiresfix_scale",
             "super_res_after_generate",
             "spend_time",
             "vram",

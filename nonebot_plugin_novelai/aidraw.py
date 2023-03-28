@@ -31,7 +31,7 @@ wait_list = deque([])
 aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签")
 aidraw_parser.add_argument("-r", "--resolution", "-形状",
-                           help="画布形状/分辨率", dest="shape")
+                           help="画布形状/分辨率", dest="man_shape")
 aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
 aidraw_parser.add_argument(

@@ -20,7 +20,6 @@ class AIDRAW(AIDRAW_BASE):
                 resp_tuple =  await sd_LoadBalance()
                 site = list(config.novelai_backend_url_dict.values())[resp_tuple[0]]
                 print(resp_tuple)
-                self.backend_name = resp_tuple[1][1]
         else:
             site = config.novelai_site or "127.0.0.1:7860"
         header = {
@@ -49,9 +48,12 @@ class AIDRAW(AIDRAW_BASE):
                 })
             self.start_time: float = time.time()
             await self.post_(header, post_api, parameters)
+
+            self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
             spend_time = time.time() - self.start_time
             self.spend_time = f"{spend_time:.2f}秒"
             resp_json = await self.get_webui_config(site)
             self.model = resp_json["sd_model_checkpoint"]
             self.vram = await get_vram(site)
+            
         return self.result

@@ -30,10 +30,11 @@ async def check_safe_method(fifo, img_bytes, message):
             except RuntimeError as e:
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
-            if label != "explicit":
+            if label == "safe":
                 message += MessageSegment.image(i)
             else:
-                message += f"太涩了,让我先看, 这张图涩度{h}"
+                label = "explicit"
+                message += f"\n太涩了,让我先看, 这张图涩度{h}%"
                 nsfw_count += 1
                 if config.novelai_h_type == 1:
                     await bot.send_private_msg(user_id=fifo.user_id, 
@@ -43,19 +44,25 @@ async def check_safe_method(fifo, img_bytes, message):
                     message_id = message_data["message_id"]
                     message_all = await bot.get_msg(message_id=message_id)
                     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-                    img_url = re.search(url_regex, message_all["message"])
-                    await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url}")
+                    img_url = re.findall(url_regex, message_all["message"])
+                    await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
                 else:
                     await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
         if nsfw_count > 0:
             message += f"有{nsfw_count}张图片太涩了，" + raw_message + "帮你吃掉了"
         # else:
         #     message += MessageSegment.image(i)
-    await save_img(fifo, i, label)
+        await save_img(fifo, i, label)
     return message
 
 
 async def check_safe(img_bytes: BytesIO):
+
+    headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept': 'application/json'
+}
+
     if config.novelai_pic_audit == 2:
         try:
             import tensorflow as tf
@@ -80,25 +87,26 @@ async def check_safe(img_bytes: BytesIO):
 
 
         async def main(file: IO[bytes]):
-            data = process_data(file.read())
+            data = await process_data(file.read())
             data = tf.expand_dims(data, 0)
             inter.set_tensor(in_tensor["index"], data)
             inter.invoke()
             result, *_ = inter.get_tensor(out_tensor["index"])
             safe, questionable, explicit = map(float, result)
             possibilities = {"safe": safe, "questionable": questionable, "explicit": explicit}
-            logger.debug("Predict result:", possibilities)
             return possibilities
-
         
-        byte_img = base64.b64decode(img_bytes)
+        # byte_img = base64.b64decode(img_bytes)
         # im = Image.open('1.jpg')
         # img_byte = BytesIO()
         # im.save(img_byte, format='JPEG') # format: PNG or JPEG
         # binary_content = img_byte.getvalue()
-        file_obj = BytesIO(byte_img)
+        file_obj = BytesIO(img_bytes)
         possibilities = await main(file_obj)
-        return possibilities
+        value = list(possibilities.values())
+        value.sort(reverse=True)
+        reverse_dict = {value: key for key, value in possibilities.items()}
+        return reverse_dict[value[0]], value[0] * 100
 
   
     async def get_file_content_as_base64(path, urlencoded=False):
@@ -137,12 +145,15 @@ async def check_safe(img_bytes: BytesIO):
     payload = 'image=' + base64_pic
     token = await get_access_token()
     baidu_api = "https://aip.baidubce.com/rest/2.0/solution/v1/img_censor/v2/user_defined?access_token=" + token
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(baidu_api, data=payload) as resp:
+            print(resp.status)
             result = await resp.json()
             logger.debug(result)
-            if result['conclusionType'] in [2, 3]:
-                return "explicit", str(result['data'][0]['probability'])
+            if result['conclusionType'] == 1:
+                return "safe", result['data'][0]['probability'] * 100
+            else:
+                return "", result['data'][0]['probability'] * 100
     
 
 
