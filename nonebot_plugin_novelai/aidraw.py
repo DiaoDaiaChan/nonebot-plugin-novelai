@@ -49,10 +49,10 @@ aidraw_parser.add_argument("-n", "--noise", "-噪声",
 aidraw_parser.add_argument("-o", "--override", "-不优化",
                            action='store_true', help="不使用内置优化参数", dest="override")
 aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,
-                           help="select backend", dest="backend")
+                           help="select backend", dest="backend_index")
 aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
                            help="选择采样器", dest="sampler")
-aidraw_parser.add_argument("-nt", "--no-tran", "-后端",type=str,
+aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译",type=str,
                            help="不需要翻译的字符串", dest="no_trans")
 
 aidraw = on_shell_command(

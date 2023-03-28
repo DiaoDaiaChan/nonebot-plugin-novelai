@@ -16,8 +16,9 @@ from ..config import config
 async def check_safe_method(fifo, img_bytes, message):
     bot = nonebot.get_bot()
     raw_message = f"\n{nickname}已经"
+    label = ""
     # 判读是否进行图片审核
-    if config.novelai_pic_audit == None:
+    if config.novelai_pic_audit == 3:
         for i in img_bytes:
             await save_img(fifo, i)
             message += MessageSegment.image(i)

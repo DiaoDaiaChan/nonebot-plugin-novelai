@@ -4,8 +4,8 @@ from ..config import config
 
 
 async def get_progress(url):
-    first_get = url + "/app_id/"
-    api_url = url + "/sdapi/v1/progress"
+    first_get = "http://" + url + "/app_id/"
+    api_url = "http://" + url + "/sdapi/v1/progress"
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session1:
         async with session1.get(url=first_get) as resp1:
             resp_code2 = resp1.status
@@ -15,7 +15,7 @@ async def get_progress(url):
             return resp_json, resp.status, url, resp_code2
 
 async def get_vram(ava_url):
-    get_mem = ava_url + "/sdapi/v1/memory"        
+    get_mem = "http://" + ava_url + "/sdapi/v1/memory"        
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session1:
             async with session1.get(url=get_mem) as resp2:
@@ -24,13 +24,16 @@ async def get_vram(ava_url):
                 vram_total = int(all_memory_usage["cuda"]["system"]["total"]/1000000)
                 vram_used = int(all_memory_usage["cuda"]["system"]["used"]/1000000)
 
-                vram_usage = f"显存占用{vram_used}M/{vram_total}M,喵!"
+                vram_usage = f"显存占用{vram_used}M/{vram_total}M"
     except Exception:
-        vram_usage = ",喵!"
+        vram_usage = ""
     return vram_usage
 
 
 async def sd_LoadBalance():
+    '''
+    分别返回可用后端索引, 后端名称和对应ip(元组), 显存占用
+    '''
     backend_url_dict = config.novelai_backend_url_dict
     reverse_dict = {value: key for key, value in backend_url_dict.items()}
     tasks = []
@@ -92,13 +95,14 @@ async def sd_LoadBalance():
                     eta_list.sort()
                     ava_url = reverse_sta_dict[eta_list[0]]
 
-    try:
-        vram_usage = await get_vram(ava_url)
-    except:
-        vram_usage = "0"
+    # try:
+    #     vram_usage = await get_vram(ava_url)
+    # except:
+    #     vram_usage = "0"
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
+    ava_url_tuple = (ava_url, reverse_dict[ava_url])
     try:
-        return ava_url_index, reverse_dict[ava_url], vram_usage
+        return ava_url_index, ava_url_tuple
     except KeyError:
         ava_url_index = 0
-        ava_url_index, reverse_dict[ava_url], vram_usage
+        ava_url_index, ava_url_tuple

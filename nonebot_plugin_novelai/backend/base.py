@@ -32,8 +32,8 @@ class AIDRAW_BASE:
         strength: float = None,
         noise: float = None,
         shape: str = "p",
-        model: str = None,
-        sampler: str = config.novelai_sampler or "k_euler_ancestral",
+        model: str = "",
+        sampler: None or str = None,
         backend_index: int = None,
         **kwargs,
     ):
@@ -64,18 +64,23 @@ class AIDRAW_BASE:
         :cost: 记录了本次生成需要花费多少点数，自动计算
         :signal: asyncio.Event类,可以作为信号使用。仅占位，需要自行实现相关方法
         """
-        if config.novelai_load_balance == True:
-            resp_tuple = asyncio.run(self.__async_init__())
-            self.backend_index: int = resp_tuple[0]
-            self.backend_site: str = resp_tuple[1][0]
-            self.backend_name: str = resp_tuple[1][1]
-            self.vram: str = resp_tuple[2]
+        # if config.novelai_load_balance == True:
+        #     task = asyncio.create_task(self.__async_init__())
+        #     time.sleep(2)
+        #     if task.done():
+        #         resp_tuple = task.result()
+        #     self.backend_index: int = resp_tuple[0]
+        #     self.backend_site: str = resp_tuple[1][0]
+        #     self.backend_name: str = resp_tuple[1][1]
+        #     self.vram: str = resp_tuple[2]
         if config.novelai_random_ratio == True:
-            self.width, self.height = self.extract_shape(shape or self.weighted_choice())
+            random_shape = self.weighted_choice()
+            self.width, self.height = self.extract_shape(random_shape)
+        else:
+            self.width, self.height = self.extract_shape(shape)
         self.status: int = 0
         self.result: list = []
         self.signal: asyncio.Event = None
-        self.model = model
         self.time = time.strftime("%Y-%m-%d %H:%M:%S")
         self.user_id: str = user_id
         self.tags: str = tags
@@ -89,12 +94,16 @@ class AIDRAW_BASE:
         self.ntags: str = ntags
         self.img2img: bool = False
         self.image: str = None
-        self.width, self.height = self.extract_shape(shape)
         self.model: str = ""
-        self.sampler: str = sampler
-        self.backend_index: int = backend_index
+        self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
         self.spend_time: float = None
+        self.backend_site: str = ""
+        self.backend_name: str = None
+        self.backend_index: int = backend_index
+        self.vram: str = ""
+        self.hiresfix: bool = True if config.novelai_hr else False
+        self.super_res_after_generate: bool = True if config.novelai_SuperRes_generate else False
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
             self.steps = 28
@@ -254,6 +263,11 @@ class AIDRAW_BASE:
             "width",
             "height",
             "img2img",
+            "hiresfix",
+            "super_res_after_generate",
+            "spend_time",
+            "vram",
+            "backend_name"
         )
 
     def __getitem__(self, item):
@@ -279,11 +293,13 @@ class AIDRAW_BASE:
     def __str__(self):
         return self.__repr__().replace("\n", ";")
     
-    async def __async_init__(self):
-        resp_tuple = await sd_LoadBalance()
-        return resp_tuple
+    # async def __async_init__(self):
+    #     resp_tuple = await sd_LoadBalance()
+    #     logger.info(resp_tuple)
+    #     return resp_tuple
     
-    def weighted_choice(choices: config.novelai_random_ratio_list):
+    def weighted_choice(self):
+        choices =  config.novelai_random_ratio_list
         total = sum(w for c, w in choices)
         r = random.uniform(0, total)
         upto = 0
@@ -295,7 +311,7 @@ class AIDRAW_BASE:
     async def get_webui_config(self, url: str):
         api = "http://" + url + "/sdapi/v1/options"
         # 请求交互
-        async with aiohttp.ClientSessionr() as session:
+        async with aiohttp.ClientSession() as session:
             # 向服务器发送请求
             async with session.get(api) as resp:
                 webui_config = await resp.json(encoding="utf-8")
