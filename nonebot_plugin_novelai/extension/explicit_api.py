@@ -48,7 +48,6 @@ async def check_safe_method(fifo, img_bytes, message):
                     if htype == 1:
                         await bot.send_private_msg(user_id=fifo.user_id, 
                                                     message=f"悄悄给你看哦{MessageSegment.image(i)}")
-                        await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
                     elif htype == 2:
                         await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
                 elif htype == 3:

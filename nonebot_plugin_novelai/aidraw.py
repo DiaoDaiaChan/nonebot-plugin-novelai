@@ -102,20 +102,23 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             args.tags = args.tags + args.no_trans
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
         # 检测是否有18+词条
-        pattern = re.compile(f"(\s|^)({htags})(?!\w)(\s|$)", re.IGNORECASE)
+        pattern = re.compile(htags, re.IGNORECASE)
+        h_words = ""
         if config.novelai_h == 0:
-            if re.search(pattern, fifo.tags) is not None:
+            if pattern.findall(fifo.tags) is not None:
                 await aidraw.finish(f"H是不行的!")
         elif config.novelai_h == 1:
-            re_list = re.findall(pattern, fifo.tags)
+            re_list = pattern.findall(fifo.tags)
+            print(re_list)
             if not re_list:
                 pass
             else:
                 for i in re_list:
+                    h_words += f"{i},"
                     fifo.tags = fifo.tags.replace(i, "")
-                    await bot.send(event=event, 
-                                   message=f"H是不行的!已经排除掉以下单词{re_list}", 
-                                   reply_message=True)
+                await bot.send(event=event, 
+                                message=f"H是不行的!已经排除掉以下单词{h_words}", 
+                                reply_message=True)
         if not args.override:
             global pre_tags
             pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags

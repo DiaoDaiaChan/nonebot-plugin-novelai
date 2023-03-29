@@ -2,8 +2,6 @@ from .base import AIDRAW_BASE
 from ..config import config
 import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
-from nonebot import logger
-
 
 class AIDRAW(AIDRAW_BASE):
     """队列中的单个请求"""
@@ -62,7 +60,9 @@ class AIDRAW(AIDRAW_BASE):
                     parameters.update(config.novelai_ControlNet_payload[1])
                     parameters["controlnet_units"][0]["input_image"] = self.image
                     
+
             self.start_time: float = time.time()
+            print(parameters)
             await self.post_(header, post_api, parameters)
 
             self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]

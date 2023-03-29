@@ -14,6 +14,7 @@ nickname = list(get_driver().config.nickname)[0] if len(
 
 class Config(BaseSettings):
     # 服务器设置
+    novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_token: str = ""  # 官网的token
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
     novelai_mode: str = "novelai"
@@ -21,11 +22,11 @@ class Config(BaseSettings):
     # 后台设置
     novelai_save: int = 1  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_save_png: bool = False # 是否保存为PNG格式
-    novelai_paid: int = 0  # 0为禁用付费模式，1为点数制，2为不限制
+    novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_pure: bool = False  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
     novelai_limit: bool = True  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
-    novelai_h: int = 0  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+    novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_htype: int = 1 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量

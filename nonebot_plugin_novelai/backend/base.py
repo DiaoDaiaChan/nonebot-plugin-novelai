@@ -79,10 +79,10 @@ class AIDRAW_BASE:
         self.tags: str = tags
         self.seed: list[int] = [seed or random.randint(0, 4294967295)]
         self.group_id: str = group_id
-        self.scale: int = int(scale or 11)
+        self.scale: int = int(scale or config.novelai_scale)
         self.strength: float = strength or 0.7
         self.batch: int = batch or 1
-        self.steps: int = steps or 28
+        self.steps: int = steps or 14
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
         self.img2img: bool = False
