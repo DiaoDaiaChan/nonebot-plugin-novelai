@@ -46,10 +46,11 @@ async def check_safe_method(fifo, img_bytes, message):
                     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
                     img_url = re.findall(url_regex, message_all["message"])
                     await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
+                    
                 else:
                     await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
         if nsfw_count > 0:
-            message += f"有{nsfw_count}张图片太涩了，" + raw_message + "帮你吃掉了"
+            message += f",有{nsfw_count}张图片太涩了，" + raw_message + "帮你吃掉了"
         # else:
         #     message += MessageSegment.image(i)
         await save_img(fifo, i, label)
@@ -94,13 +95,9 @@ async def check_safe(img_bytes: BytesIO):
             result, *_ = inter.get_tensor(out_tensor["index"])
             safe, questionable, explicit = map(float, result)
             possibilities = {"safe": safe, "questionable": questionable, "explicit": explicit}
+            logger.debug(possibilities)
             return possibilities
         
-        # byte_img = base64.b64decode(img_bytes)
-        # im = Image.open('1.jpg')
-        # img_byte = BytesIO()
-        # im.save(img_byte, format='JPEG') # format: PNG or JPEG
-        # binary_content = img_byte.getvalue()
         file_obj = BytesIO(img_bytes)
         possibilities = await main(file_obj)
         value = list(possibilities.values())
@@ -147,7 +144,6 @@ async def check_safe(img_bytes: BytesIO):
     baidu_api = "https://aip.baidubce.com/rest/2.0/solution/v1/img_censor/v2/user_defined?access_token=" + token
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(baidu_api, data=payload) as resp:
-            print(resp.status)
             result = await resp.json()
             logger.debug(result)
             if result['conclusionType'] == 1:

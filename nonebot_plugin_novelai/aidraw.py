@@ -54,6 +54,8 @@ aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
                            help="选择采样器", dest="sampler")
 aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译",type=str,
                            help="不需要翻译的字符串", dest="no_trans")
+aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
+                           action='store_true', help="使用控制网以图生图", dest="control_net")
 
 aidraw = on_shell_command(
     ".aidraw",
@@ -133,7 +135,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                 async with aiohttp.ClientSession() as session:
                     logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
                     async with session.get(img_url) as resp:
-                        fifo.add_image(await resp.read())
+                        fifo.add_image(await resp.read(), args.control_net)
                     message = f"，已切换至以图生图"+message
             else:
                 await aidraw.finish(f"以图生图功能已禁用")
@@ -154,7 +156,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     if await config.get_value(fifo.group_id, "pure") or config.novelai_pure == True and config.novelai_load_balance == True: # 纯净模式额外信息
         user_input = fifo.tags.replace(pre_tags, "")
-        extra_message = f"后端{fifo.backend_name}, 你的prompt是{user_input}"
+        extra_message = f", 你的prompt是{user_input}"
     else:
         extra_message= ""
     list_len = wait_len()

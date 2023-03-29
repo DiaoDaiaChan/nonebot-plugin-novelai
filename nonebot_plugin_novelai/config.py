@@ -58,16 +58,39 @@ class Config(BaseSettings):
         "upscaler_2": "R-ESRGAN 4x+ Anime6B", # 第二次超分使用的方法
         "extras_upscaler_2_visibility": 0.7 # 第二层upscaler力度
     } # 以上为个人推荐值
-    novelai_ControlNet_payload: dict = {  
-        "controlnet_module": "canny", # ControlNet模块
-        "controlnet_model": "control_canny [9d312881]", # ControlNet模型
-        "controlnet_weight": 0.8, # ControlNet权重
-        "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-        "controlnet_lowvram": "false", # 低显存模式
-        "controlnet_processor_res": 512, # 处理分辨率
-        "controlnet_threshold_a": 100,
-        "controlnet_threshold_b": 250
-        } 
+    novelai_ControlNet_post_method: int = 1
+    '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
+    个人使用第一种方法post显卡占用率反复横跳TAT 
+    tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
+    novelai_ControlNet_payload: list = [{
+        "alwayson_scripts": {
+        "controlnet": {
+        "args": [
+            {
+            "input_image": "",
+            "module": "canny",
+            "model": "control_canny [9d312881]",
+            "weight": 1,
+            "resize_mode": "Scale to Fit (Inner Fit)",
+            "lowvram": "false",
+            "processor_res": novelai_size,
+            "threshold_a": 100,
+            "threshold_b": 250,
+            }
+        ]
+            }
+        }
+    }, 
+    {"controlnet_units": 
+            [{"input_image": "", 
+            "module": "canny", 
+            "model": "control_canny [9d312881]", 
+            "weight": 1, 
+            "resize_mode": "Scale to Fit (Inner Fit)", 
+            "lowvram": "false", 
+            "processor_res": novelai_size, 
+            "threshold_a": 100,
+            "threshold_b": 250}]}]
     novelai_pic_audit: None or int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""} # 你的百度云API Key

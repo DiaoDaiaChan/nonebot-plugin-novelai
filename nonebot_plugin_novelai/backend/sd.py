@@ -19,7 +19,6 @@ class AIDRAW(AIDRAW_BASE):
             else:
                 resp_tuple =  await sd_LoadBalance()
                 site = list(config.novelai_backend_url_dict.values())[resp_tuple[0]]
-                print(resp_tuple)
         else:
             site = config.novelai_site or "127.0.0.1:7860"
         header = {
@@ -27,6 +26,7 @@ class AIDRAW(AIDRAW_BASE):
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
         }
         post_api = f"http://{site}/sdapi/v1/img2img" if self.img2img else f"http://{site}/sdapi/v1/txt2img"
+
         for i in range(self.batch):
             parameters = {
                 "prompt": self.tags,
@@ -46,6 +46,18 @@ class AIDRAW(AIDRAW_BASE):
                     "denoising_strength": self.strength,
                     
                 })
+
+                if self.control_net["control_net"] == True:
+                    del parameters["init_images"]
+                    if config.novelai_ControlNet_post_method == 0:
+                        post_api = f"http://{site}/sdapi/v1/txt2img"
+                        parameters.update(config.novelai_ControlNet_payload[0])
+                        parameters["alwayson_scripts"]["controlnet"]["args"][0]["input_image"] = self.image
+                    else:
+                        post_api = f"http://{site}/controlnet/txt2img"
+                        parameters.update(config.novelai_ControlNet_payload[1])
+                        parameters["controlnet_units"][0]["input_image"] = self.image
+                    
             self.start_time: float = time.time()
             await self.post_(header, post_api, parameters)
 
@@ -55,5 +67,5 @@ class AIDRAW(AIDRAW_BASE):
             resp_json = await self.get_webui_config(site)
             self.model = resp_json["sd_model_checkpoint"]
             self.vram = await get_vram(site)
-            
+
         return self.result

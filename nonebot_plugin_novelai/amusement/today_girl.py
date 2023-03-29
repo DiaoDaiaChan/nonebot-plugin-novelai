@@ -1,4 +1,4 @@
-from nonebot import on_command
+from nonebot import on_command, logger
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed
 
 from ..backend import AIDRAW
@@ -317,6 +317,7 @@ async def _(bot: Bot, event: MessageEvent):
     inst = Choicer(data_dict)
     msg = inst.format_msg(user_id_random, user_name)
     to_user = msg.replace(random_int_str, "")
+
     try:
         await bot.send(event=event, 
                         message=f"锵锵~~~{to_user}正在为你生成二次元图像捏~随机种子是{random_int_str}")
@@ -324,6 +325,7 @@ async def _(bot: Bot, event: MessageEvent):
         await bot.send(event=event, 
                         message=f"风控了...不过图图我还是会画给你的...")
         
+    # 简单粗暴的替换
     for i in data_dict["parts"]["breastsize"]:
         if i in msg:
             to_ai = msg.replace(i, replace_dict[f"{i}"])
@@ -335,36 +337,29 @@ async def _(bot: Bot, event: MessageEvent):
         if i in to_ai:
             to_ai = to_ai.replace(i, pose_dict[f"{i}"])
             break
+
     try:
         to_ai = to_ai.replace(f"二次元少女的{user_name}", "")
-        print(to_ai)
+        logger.debug(to_ai)
         tags = await translate(to_ai, "en")
     except:
         await today_girl.finish("翻译API出错辣")
     else:
-        shape = await weighted_choice()
-        backend = await sd_LoadBalance(backend_url_dict)
         tags = basetag + tags
         ntags = lowQuality
         fifo = AIDRAW(user_id=user_id, 
-                        group_id=group_id, 
-                        tags=tags,
-                        ntags=ntags,
-                        backend=backend[0],
-                        backend_url_dict=backend_url_dict,
-                        shape=shape)
+                      group_id=group_id, 
+                      tags=tags, 
+                      ntags=ntags)
         try:
-            start = time.time()
             await fifo.post()
         except Exception as e:
             await today_girl.finish(f"服务端出错辣,{e.args}")
         else:
-            end = time.time()
-            spend_time = end - start
             img_msg = MessageSegment.image(fifo.result[0])
             try:
                 await bot.send(event=event, 
-                            message=f"这是你的二次元形象,hso\nprompts:{tags}"+img_msg+f"生成耗费时间{spend_time:.2f}s", 
+                            message=f"这是你的二次元形象,hso\nprompts:{tags}" +img_msg+ f"生成耗费时间{fifo.spend_time}s", 
                             at_sender=True, reply_message=True)
             except ActionFailed:
                 await bot.send(event=event, 

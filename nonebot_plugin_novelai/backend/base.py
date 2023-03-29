@@ -70,7 +70,7 @@ class AIDRAW_BASE:
             shape = man_shape or "p" if man_shape else random_shape
             self.width, self.height = self.extract_shape(shape)
         else:
-            self.width, self.height = self.extract_shape(shape)
+            self.width, self.height = self.extract_shape(man_shape)
         self.status: int = 0
         self.result: list = []
         self.signal: asyncio.Event = None
@@ -98,6 +98,9 @@ class AIDRAW_BASE:
         self.hiresfix: bool = True if config.novelai_hr else False
         self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
         self.super_res_after_generate: bool = True if config.novelai_SuperRes_generate else False
+        self.control_net= {"control_net": False, 
+                           "controlnet_module": "", 
+                           "controlnet_model": ""}
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
             self.steps = 28
@@ -168,7 +171,7 @@ class AIDRAW_BASE:
         else:
             self.cost = 0
 
-    def add_image(self, image: bytes):
+    def add_image(self, image: bytes, control_net=None):
         """
         向类中添加图片，将其转化为以图生图模式
         也可用于修改类中已经存在的图片
@@ -179,8 +182,9 @@ class AIDRAW_BASE:
         width, height = image_.size
         self.width, self.height = self.shape_set(width, height)
         self.image = str(base64.b64encode(image), "utf-8")
-        self.steps = 50
+        self.steps = 28
         self.img2img = True
+        self.control_net["control_net"] = True if control_net else False
         self.update_cost()
 
     def shape_set(self, width: int, height: int, extra_limit=None):
@@ -257,6 +261,7 @@ class AIDRAW_BASE:
             "width",
             "height",
             "img2img",
+            "control_net",
             "hiresfix",
             "hiresfix_scale",
             "super_res_after_generate",
