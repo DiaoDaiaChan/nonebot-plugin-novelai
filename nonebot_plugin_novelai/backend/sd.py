@@ -62,10 +62,10 @@ class AIDRAW(AIDRAW_BASE):
                     
 
             self.start_time: float = time.time()
-            print(parameters)
             await self.post_(header, post_api, parameters)
 
-            self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
+            if config.novelai_load_balance ==True:
+                self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
             spend_time = time.time() - self.start_time
             self.spend_time = f"{spend_time:.2f}秒"
             resp_json = await self.get_webui_config(site)

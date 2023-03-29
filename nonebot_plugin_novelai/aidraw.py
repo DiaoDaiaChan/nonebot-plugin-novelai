@@ -59,7 +59,7 @@ aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
 
 aidraw = on_shell_command(
     ".aidraw",
-    aliases={"绘画", "咏唱", "召唤", "约稿", "aidraw", "画"},
+    aliases={"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"},
     parser=aidraw_parser,
     priority=5
 )
@@ -116,9 +116,12 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                 for i in re_list:
                     h_words += f"{i},"
                     fifo.tags = fifo.tags.replace(i, "")
-                await bot.send(event=event, 
+                try:
+                    await bot.send(event=event, 
                                 message=f"H是不行的!已经排除掉以下单词{h_words}", 
                                 reply_message=True)
+                except ActionFailed:
+                    pass
         if not args.override:
             global pre_tags
             pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags
@@ -172,7 +175,10 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
     if config.novelai_limit:
-        await aidraw.send(has_wait if list_len > 0 else no_wait)
+        try:
+            await aidraw.send(has_wait if list_len > 0 else no_wait)
+        except ActionFailed:
+            pass
         wait_list.append(fifo)
         await fifo_gennerate(bot=bot)
     else:
