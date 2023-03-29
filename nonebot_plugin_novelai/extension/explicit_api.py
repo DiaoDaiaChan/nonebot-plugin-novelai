@@ -36,18 +36,22 @@ async def check_safe_method(fifo, img_bytes, message):
                 label = "explicit"
                 message += f"\n太涩了,让我先看, 这张图涩度{h}%"
                 nsfw_count += 1
-                if config.novelai_h_type == 1:
-                    await bot.send_private_msg(user_id=fifo.user_id, 
-                                                message=f"悄悄给你看哦{MessageSegment.image(i)}")
-                elif config.novelai_h_type == 2:
+                htype = await config.get_value(fifo.group_id, "htype")
+                if htype is None:
+                    htype = config.novelai_htype
+                if htype in [1, 2]:
                     message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
                     message_id = message_data["message_id"]
                     message_all = await bot.get_msg(message_id=message_id)
                     url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
                     img_url = re.findall(url_regex, message_all["message"])
-                    await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
-                    
-                else:
+                    if htype == 1:
+                        await bot.send_private_msg(user_id=fifo.user_id, 
+                                                    message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                        await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
+                    elif htype == 2:
+                        await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
+                elif htype == 3:
                     await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
         if nsfw_count > 0:
             message += f",有{nsfw_count}张图片太涩了，" + raw_message + "帮你吃掉了"

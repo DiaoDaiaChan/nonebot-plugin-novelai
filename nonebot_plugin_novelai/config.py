@@ -26,7 +26,7 @@ class Config(BaseSettings):
     novelai_limit: bool = True  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
     novelai_h: int = 0  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_h_type: int = 1 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
+    novelai_htype: int = 1 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
@@ -91,6 +91,12 @@ class Config(BaseSettings):
             "processor_res": novelai_size, 
             "threshold_a": 100,
             "threshold_b": 250}]}]
+    
+    novelai_cndm: dict = {"controlnet_module": "canny", 
+                          "controlnet_processor_res": novelai_size, 
+                          "controlnet_threshold_a": 100, 
+                          "controlnet_threshold_b": 250}
+    
     novelai_pic_audit: None or int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""} # 你的百度云API Key
@@ -102,7 +108,7 @@ class Config(BaseSettings):
 
     # 允许单群设置的设置
     def keys(cls):
-        return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke")
+        return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_htype", "novelai_pure", "novelai_site")
 
     def __getitem__(cls, item):
         return getattr(cls, item)

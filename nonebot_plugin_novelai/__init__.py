@@ -3,6 +3,7 @@ from .aidraw import AIDRAW
 from nonebot.plugin import PluginMetadata
 from .extension.deepdanbooru import deepdanbooru
 from .amusement import today_girl, chatgpt_tagger
+from .extension import sd_extra_api_func
 
 __plugin_meta__ = PluginMetadata(
     name="AI绘图",

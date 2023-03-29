@@ -212,23 +212,19 @@ async def fifo_gennerate(fifo: AIDRAW = None, bot: Bot = None):
             )
         else:
             logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
-            if await config.get_value(fifo.group_id, "pure") or config.novelai_pure == True:
-                message = MessageSegment.at(fifo.user_id)
-                for i in im["image"]:
-                    message += i
-                message_data = await bot.send_group_msg(
-                    message=message,
-                    group_id=fifo.group_id,
-                )
-            else:
-                message = []
-                for i in im:
-                    message.append(MessageSegment.node_custom(
-                        id, nickname, i))
-                message_data = await bot.send_group_forward_msg(
-                    messages=message,
-                    group_id=fifo.group_id,
-                )
+            
+            # 这段三元表达式谢谢ChatGPT的大力帮助(
+            message = MessageSegment.at(fifo.user_id)
+            for i in im["image"]:
+                message += i
+            message_data = await bot.send_group_msg(
+                message=message,
+                group_id=fifo.group_id,
+            ) if (await config.get_value(fifo.group_id, "pure")) == True or (await config.get_value(fifo.group_id, "pure")) == None and config.novelai_pure == True else await bot.send_group_forward_msg(
+                messages=[MessageSegment.node_custom(id, nickname, i) for i in im],
+                group_id=fifo.group_id,
+            )
+
             revoke = await config.get_value(fifo.group_id, "revoke")
             if revoke:
                 message_id = message_data["message_id"]

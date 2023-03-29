@@ -4,7 +4,7 @@ from ..config import config
 
 
 async def get_progress(url):
-    first_get = "http://" + url + "/app_id/"
+    first_get = "http://" + url + "/sdapi/v1/memory" 
     api_url = "http://" + url + "/sdapi/v1/progress"
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session1:
         async with session1.get(url=first_get) as resp1:
@@ -14,16 +14,17 @@ async def get_progress(url):
             resp_json = await resp.json()
             return resp_json, resp.status, url, resp_code2
 
+
 async def get_vram(ava_url):
     get_mem = "http://" + ava_url + "/sdapi/v1/memory"        
     try:
+
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session1:
             async with session1.get(url=get_mem) as resp2:
                 all_memory_usage = await resp2.json()
-                print(all_memory_usage)
+                logger.debug(all_memory_usage)
                 vram_total = int(all_memory_usage["cuda"]["system"]["total"]/1000000)
                 vram_used = int(all_memory_usage["cuda"]["system"]["used"]/1000000)
-
                 vram_usage = f"显存占用{vram_used}M/{vram_total}M"
     except Exception:
         vram_usage = ""
@@ -32,7 +33,7 @@ async def get_vram(ava_url):
 
 async def sd_LoadBalance():
     '''
-    分别返回可用后端索引, 后端名称和对应ip(元组), 显存占用
+    分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
     backend_url_dict = config.novelai_backend_url_dict
     reverse_dict = {value: key for key, value in backend_url_dict.items()}
@@ -46,10 +47,9 @@ async def sd_LoadBalance():
     for url in backend_url_dict.values():
         tasks.append(get_progress(url))
     # 获取api队列状态
-    # print(await asyncio.gather(*tasks, return_exceptions=True))
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
     for resp_tuple in all_resp:
-        if isinstance(resp_tuple, aiohttp.ClientTimeout):
+        if isinstance(resp_tuple, asyncio.exceptions.TimeoutError or aiohttp.ClientTimeout):
             logger.info("有后端掉线")
         else:
             try:
@@ -76,13 +76,10 @@ async def sd_LoadBalance():
             normal_backend = list(status_dict.keys())
             logger.info("没有空闲后端")
             if len(normal_backend) == 0:
-                pass
-                # await control_net.finish("没有后端用啦！！！服务器全炸!")
+                raise ValueError("没有可用后端")
             else:
                 eta_list = list(status_dict.values())
                 for t, b in zip(eta_list, normal_backend):
-                    # list_value = len(normal_backend) - 1
-                    # random_value = random.randint(0, list_value)
                     if int(t) < defult_eta:
                         y += 1
                         ava_url = b
@@ -95,12 +92,8 @@ async def sd_LoadBalance():
                     eta_list.sort()
                     ava_url = reverse_sta_dict[eta_list[0]]
 
-    # try:
-    #     vram_usage = await get_vram(ava_url)
-    # except:
-    #     vram_usage = "0"
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
-    ava_url_tuple = (ava_url, reverse_dict[ava_url])
+    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp)
     try:
         return ava_url_index, ava_url_tuple
     except KeyError:

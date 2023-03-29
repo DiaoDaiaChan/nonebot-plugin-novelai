@@ -13,6 +13,7 @@ set = on_regex(
 
 @set.handle()
 async def set_(bot: Bot, event: GroupMessageEvent, args= RegexGroup()):
+    print(args)
     if await GROUP_ADMIN(bot, event) or await GROUP_OWNER(bot, event) or await SUPERUSER(bot, event):
         if args[0] and args[1]:
             key, value = args
