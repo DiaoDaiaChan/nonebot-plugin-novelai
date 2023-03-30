@@ -1,6 +1,5 @@
 from .base import AIDRAW_BASE
 from ..config import config
-from ..config 
 import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
 

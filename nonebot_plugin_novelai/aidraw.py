@@ -174,6 +174,8 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     if config.novelai_limit:
         try:
             await aidraw.send(has_wait if list_len > 0 else no_wait)
+        except:
+            pass
         wait_list.append(fifo)
         await fifo_gennerate(bot=bot)
     else:
