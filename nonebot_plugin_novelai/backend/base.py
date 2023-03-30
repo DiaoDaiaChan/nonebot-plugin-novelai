@@ -97,7 +97,7 @@ class AIDRAW_BASE:
         self.vram: str = ""
         self.hiresfix: bool = True if config.novelai_hr else False
         self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
-        self.super_res_after_generate: bool = True if config.novelai_SuperRes_generate else False
+        self.super_res_after_generate: bool = config.novelai_SuperRes_generate or False
         self.control_net= {"control_net": False, 
                            "controlnet_module": "", 
                            "controlnet_model": ""}
