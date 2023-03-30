@@ -7,12 +7,13 @@ from ..utils.load_balance import sd_LoadBalance
 
 async def super_res_api_func(img_bytes, size: int = 0):
     '''
-    sd超分extra API
+    sd超分extra API, size,1为
     '''
+    upsale = None
     max_res = config.novelai_SuperRes_MaxPixels
     if size == 0:
         upsale = 2
-    else:
+    elif size == 1:
         upsale = 3
     new_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     old_res = new_img.width * new_img.height
@@ -33,7 +34,8 @@ async def super_res_api_func(img_bytes, size: int = 0):
 # "data:image/jpeg;base64," + 
     payload = {"image": img_base64}
     payload.update(config.novelai_SuperRes_generate_payload)
-    payload["upscaling_resize"] = upsale
+    if upsale:
+        payload["upscaling_resize"] = upsale
     resp_tuple = await sd_LoadBalance()
     async with aiohttp.ClientSession() as session:
         api_url = "http://" + resp_tuple[1][0] + "/sdapi/v1/extra-single-image"

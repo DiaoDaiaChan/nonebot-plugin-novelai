@@ -1,5 +1,6 @@
 from .base import AIDRAW_BASE
 from ..config import config
+from ..config 
 import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
 
@@ -19,7 +20,7 @@ class AIDRAW(AIDRAW_BASE):
                 resp_tuple = await sd_LoadBalance()
                 site = resp_tuple[1][0]
         else:
-            site = config.novelai_site or "127.0.0.1:7860"
+            site = await config.get_value() or config.novelai_site or "127.0.0.1:7860"
         self.backend_site = site
         header = {
             "content-type": "application/json",
@@ -65,7 +66,10 @@ class AIDRAW(AIDRAW_BASE):
             await self.post_(header, post_api, parameters)
 
             if config.novelai_load_balance ==True:
-                self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
+                try:
+                    self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
+                except:
+                    self.backend_name = ""
             spend_time = time.time() - self.start_time
             self.spend_time = f"{spend_time:.2f}秒"
             resp_json = await self.get_webui_config(site)

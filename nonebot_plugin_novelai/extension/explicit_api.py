@@ -12,14 +12,17 @@ from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed
 from nonebot.log import logger
 from ..config import config 
+from .super_res import super_res_api_func
 
 async def check_safe_method(fifo, img_bytes, message):
     bot = nonebot.get_bot()
     raw_message = f"\n{nickname}已经"
     label = ""
     # 判读是否进行图片审核
-    if config.novelai_pic_audit == 3:
+    if config.novelai_picaudit == 3:
         for i in img_bytes:
+            resp_tuple = await super_res_api_func(i, 3)
+            i = resp_tuple[0]
             await save_img(fifo, i)
             message += MessageSegment.image(i)
     else:
@@ -31,6 +34,8 @@ async def check_safe_method(fifo, img_bytes, message):
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
             if label == "safe":
+                resp_tuple = await super_res_api_func(i, 3)
+                i = resp_tuple[0]
                 message += MessageSegment.image(i)
             else:
                 label = "explicit"
@@ -73,7 +78,7 @@ async def check_safe(img_bytes: BytesIO):
     'Accept': 'application/json'
 }
 
-    if config.novelai_pic_audit == 2:
+    if config.novelai_picaudit == 2:
         try:
             import tensorflow as tf
         except:
@@ -137,8 +142,8 @@ async def check_safe(img_bytes: BytesIO):
         """
         url = "https://aip.baidubce.com/oauth/2.0/token"
         params = {"grant_type": "client_credentials", 
-                "client_id": config.novelai_pic_audit_api_key["API_KEY"], 
-                "client_secret": config.novelai_pic_audit_api_key["SECRET_KEY"]}
+                "client_id": config.novelai_picaudit_api_key["API_KEY"], 
+                "client_secret": config.novelai_picaudit_api_key["SECRET_KEY"]}
         async with aiohttp.ClientSession() as session:
             async with session.post(url=url, params=params) as resp:
                 json = await resp.json()

@@ -117,7 +117,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                     fifo.tags = fifo.tags.replace(i, "")
                 try:
                     await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
-                except ActionFailed or Exception:
+                except ActionFailed:
                     logger.info("被风控了")
         if not args.override:
             global pre_tags
@@ -152,7 +152,10 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             else:
                 await aidraw.finish(f"你的点数不足，你的剩余点数为{hasanlas}")
         else:
-            await wait_fifo(fifo, message=message, bot=bot)
+            try:
+                await wait_fifo(fifo, message=message, bot=bot)
+            except ActionFailed or Exception:
+                logger.info("风控了,额外消息发不出来捏")
 
 
 async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
@@ -171,8 +174,6 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     if config.novelai_limit:
         try:
             await aidraw.send(has_wait if list_len > 0 else no_wait)
-        except ActionFailed:
-            logger.info("被风控了")
         wait_list.append(fifo)
         await fifo_gennerate(bot=bot)
     else:
