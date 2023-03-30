@@ -1,16 +1,21 @@
 import aiohttp
 import base64
 from nonebot import on_command
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment
+from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, ActionFailed, Bot
 from nonebot.log import logger
 from .translation import translate
+from .sd_extra_api_func import send_forward_msg
 
-deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书"})
+deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书", "分析"})
 
 
 @deepdanbooru.handle()
-async def deepdanbooru_handle(event: GroupMessageEvent):
+async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
     url = ""
+    reply = event.reply
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
     for seg in event.message['image']:
         url = seg.data["url"]
     if url:
@@ -36,6 +41,11 @@ async def deepdanbooru_handle(event: GroupMessageEvent):
         if tags_ch == tags.replace("_", " "):
             message = message+tags
         message = message+tags+f"\n机翻结果:"+tags_ch
-        await deepdanbooru.finish(message)
+        try:
+            await deepdanbooru.finish(message)
+        except ActionFailed:
+            message_list = [tags]
+            message_list.append(tags_ch)
+            await send_forward_msg(bot, event, event.user_id, event.sender.nickname, message_list)       
     else:
         await deepdanbooru.finish(f"未找到图片")

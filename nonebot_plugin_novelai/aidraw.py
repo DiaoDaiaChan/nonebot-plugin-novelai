@@ -109,7 +109,6 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                 await aidraw.finish(f"H是不行的!")
         elif config.novelai_h == 1:
             re_list = pattern.findall(fifo.tags)
-            print(re_list)
             if not re_list:
                 pass
             else:
@@ -117,11 +116,9 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                     h_words += f"{i},"
                     fifo.tags = fifo.tags.replace(i, "")
                 try:
-                    await bot.send(event=event, 
-                                message=f"H是不行的!已经排除掉以下单词{h_words}", 
-                                reply_message=True)
-                except ActionFailed:
-                    pass
+                    await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
+                except ActionFailed or Exception:
+                    logger.info("被风控了")
         if not args.override:
             global pre_tags
             pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags
@@ -160,17 +157,14 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
 
 async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
-    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure == True and config.novelai_load_balance == True: # 纯净模式额外信息
+    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure and config.novelai_load_balance: # 纯净模式额外信息
         user_input = fifo.tags.replace(pre_tags, "")
-        extra_message = f", 你的prompt是{user_input}"
+        extra_message = f",你的prompt是{user_input}"
     else:
         extra_message= ""
     list_len = wait_len()
     has_wait = f"排队中，你的前面还有{list_len}人"+message
-    try:
-        no_wait = f"请稍等，图片生成中，{extra_message}"+message
-    except ActionFailed:
-        logger.info("被风控了")
+    no_wait = f"请稍等，图片生成中，{extra_message}"+message
     if anlas:
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
@@ -178,7 +172,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         try:
             await aidraw.send(has_wait if list_len > 0 else no_wait)
         except ActionFailed:
-            pass
+            logger.info("被风控了")
         wait_list.append(fifo)
         await fifo_gennerate(bot=bot)
     else:

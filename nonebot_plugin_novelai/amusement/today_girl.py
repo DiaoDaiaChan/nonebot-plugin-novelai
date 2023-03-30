@@ -306,6 +306,7 @@ replace_dict = {
     "飞机场": "flat_cheast"
 }
 
+
 @today_girl.handle()
 async def _(bot: Bot, event: MessageEvent):
     user_id = str(event.user_id)

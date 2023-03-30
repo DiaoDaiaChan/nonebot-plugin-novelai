@@ -84,6 +84,7 @@ async def send_forward_msg(
 
 
 async def aiohttp_func(way, url, payload=""):
+    
     if way == "post":
         async with aiohttp.ClientSession() as session:
             async with session.post(url=url, json=payload) as resp:
@@ -98,25 +99,21 @@ async def aiohttp_func(way, url, payload=""):
 
 @set_sd_config.handle()
 async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
-
     await func_init(event)
-    
     msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
     n = 0
     get_config_site = "http://" + site + "/sdapi/v1/options"
-
     resp_dict = await aiohttp_func("get", get_config_site)
     index_list = list(resp_dict[0].keys())
     value_list = list(resp_dict[0].values())
     for i, v in zip(index_list, value_list):
+        n += 1 
         if args.search:
-            pattern = re.compile(f".*{args.search}.*")
+            pattern = re.compile(f".*{args.search}.*", re.IGNORECASE)
             if pattern.match(i):
-                n += 1
-                msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "")
+                msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
         else:
-            n += 1        
-            msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "")
+            msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
     if args.index == None and args.value == None:
         try:
             msg_list = ["".join(msg_list[i:i+10]) for i in range(0, len(msg_list), 10)]
@@ -143,16 +140,23 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
 
 @get_emb.handle()
-async def _(event: MessageEvent, bot: Bot):
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await func_init(event)
     embs_list = [f"这是来自webui{reverse_dict[site]}的embeddings,注:直接把emb加到tags里即可使用\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
     get_emb_site = "http://" + site + "/sdapi/v1/embeddings"
     resp_json = await aiohttp_func("get", get_emb_site)
     all_embs = list(resp_json[0]["loaded"].keys())
+    text_msg = msg.extract_plain_text().strip()
+    pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
     for i in all_embs:
         n += 1
-        embs_list.append(f"{n}.{i}\n")
+        if msg:
+            if pattern.match(i):
+                embs_list.append(f"{n}.{i}\t\n")
+        else:
+            embs_list.append(f"{n}.{i}\t\n")
+            
     embs_list.append(f"总计{n}个")
     msg_list = ["".join(embs_list[i:i+10]) for i in range(0, len(embs_list), 10)]
     try:
@@ -311,6 +315,7 @@ async def sd(site):
     n = 1
 
     resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
+    
     currents_model = resp_[0]["sd_model_checkpoint"]
     message1.append("当前使用模型:" + currents_model + ",\t\n\n")
     message1 = "".join(message1)
