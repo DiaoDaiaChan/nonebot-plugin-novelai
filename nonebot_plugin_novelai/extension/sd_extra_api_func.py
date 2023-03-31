@@ -120,7 +120,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 @get_emb.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await func_init(event)
-    embs_list = [f"这是来自webui{reverse_dict[site]}的embeddings,注:直接把emb加到tags里即可使用\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
+    embs_list = [f"这是来自webui:{reverse_dict[site]}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
     get_emb_site = "http://" + site + "/sdapi/v1/embeddings"
     resp_json = await aiohttp_func("get", get_emb_site)
@@ -337,8 +337,8 @@ async def _(event: MessageEvent, bot: Bot):
 @control_net_list.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await func_init(event)
-    message_model = "可用的controlnet模型\n"
-    message_module = "可用的controlnet模块\n"
+    message_model = "可用的controlnet模型\t\n"
+    message_module = "可用的controlnet模块\t\n"
     if msg:
         if msg[0].type == "image":
             img_url = msg[0].data["url"]
@@ -360,13 +360,13 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     if resp_2[1] == 404:
         model_list = resp_1[0]["model_list"]
         for a in model_list:
-            message_model += f"{a}\n"
+            message_model += f"{a}\t\n"
         await bot.send(event=event, message=message_model)
         await control_net_list.finish("获取control模块失败, 可能是controlnet版本太老, 不支持获取模块列表捏")
     model_list = resp_1[0]["model_list"]
     module_list = resp_2[0]["module_list"]
     for a in model_list:
-        message_model += f"{a}\n"
+        message_model += f"{a}\t\n"
     for b in module_list:
-        message_module += f"{b}\n"
+        message_module += f"{b}\t\n"
     await risk_control(bot, event, message_model+message_module, True)

@@ -18,7 +18,6 @@ async def get_progress(url):
 async def get_vram(ava_url):
     get_mem = "http://" + ava_url + "/sdapi/v1/memory"        
     try:
-
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session1:
             async with session1.get(url=get_mem) as resp2:
                 all_memory_usage = await resp2.json()

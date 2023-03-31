@@ -5,6 +5,7 @@ from nonebot.params import RegexGroup
 from nonebot import on_regex
 from nonebot.log import logger
 from .config import config
+from .extension.safe_mathod import risk_control
 on = on_regex(f"(?:^\.aidraw|^绘画|^aidraw)[ ]*(on$|off$|开启$|关闭$)",
               priority=4, block=True)
 set = on_regex(
@@ -21,10 +22,10 @@ async def set_(bot: Bot, event: GroupMessageEvent, args= RegexGroup()):
                                                                         value) else f"不正确的赋值")
         else:
             group_config = await config.get_groupconfig(event.group_id)
-            message = "当前群的设置为\n"
+            message = "当前群的设置为\t\n"
             for i, v in group_config.items():
-                message += f"{i}:{v}\n"
-            await set.finish(message)
+                message += f"{i}:{v}\t\n"
+            await risk_control(bot, event, message, False, True)
     else:
         await set.send(f"权限不足！")
 

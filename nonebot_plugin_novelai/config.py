@@ -16,6 +16,7 @@ class Config(BaseSettings):
     # 服务器设置
     novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
     novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
+    novelai_retry: int = 3 # post失败后重试的次数
     novelai_token: str = ""  # 官网的token
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
     novelai_mode: str = "sd"
