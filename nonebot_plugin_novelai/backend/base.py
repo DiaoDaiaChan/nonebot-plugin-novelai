@@ -82,7 +82,7 @@ class AIDRAW_BASE:
         self.scale: int = int(scale or config.novelai_scale)
         self.strength: float = strength or 0.7
         self.batch: int = batch or 1
-        self.steps: int = steps or 14
+        self.steps: int = steps or 20
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
         self.img2img: bool = False
@@ -97,9 +97,9 @@ class AIDRAW_BASE:
         self.vram: str = ""
         self.hiresfix: bool = True if config.novelai_hr else False
         self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
-        self.super_res_after_generate: bool = config.novelai_SuperRes_generate or False
+        self.super_res_after_generate: bool = config.novelai_SuperRes_generate
         self.control_net= {"control_net": False, 
-                           "controlnet_module": "", 
+                           "controlnet_module": "",
                            "controlnet_model": ""}
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):

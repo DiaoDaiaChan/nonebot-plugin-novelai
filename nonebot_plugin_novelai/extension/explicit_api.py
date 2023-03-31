@@ -21,11 +21,12 @@ async def check_safe_method(fifo, img_bytes, message):
     # 判读是否进行图片审核
     if config.novelai_picaudit == 3:
         for i in img_bytes:
-            try:
-                resp_tuple = await super_res_api_func(i, 3)
-                i = resp_tuple[0]
-            except:
-                pass
+            if config.novelai_SuperRes_generate:
+                try:
+                    resp_tuple = await super_res_api_func(i, 3)
+                    i = resp_tuple[0]
+                except:
+                    pass
             await save_img(fifo, i)
             message += MessageSegment.image(i)
     else:
@@ -37,11 +38,12 @@ async def check_safe_method(fifo, img_bytes, message):
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
             if label == "safe":
-                try:
-                    resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
-                except:
-                    pass
+                if config.novelai_SuperRes_generate:
+                    try:
+                        resp_tuple = await super_res_api_func(i, 3)
+                        i = resp_tuple[0]
+                    except:
+                        pass
                 message += MessageSegment.image(i)
             else:
                 label = "explicit"

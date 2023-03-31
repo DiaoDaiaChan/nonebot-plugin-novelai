@@ -14,6 +14,7 @@ nickname = list(get_driver().config.nickname)[0] if len(
 
 class Config(BaseSettings):
     # 服务器设置
+    novelai_command_start: tuple = ("绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图")
     novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_token: str = ""  # 官网的token
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
@@ -48,13 +49,13 @@ class Config(BaseSettings):
         "enable_hr": "true", 
         "denoising_strength": 0.7, # 重绘幅度
         "hr_scale": 1.5, # 高清修复比例, 1.5为长宽分辨率各X1.5
-        "hr_upscaler": "R-ESRGAN 4x+ Anime6B", # 超分模型, 使用前请先确认此模型是否可用
+        "hr_upscaler": "Lanczos", # 超分模型, 使用前请先确认此模型是否可用
         "hr_second_pass_steps": 7, # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000 # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
     novelai_SuperRes_generate: bool = False # 图片生成后是否再次进行一次超分
     novelai_SuperRes_generate_payload: dict = {
-        "upscaling_resize": 1.5, # 超分倍率, 同为长宽分辨率各X1.5
+        "upscaling_resize": 1.2, # 超分倍率, 为长宽分辨率各X1.2
         "upscaler_1": "Lanczos", # 第一次超分使用的方法
         "upscaler_2": "R-ESRGAN 4x+ Anime6B", # 第二次超分使用的方法
         "extras_upscaler_2_visibility": 0.7 # 第二层upscaler力度
@@ -98,7 +99,7 @@ class Config(BaseSettings):
                           "controlnet_threshold_a": 100, 
                           "controlnet_threshold_b": 250}
     
-    novelai_picaudit: None or int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭
+    novelai_picaudit: int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""} # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key

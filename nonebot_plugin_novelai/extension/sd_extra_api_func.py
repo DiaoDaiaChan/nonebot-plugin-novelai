@@ -22,7 +22,8 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegme
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
-
+from nonebot import require
+require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
 

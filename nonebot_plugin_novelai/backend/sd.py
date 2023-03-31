@@ -19,7 +19,7 @@ class AIDRAW(AIDRAW_BASE):
                 resp_tuple = await sd_LoadBalance()
                 site = resp_tuple[1][0]
         else:
-            site = await config.get_value() or config.novelai_site or "127.0.0.1:7860"
+            site = await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
         self.backend_site = site
         header = {
             "content-type": "application/json",

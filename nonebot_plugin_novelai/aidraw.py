@@ -160,7 +160,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
 
 async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
-    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure and config.novelai_load_balance: # 纯净模式额外信息
+    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure: # 纯净模式额外信息
         user_input = fifo.tags.replace(pre_tags, "")
         extra_message = f",你的prompt是{user_input}"
     else:
@@ -172,16 +172,13 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
     if config.novelai_limit:
-        try:
-            await aidraw.send(has_wait if list_len > 0 else no_wait)
-        except:
-            pass
-        wait_list.append(fifo)
         await fifo_gennerate(bot=bot)
+        await aidraw.send(has_wait if list_len > 0 else no_wait)
+        wait_list.append(fifo)
     else:
-        await aidraw.send(no_wait)
         await fifo_gennerate(fifo, bot)
-
+        await aidraw.send(no_wait)
+        
 
 def wait_len():
     # 获取剩余队列长度
