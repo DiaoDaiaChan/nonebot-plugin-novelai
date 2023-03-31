@@ -68,7 +68,7 @@ class AIDRAW(AIDRAW_BASE):
                 self.start_time: float = time.time()
                 await self.post_(header, post_api, parameters)
             except Exception as e:
-                logger.debug(f"第{retry_times}重试")
+                logger.debug(f"第{retry_times}次重试")
                 logger.debug(f"{e}")
             else:
                 if config.novelai_load_balance ==True:

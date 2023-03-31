@@ -120,7 +120,11 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 @get_emb.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await func_init(event)
-    embs_list = [f"这是来自webui:{reverse_dict[site]}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
+    try:
+        site_ = reverse_dict[site]
+    except:
+        site_ = await config(event.group_id, "site") or config.novelai_site
+    embs_list = [f"这是来自webui:{site_}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
     get_emb_site = "http://" + site + "/sdapi/v1/embeddings"
     resp_json = await aiohttp_func("get", get_emb_site)

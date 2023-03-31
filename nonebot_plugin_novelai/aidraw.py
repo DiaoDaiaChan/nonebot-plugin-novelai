@@ -102,7 +102,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             args.tags = args.tags + args.no_trans
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
         # 检测是否有18+词条
-        pattern = re.compile(htags, re.IGNORECASE)
+        pattern = re.compile(f"(\s|,|^)({htags})(\s|,|$)", re.IGNORECASE)
         h_words = ""
 
         hway = await config.get_value(fifo.group_id, "h")
@@ -113,11 +113,12 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             await aidraw.finish(f"H是不行的!")
         elif hway ==1:
             re_list = pattern.findall(fifo.tags)
+            print(re_list)
             h_words = ""
             if re_list:
                 for i in re_list:
                     h_words += f"{i},"
-                    fifo.tags = fifo.tags.replace(i, "")
+                    fifo.tags = fifo.tags.replace(i[0], "")
                 try:
                     await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
                 except ActionFailed:
@@ -181,8 +182,9 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         except ActionFailed:
             logger.info("被风控了")
         finally:
-            await fifo_gennerate(bot=bot)
             wait_list.append(fifo)
+            await fifo_gennerate(bot=bot)
+            
     else:
         try:
             await aidraw.send(no_wait)
