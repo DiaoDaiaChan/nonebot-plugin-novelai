@@ -126,8 +126,8 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
 
         if not args.override:
             global pre_tags
-            pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags
-            pre_ntags = lowQuality + config.novelai_ntags
+            pre_tags = basetag + await config.get_value(group_id, "tags")
+            pre_ntags = lowQuality
             fifo.tags = pre_tags + "," + fifo.tags
             fifo.ntags = pre_ntags + fifo.ntags
         # 以图生图预处理
