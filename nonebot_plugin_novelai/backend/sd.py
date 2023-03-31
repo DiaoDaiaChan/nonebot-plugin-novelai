@@ -46,6 +46,7 @@ class AIDRAW(AIDRAW_BASE):
                     "init_images": ["data:image/jpeg;base64,"+self.image],
                     "denoising_strength": self.strength,
                 })
+
             else:
                 if config.novelai_hr:
                     parameters.update(config.novelai_hr_payload)
@@ -58,12 +59,10 @@ class AIDRAW(AIDRAW_BASE):
                 else:
                     post_api = f"http://{site}/controlnet/txt2img"
                     parameters.update(config.novelai_ControlNet_payload[1])
-                    parameters["controlnet_units"][0]["input_image"] = self.image
-                    
+                    parameters["controlnet_units"][0]["input_image"] = self.image    
 
             self.start_time: float = time.time()
             await self.post_(header, post_api, parameters)
-
             if config.novelai_load_balance ==True:
                 try:
                     self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]

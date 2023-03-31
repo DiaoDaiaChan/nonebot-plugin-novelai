@@ -14,7 +14,7 @@ nickname = list(get_driver().config.nickname)[0] if len(
 
 class Config(BaseSettings):
     # 服务器设置
-    novelai_command_start: tuple = ("绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图")
+    novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
     novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_token: str = ""  # 官网的token
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
@@ -28,7 +28,7 @@ class Config(BaseSettings):
     novelai_limit: bool = True  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
     novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_htype: int = 1 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
+    novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
@@ -110,7 +110,7 @@ class Config(BaseSettings):
 
     # 允许单群设置的设置
     def keys(cls):
-        return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_htype", "novelai_pure", "novelai_site")
+        return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")
 
     def __getitem__(cls, item):
         return getattr(cls, item)

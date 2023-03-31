@@ -59,7 +59,7 @@ aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
 
 aidraw = on_shell_command(
     ".aidraw",
-    aliases={"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"},
+    aliases=config.novelai_command_start,
     parser=aidraw_parser,
     priority=5
 )
@@ -104,14 +104,17 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
         # 检测是否有18+词条
         pattern = re.compile(htags, re.IGNORECASE)
         h_words = ""
-        if config.novelai_h == 0:
-            if pattern.findall(fifo.tags) is not None:
-                await aidraw.finish(f"H是不行的!")
-        elif config.novelai_h == 1:
+
+        hway = await config.get_value(fifo.group_id, "h")
+        if hway is None:
+            hway = config.novelai_h
+
+        if hway == 0 and pattern.findall(fifo.tags):
+            await aidraw.finish(f"H是不行的!")
+        elif hway ==1:
             re_list = pattern.findall(fifo.tags)
-            if not re_list:
-                pass
-            else:
+            h_words = ""
+            if re_list:
                 for i in re_list:
                     h_words += f"{i},"
                     fifo.tags = fifo.tags.replace(i, "")
@@ -119,6 +122,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                     await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
                 except ActionFailed:
                     logger.info("被风控了")
+
         if not args.override:
             global pre_tags
             pre_tags = basetag + await config.get_value(group_id, "tags") + config.novelai_tags
@@ -172,12 +176,20 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
     if config.novelai_limit:
-        await fifo_gennerate(bot=bot)
-        await aidraw.send(has_wait if list_len > 0 else no_wait)
-        wait_list.append(fifo)
+        try:
+            await aidraw.send(has_wait if list_len > 0 else no_wait)
+        except ActionFailed:
+            logger.info("被风控了")
+        finally:
+            await fifo_gennerate(bot=bot)
+            wait_list.append(fifo)
     else:
-        await fifo_gennerate(fifo, bot)
-        await aidraw.send(no_wait)
+        try:
+            await aidraw.send(no_wait)
+        except:
+            logger.info("被风控了")
+        finally:
+            await fifo_gennerate(fifo, bot)
         
 
 def wait_len():

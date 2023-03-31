@@ -20,70 +20,76 @@ async def check_safe_method(fifo, img_bytes, message):
     label = ""
     # 判读是否进行图片审核
     h = await config.get_value(fifo.group_id, "h")
-    nsfw_count = 0
-    for i in img_bytes:
-        # try:
-        if await config.get_value(fifo.group_id, "picaudit") or config.novelai_picaudit in [1, 2]:
+    if  h == 2 or h is None:
+        h = config.novelai_h if h is None else 2
+        if h == 2:
+            for i in img_bytes:
+                if config.novelai_SuperRes_generate:
+                    try:
+                        resp_tuple = await super_res_api_func(i, 3)
+                        i = resp_tuple[0]
+                    except:
+                        logger.debug("超分API失效")
+                await save_img(fifo, i)
+                message += MessageSegment.image(i)
+    elif h in [0, 1]:
+        nsfw_count = 0
+        for i in img_bytes:
             try:
-                label, h_value = await check_safe(i, fifo)
+                label, h = await check_safe(i)
             except RuntimeError as e:
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
-        else:
-            if config.novelai_SuperRes_generate:
-                try:
-                    resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
-                except:
-                    logger.debug("超分API失效")
-            await save_img(fifo, i)
-            message += MessageSegment.image(i)
-        if label == "safe":
-            if config.novelai_SuperRes_generate:
-                try:
-                    resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
-                except:
-                    pass
-            message += MessageSegment.image(i)
-        else:
-            label = "explicit"
-            message += f"\n太涩了,让我先看, 这张图涩度{h_value}%"
-            nsfw_count += 1
-            htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
-            message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
-            if htype in [1, 2]:
-                message_id = message_data["message_id"]
-                message_all = await bot.get_msg(message_id=message_id)
-                url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-                img_url = re.findall(url_regex, message_all["message"])
-                if htype == 1:
+            if label == "safe":
+                if config.novelai_SuperRes_generate:
                     try:
-                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                        resp_tuple = await super_res_api_func(i, 3)
+                        i = resp_tuple[0]
                     except:
-                        await bot.send_group_msg(group_id=fifo.group_id, message="请先加机器人好友捏, 才能私聊要涩图捏")
-                elif htype == 2:
-                    try:
-                        await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
-                    except ActionFailed:
-                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}") or await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
-            elif htype == 3:
-                pass
+                        pass
+                message += MessageSegment.image(i)
+            else:
+                label = "explicit"
+                message += f"\n太涩了,让我先看, 这张图涩度{h}%"
+                nsfw_count += 1
+                htype = await config.get_value(fifo.group_id, "htype")
+                if htype is None:
+                    htype = config.novelai_htype
+                if htype in [1, 2]:
+                    message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
+                    message_id = message_data["message_id"]
+                    message_all = await bot.get_msg(message_id=message_id)
+                    url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+                    img_url = re.findall(url_regex, message_all["message"])
+                    if htype == 1:
+                        try:
+                            await bot.send_private_msg(user_id=fifo.user_id, 
+                                                    message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                        except:
+                            await bot.send_group_msg(group_id=fifo.group_id, message="请先加机器人好友捏, 才能私聊要涩图捏")
+                    elif htype == 2:
+                        try:
+                            await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
+                        except ActionFailed:
+                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}") or await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
+                elif htype == 3:
+                    await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}")
+        if nsfw_count > 0:
+            message += f",有{nsfw_count}张图片太涩了，" + raw_message + "帮你吃掉了"
+        # else:
+        #     message += MessageSegment.image(i)
         await save_img(fifo, i, label)
-    if nsfw_count:
-        message += f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了"
-                
     return message
 
 
-async def check_safe(img_bytes: BytesIO, fifo):
+async def check_safe(img_bytes: BytesIO):
 
     headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'
 }
-    picaudit = await config.get_value(fifo.group_id, "picaudit")
-    if  picaudit == 2 or config.novelai_picaudit == 2:
+
+    if config.novelai_picaudit == 2:
         try:
             import tensorflow as tf
         except:
@@ -147,8 +153,8 @@ async def check_safe(img_bytes: BytesIO, fifo):
         """
         url = "https://aip.baidubce.com/oauth/2.0/token"
         params = {"grant_type": "client_credentials", 
-                "client_id": config.novelai_pic_audit_api_key["API_KEY"], 
-                "client_secret": config.novelai_pic_audit_api_key["SECRET_KEY"]}
+                "client_id": config.novelai_picaudit_api_key["API_KEY"], 
+                "client_secret": config.novelai_picaudit_api_key["SECRET_KEY"]}
         async with aiohttp.ClientSession() as session:
             async with session.post(url=url, params=params) as resp:
                 json = await resp.json()

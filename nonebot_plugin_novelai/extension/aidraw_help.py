@@ -26,10 +26,8 @@ async def _(bot: Bot, event: MessageEvent):
     for superuser in superusers:
         superuser_list.append(superuser)
     resp_data = await bot.get_login_info()
-    print(resp_data)
     bot_qq = resp_data["user_id"]
     url = await get_url()
-    print(url)
     markdown = f'''
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 # 你好, 我是群Ai绘画{nickname}
@@ -42,13 +40,15 @@ async def _(bot: Bot, event: MessageEvent):
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 ```text
 当前群的设置为
-novelai_cd:2 # 群聊画图cd, 单位为秒, 全局设置:{config.novelai_cd}
+novelai_cd:2 # 群聊画图cd, 单位为秒, 全局设置:{config.novelai_cd}, 当前群设置:{await config.get_value(event.group_id, "cd")}
 novelai_tags: # 本群自带的正面提示词
 novelai_on:True # 是否打开本群AI绘画功能
 novelai_ntags: # 本群自带的负面提示词
-novelai_revoke:0 # 自动撤回? 0 为不撤回, 其余为撤回的时间, 单位秒 全局设置:{config.novelai_revoke}
-novelai_htype:2 # 发现色图后的处理办法, 1为返回图片到私聊, 2为返回图片url, 3为不发送色图 全局设置:{config.novelai_htype}
-novelai_pure:False # 纯净模式, 开启后只返回图片, 不返回其他信息 全局设置:{config.novelai_pure}
+novelai_revoke:0 # 自动撤回? 0 为不撤回, 其余为撤回的时间, 单位秒 全局设置:{config.novelai_revoke}, 当前群设置:{await config.get_value(event.group_id, "revoke")}
+novelai_h:0 # 是否允许色图 0为不允许, 1为删除屏蔽词, 2为允许 全局设置:{config.novelai_h}, 当前群设置:{await config.get_value(event.group_id, "h")}
+novelai_htype:2 # 发现色图后的处理办法, 1为返回图片到私聊, 2为返回图片url, 3为不发送色图 全局设置:{config.novelai_htype}, 当前群设置:{await config.get_value(event.group_id, "htype")}
+novelai_picaudit:3 # 是否打开图片审核功能 1为百度云图片审核, 2为本地审核功能, 3为关闭 全局设置:{config.novelai_picaudit}, 当前群设置:{await config.get_value(event.group_id, "picaudit")}
+novelai_pure:False # 纯净模式, 开启后只返回图片, 不返回其他信息 全局设置:{config.novelai_pure}, 当前群设置:{await config.get_value(event.group_id, "pure")}
 novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 如何设置
 示例 novelai_ 后面的是需要更改的名称 例如 novelai_cd 为 cd , novelai_revoke 为 revoke
@@ -61,6 +61,10 @@ novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 ```text
 # 第一个单词为功能的触发命令捏
+二次元的我
+# 随机返回拼凑词条的图片
+帮我画
+# 让chatgpt为你生成prompt吧, 帮我画夕阳下的少女
 模型 
 # 查看当前后端的所有模型, 以及他们的索引
 更换模型 
@@ -198,10 +202,7 @@ uw 900x450 2:1横构图
 以下是随机图片捏
 <img width="" src={url}/>
     '''.strip()
-    with open("help2.md", "w", encoding="utf-8") as file:
-        file.write(markdown)
     img = await md_to_pic(md=markdown,
                           width=1000)
     msg = MessageSegment.image(img)
     await bot.send(event=event, message=msg)
- # ""

@@ -16,6 +16,7 @@ from .translation import translate
 from ..backend import AIDRAW
 from ..utils.data import lowQuality
 from ..utils.load_balance import sd_LoadBalance
+from .safe_mathod import send_forward_msg, risk_control
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed
@@ -67,23 +68,6 @@ set_sd_config = on_shell_command(
 )
 
 
-async def send_forward_msg(
-        bot: Bot,
-        event: MessageEvent,
-        name: str,
-        uin: str,
-        msgs: list,
-) -> dict:
-    
-    def to_json(msg: Message):
-        return {"type": "node", "data": {"name": name, "uin": uin, "content": msg}}
-
-    messages = [to_json(msg) for msg in msgs]
-    return await bot.call_api(
-        "send_group_forward_msg", group_id=event.group_id, messages=messages
-)
-
-
 async def aiohttp_func(way, url, payload=""):
     
     if way == "post":
@@ -116,14 +100,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         else:
             msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
     if args.index == None and args.value == None:
-        try:
-            msg_list = ["".join(msg_list[i:i+10]) for i in range(0, len(msg_list), 10)]
-            await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
-        except ActionFailed:
-            msg_list = "".join(msg_list)
-            str_msg = str(msg_list)
-            img = await md_to_pic(md=str_msg)
-            await bot.send(event=event, message=MessageSegment.image(img))
+        await risk_control(bot, event, msg_list, True)
     elif args.index == None:
         await set_sd_config.finish("你要设置啥啊!")
     elif args.value == None:
@@ -158,19 +135,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         else:
             embs_list.append(f"{n}.{i}\t\n")
             
-    embs_list.append(f"总计{n}个")
-    msg_list = ["".join(embs_list[i:i+10]) for i in range(0, len(embs_list), 10)]
-    try:
-        await send_forward_msg(bot, 
-                               event, 
-                               event.sender.nickname, 
-                               event.user_id, 
-                               msg_list)
-    except ActionFailed:
-        msg_list = "".join(embs_list)
-        str_msg = str(msg_list)
-        img = await md_to_pic(md=str_msg)
-        await bot.send(event=event, message=MessageSegment.image(img))
+    await risk_control(bot, event, embs_list, True)
 
 
 async def download_img(url):
@@ -273,16 +238,7 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
 async def get_sd_models(event: MessageEvent, bot: Bot):
     await func_init(event)
     final_message = await sd(site)
-    try:
-        await bot.send(event=event, message=final_message, at_sender=True)
-    except ActionFailed:
-        resp = str(final_message)
-        try:
-            img = await md_to_pic(resp)
-        except:
-            get_models.finish("文生图失败")
-        resp = MessageSegment.image(img)
-        await bot.send(event=event, message="文字消息被风控转为图片" + resp, at_sender=True)
+    await risk_control(bot, event, final_message, True)
 
 
 @change_models.handle()
@@ -326,7 +282,7 @@ async def sd(site):
         models_info_dict = x['title']
         dict_model[n] = models_info_dict
         num = str(n) + ". "
-        message.append(num + models_info_dict + ",\t\n\n")
+        message.append(num + models_info_dict + ",\t\n")
         n = n + 1
     message.append("总计%d个模型" % int(n - 1))
     message = "".join(message)
@@ -354,11 +310,7 @@ async def _(event: MessageEvent, bot: Bot):
     for i in resp_[0]:
         sampler_list.append(i["name"])
     message = '\n'.join(sampler_list)
-    try:
-        await bot.send(event=event, message=message)
-    except ActionFailed:
-        img_msg = await md_to_pic(md=message)
-        await bot.send(event=event, message=MessageSegment.image(img_msg))
+    await risk_control(bot, event, message)
 
 
 @get_backend_status.handle()
@@ -379,7 +331,7 @@ async def _(event: MessageEvent, bot: Bot):
                 eta = resp_tuple[n][0]["eta_relative"]
                 message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\n"
 
-    await bot.send(event=event, message=message)
+    await risk_control(bot, event, message)
 
 
 @control_net_list.handle()
@@ -417,4 +369,4 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         message_model += f"{a}\n"
     for b in module_list:
         message_module += f"{b}\n"
-    await bot.send(event=event, message=message_model+message_module)
+    await risk_control(bot, event, message_model+message_module, True)
