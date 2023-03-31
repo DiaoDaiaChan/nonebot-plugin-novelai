@@ -22,24 +22,27 @@ async def send_forward_msg(
 
 
 async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False):
-    if is_forward:
-        if type(message) == list:
+    if type(message) == list:
+        if is_forward:
             msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
         else:
             msg_list = "".join(message)
     else:
         msg_list = "".join(message)
-    try:
-        if is_forward:
+    img = await md_to_pic(md=msg_list)
+    if is_forward:
+        try:
             await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+        except:
+            await bot.send(event=event, message=MessageSegment.image(img))
         else:
-            await bot.send(event=event, message=msg_list)
-    except ActionFailed or Exception:
-        if is_forward:
-            msg_list = "".join(message)
-        else:
-            msg_list = ["".join(msg_list[i:i+10]) for i in range(0, len(message), 10)]
+            return
+    try:
+        await bot.send(event=event, message=msg_list)
+    except:
+            await bot.send(event=event, message=MessageSegment.image(img))
+    else:
+        return
 
-        img = await md_to_pic(md=msg_list)
-        await bot.send(event=event, message=MessageSegment.image(img))
+
 

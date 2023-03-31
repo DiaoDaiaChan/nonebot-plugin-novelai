@@ -46,6 +46,7 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
         except ActionFailed:
             message_list = [tags]
             message_list.append(tags_ch)
+            message_list = ["".join(message_list[i:i+10]) for i in range(0, len(message_list), 10)]
             await send_forward_msg(bot, event, event.user_id, event.sender.nickname, message_list)       
     else:
         await deepdanbooru.finish(f"未找到图片")

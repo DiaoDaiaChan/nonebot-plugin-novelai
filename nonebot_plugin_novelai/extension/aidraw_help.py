@@ -57,14 +57,17 @@ novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 绘画设置 revoke 10 # 开启10秒后撤回图片功能
 绘画设置 tags loli, white_hair # 设置群自带的正面提示词
 ```
-### 额外功能 😋
-<div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
+### 娱乐功能 
 ```text
 # 第一个单词为功能的触发命令捏
 二次元的我
 # 随机返回拼凑词条的图片
 帮我画
 # 让chatgpt为你生成prompt吧, 帮我画夕阳下的少女
+```
+### 额外功能 😋
+<div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
+```text
 模型 
 # 查看当前后端的所有模型, 以及他们的索引
 更换模型 

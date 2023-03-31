@@ -23,7 +23,7 @@ async def check_safe_method(fifo, img_bytes, message):
     nsfw_count = 0
     for i in img_bytes:
         # try:
-        if await config.get_value(fifo.group_id, "picaudit") or config.novelai_picaudit in [1, 2]:
+        if await config.get_value(fifo.group_id, "picaudit") in [1, 2] or config.novelai_picaudit in [1, 2]:
             try:
                 label, h_value = await check_safe(i, fifo)
             except RuntimeError as e:
@@ -38,6 +38,7 @@ async def check_safe_method(fifo, img_bytes, message):
                     logger.debug("超分API失效")
             await save_img(fifo, i)
             message += MessageSegment.image(i)
+            return message
         if label == "safe":
             if config.novelai_SuperRes_generate:
                 try:
@@ -60,13 +61,16 @@ async def check_safe_method(fifo, img_bytes, message):
                 if htype == 1:
                     try:
                         await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
-                    except:
+                    except ActionFailed:
                         await bot.send_group_msg(group_id=fifo.group_id, message="请先加机器人好友捏, 才能私聊要涩图捏")
                 elif htype == 2:
                     try:
                         await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
                     except ActionFailed:
-                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}") or await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
+                        try:
+                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                        except ActionFailed:
+                            await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
             elif htype == 3:
                 pass
         await save_img(fifo, i, label)
@@ -153,7 +157,6 @@ async def check_safe(img_bytes: BytesIO, fifo):
             async with session.post(url=url, params=params) as resp:
                 json = await resp.json()
                 return json["access_token"]
-
 
     with open("image.jpg", "wb") as f:
         f.write(img_bytes)
