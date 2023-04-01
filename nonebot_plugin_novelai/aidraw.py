@@ -102,7 +102,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             args.tags = args.tags + args.no_trans
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
         # 检测是否有18+词条
-        pattern = re.compile(f"(\s|,|^)({htags})(\s|,|$)", re.IGNORECASE)
+        pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""
 
         hway = await config.get_value(fifo.group_id, "h")
@@ -118,7 +118,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             if re_list:
                 for i in re_list:
                     h_words += f"{i},"
-                    fifo.tags = fifo.tags.replace(i[0], "")
+                    fifo.tags = fifo.tags.replace(i, "")
                 try:
                     await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
                 except ActionFailed:
@@ -171,8 +171,12 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     else:
         extra_message= ""
     list_len = wait_len()
+    if config.novelai_load_balance: # 发送给用户当前的后端
+        await fifo.load_balance_init()
+    else:
+        fifo.backend_name = config.novelai_site
     has_wait = f"排队中，你的前面还有{list_len}人"+message
-    no_wait = f"请稍等，图片生成中，{extra_message}"+message
+    no_wait = f"在画了，在画了...后端:{fifo.backend_name}{extra_message}"+message
     if anlas:
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
@@ -183,8 +187,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
             logger.info("被风控了")
         finally:
             wait_list.append(fifo)
-            await fifo_gennerate(bot=bot)
-            
+            await fifo_gennerate(bot=bot)  
     else:
         try:
             await aidraw.send(no_wait)

@@ -50,7 +50,7 @@ class Config(BaseSettings):
         "enable_hr": "true", 
         "denoising_strength": 0.7, # 重绘幅度
         "hr_scale": 1.5, # 高清修复比例, 1.5为长宽分辨率各X1.5
-        "hr_upscaler": "Lanczos", # 超分模型, 使用前请先确认此模型是否可用
+        "hr_upscaler": "R-ESRGAN 4x+ Anime6B", # 超分模型, 使用前请先确认此模型是否可用
         "hr_second_pass_steps": 7, # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000 # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(

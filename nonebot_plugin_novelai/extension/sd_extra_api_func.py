@@ -326,16 +326,16 @@ async def _(event: MessageEvent, bot: Bot):
     for i in resp_tuple:
         n += 1
         if isinstance(i, asyncio.exceptions.TimeoutError):
-            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}掉线\n"
+            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}掉线😭\t\n"
         else:
-            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}正常,"
+            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}正常,\t"
             if resp_tuple[n][0]["progress"] in [0, 0.01, 0.0]:
-                message += f"后端空闲中\n"
+                message += f"后端空闲中\t\n"
             else:
                 eta = resp_tuple[n][0]["eta_relative"]
-                message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\n"
+                message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\t\n"
 
-    await risk_control(bot, event, message)
+    await risk_control(bot, event, message, False, True, 650)
 
 
 @control_net_list.handle()

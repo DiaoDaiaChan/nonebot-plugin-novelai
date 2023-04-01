@@ -33,7 +33,7 @@ async def markdown_temple(bot: Bot, text):
     return markdown
 
 
-async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False, md_temple=False):
+async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False, md_temple=False, width=500):
 
     '''
     为防止风控的函数, is_forward True为发送转发消息
@@ -41,7 +41,7 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
     if md_temple:
         msg_list = "".join(message)
         markdown = await markdown_temple(bot, msg_list)
-        img = await md_to_pic(md=markdown)
+        img = await md_to_pic(md=markdown, width=width)
         await bot.send(event=event, message=MessageSegment.image(img))
         return
     if isinstance(message, list):
@@ -52,7 +52,7 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
             except:
                 msg_list = "".join(message)
                 markdown = await markdown_temple(bot, msg_list)
-                img = await md_to_pic(md=markdown)
+                img = await md_to_pic(md=markdown, width=width)
                 await bot.send(event=event, message=MessageSegment.image(img))
             return
     try:
@@ -60,7 +60,7 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
     except:
             msg_list = "".join(message)
             markdown = await markdown_temple(bot, msg_list)
-            img = await md_to_pic(md=markdown)
+            img = await md_to_pic(md=markdown, width=width)
             await bot.send(event=event, message=MessageSegment.image(img))
 
 

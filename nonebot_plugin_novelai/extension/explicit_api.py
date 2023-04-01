@@ -91,7 +91,7 @@ async def check_safe(img_bytes: BytesIO, fifo):
         try:
             import tensorflow as tf
         except:
-            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection && pip install tensorflow jinjia2")
+            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection && pip install tensorflow")
             import tensorflow as tf
         from typing import IO
         from io import BytesIO

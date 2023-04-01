@@ -11,20 +11,32 @@ class AIDRAW(AIDRAW_BASE):
     async def fromresp(self, resp):
         img: dict = await resp.json()
         return img["images"][0]
+    
+    async def load_balance_init(self):
+        '''
+        获取当前选择的后端名称
+        '''
+        resp_tuple = await sd_LoadBalance()
+        self.backend_name = resp_tuple[1][1]
+        self.backend_site = resp_tuple[1][0]
 
     async def post(self):   
-        retry_times = 0 
+        retry_times = 0
+        # 失效自动重试 
         for i in range(config.novelai_retry):
+            defult_site = None # 所有后端失效后, 尝试使用默认后端
             retry_times += 1
-            if config.novelai_load_balance == True:
+            if config.novelai_load_balance:
                 if self.backend_index:
                     site = list(config.novelai_backend_url_dict.values())[self.backend_index]
                 else:
-                    resp_tuple = await sd_LoadBalance()
-                    site = resp_tuple[1][0]
+                    if self.backend_site is None:
+                        await self.load_balance_init()
+                    site = self.backend_site
             else:
-                site = await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
-            self.backend_site = site
+                if self.backend_index:
+                    site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
+                site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
             header = {
                 "content-type": "application/json",
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
@@ -68,8 +80,11 @@ class AIDRAW(AIDRAW_BASE):
                 self.start_time: float = time.time()
                 await self.post_(header, post_api, parameters)
             except Exception as e:
-                logger.debug(f"第{retry_times}次重试")
-                logger.debug(f"{e}")
+                logger.info(f"第{retry_times}次尝试")
+                logger.info(f"{e}")
+                if retry_times >=2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+                    self.backend_index = None
+                    defult_site = config.novelai_site
             else:
                 if config.novelai_load_balance ==True:
                     try:
