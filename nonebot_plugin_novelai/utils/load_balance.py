@@ -30,11 +30,13 @@ async def get_vram(ava_url):
     return vram_usage
 
 
-async def sd_LoadBalance():
+async def sd_LoadBalance(addtional_site=None):
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
     backend_url_dict = config.novelai_backend_url_dict
+    if addtional_site:
+        backend_url_dict.update({"群专属后端": f"{addtional_site}"})
     reverse_dict = {value: key for key, value in backend_url_dict.items()}
     tasks = []
     is_avaiable = 0
@@ -48,7 +50,7 @@ async def sd_LoadBalance():
     # 获取api队列状态
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
     for resp_tuple in all_resp:
-        if isinstance(resp_tuple, asyncio.exceptions.TimeoutError or aiohttp.ClientTimeout):
+        if isinstance(resp_tuple, asyncio.exceptions.TimeoutError or aiohttp.ClientTimeout or Exception):
             logger.info("有后端掉线")
         else:
             try:

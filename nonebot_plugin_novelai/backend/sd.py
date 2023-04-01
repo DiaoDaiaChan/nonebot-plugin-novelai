@@ -22,9 +22,9 @@ class AIDRAW(AIDRAW_BASE):
 
     async def post(self):   
         retry_times = 0
+        defult_site = None # 所有后端失效后, 尝试使用默认后端
         # 失效自动重试 
         for i in range(config.novelai_retry):
-            defult_site = None # 所有后端失效后, 尝试使用默认后端
             retry_times += 1
             if config.novelai_load_balance:
                 if self.backend_index:
@@ -76,26 +76,26 @@ class AIDRAW(AIDRAW_BASE):
                         post_api = f"http://{site}/controlnet/txt2img"
                         parameters.update(config.novelai_ControlNet_payload[1])
                         parameters["controlnet_units"][0]["input_image"] = self.image
-            try:
-                self.start_time: float = time.time()
-                await self.post_(header, post_api, parameters)
-            except Exception as e:
-                logger.info(f"第{retry_times}次尝试")
-                logger.info(f"{e}")
-                if retry_times >=2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
-                    self.backend_index = None
-                    defult_site = config.novelai_site
-            else:
-                if config.novelai_load_balance ==True:
-                    try:
-                        self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else resp_tuple[1][1]
-                    except:
-                        self.backend_name = ""
-                spend_time = time.time() - self.start_time
-                self.spend_time = f"{spend_time:.2f}秒"
-                resp_json = await self.get_webui_config(site)
-                self.model = resp_json["sd_model_checkpoint"]
-                self.vram = await get_vram(site)
-                break
+                try:
+                    self.start_time: float = time.time()
+                    await self.post_(header, post_api, parameters)
+                except Exception as e:
+                    logger.info(f"第{retry_times}次尝试")
+                    logger.info(f"{e}")
+                    if retry_times >=2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+                        self.backend_index = None
+                        defult_site = config.novelai_site
+                else:
+                    if config.novelai_load_balance is False:
+                        try:
+                            self.backend_name = list(config.novelai_backend_url_dict.keys())[self.backend_index] if self.backend_index else self.backend_name
+                        except:
+                            self.backend_name = ""
+                    spend_time = time.time() - self.start_time
+                    self.spend_time = f"{spend_time:.2f}秒"
+                    resp_json = await self.get_webui_config(site)
+                    self.model = resp_json["sd_model_checkpoint"]
+                    self.vram = await get_vram(site)
+                    break
 
         return self.result

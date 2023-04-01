@@ -165,18 +165,19 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
 
 async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
-    if await config.get_value(fifo.group_id, "pure") or config.novelai_pure: # 纯净模式额外信息
+    # 纯净模式额外信息
+    if await config.get_value(fifo.group_id, "pure"):
         user_input = fifo.tags.replace(pre_tags, "")
-        extra_message = f",你的prompt是{user_input}"
+        # 发送给用户当前的后端
+        await fifo.load_balance_init() 
+        extra_message = f"后端:{fifo.backend_name},你的prompt是{user_input}"
     else:
         extra_message= ""
+    if fifo.backend_index:
+        fifo.backend_name = list(config.novelai_backend_url_dict.values())[fifo.backend_index]
     list_len = wait_len()
-    if config.novelai_load_balance: # 发送给用户当前的后端
-        await fifo.load_balance_init()
-    else:
-        fifo.backend_name = config.novelai_site
     has_wait = f"排队中，你的前面还有{list_len}人"+message
-    no_wait = f"在画了，在画了...后端:{fifo.backend_name}{extra_message}"+message
+    no_wait = f"在画了，在画了...{extra_message}"+message
     if anlas:
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"

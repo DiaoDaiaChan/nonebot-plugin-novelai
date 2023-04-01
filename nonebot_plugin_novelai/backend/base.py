@@ -91,8 +91,8 @@ class AIDRAW_BASE:
         self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
         self.spend_time: float = None
-        self.backend_site: str = ""
-        self.backend_name: str = None
+        self.backend_site: str = None
+        self.backend_name: str = ""
         self.backend_index: int = backend_index
         self.vram: str = ""
         self.hiresfix: bool = True if config.novelai_hr else False
