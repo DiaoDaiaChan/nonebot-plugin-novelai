@@ -85,6 +85,7 @@ class AIDRAW(AIDRAW_BASE):
                     if retry_times >=2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                         self.backend_index = None
                         defult_site = config.novelai_site
+                        self.backend_site = None
                 else:
                     if config.novelai_load_balance is False:
                         try:
