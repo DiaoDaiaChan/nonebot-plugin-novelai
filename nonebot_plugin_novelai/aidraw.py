@@ -69,6 +69,8 @@ aidraw = on_shell_command(
 async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = ShellCommandArgs()):
     user_id = str(event.user_id)
     group_id = str(event.group_id)
+    global bot_id
+    bot_id = bot.self_id
     # 判断是否禁用，若没禁用，进入处理流程
     if await config.get_value(group_id, "on"):
         message = ""
@@ -289,7 +291,7 @@ async def _run_gennerate(fifo: AIDRAW):
     # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
     # 构造消息体并保存图片
     message = f"{config.novelai_mode}绘画完成~"
-    message = await check_safe_method(fifo, fifo.result, message)
+    message = await check_safe_method(fifo, fifo.result, message, bot_id)
     # for i in fifo.result:
     #     await save_img(fifo, i, fifo.group_id)
     #     message += MessageSegment.image(i)

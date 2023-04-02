@@ -14,8 +14,8 @@ from nonebot.log import logger
 from ..config import config 
 from .super_res import super_res_api_func
 
-async def check_safe_method(fifo, img_bytes, message):
-    bot = nonebot.get_bot()
+async def check_safe_method(fifo, img_bytes, message, bot_id):
+    bot = nonebot.get_bot(bot_id)
     raw_message = f"\n{nickname}已经"
     label = ""
     # 判读是否进行图片审核
