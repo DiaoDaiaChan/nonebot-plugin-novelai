@@ -29,11 +29,13 @@ from nonebot_plugin_htmlrender import md_to_pic
 
 
 async def func_init(event):
+    '''
+    获取当前群的后端设置
+    '''
     global site, reverse_dict
     site = await config.get_value(event.group_id, "site") or config.novelai_site
     reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
     
-
 
 header = {
     "content-type": "application/json",
@@ -269,18 +271,14 @@ async def get_sd_models(event: MessageEvent, bot: Bot, msg: Message = CommandArg
 
 
 async def sd(site):
-
     dict_model = {}
     message = []
     message1 = []
     n = 1
-
     resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
-    
     currents_model = resp_[0]["sd_model_checkpoint"]
     message1.append("当前使用模型:" + currents_model + ",\t\n\n")
     message1 = "".join(message1)
-
     models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
     for x in models_info_dict[0]:
         models_info_dict = x['title']
@@ -290,7 +288,6 @@ async def sd(site):
         n = n + 1
     message.append("总计%d个模型" % int(n - 1))
     message = "".join(message)
-
     message_all = message1 + message
     with open("models.json", "w", encoding='utf-8') as f:
         f.write(json.dumps(dict_model, indent=4))

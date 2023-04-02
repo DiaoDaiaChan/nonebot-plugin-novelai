@@ -175,6 +175,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         extra_message= ""
     if fifo.backend_index:
         fifo.backend_name = list(config.novelai_backend_url_dict.values())[fifo.backend_index]
+        extra_message = f"已选择后端:{fifo.backend_name}"
     list_len = wait_len()
     has_wait = f"排队中，你的前面还有{list_len}人"+message
     no_wait = f"在画了，在画了...{extra_message}"+message

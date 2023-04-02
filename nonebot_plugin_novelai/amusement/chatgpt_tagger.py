@@ -1,9 +1,4 @@
-import os, random, asyncio
-try:
-    import openai
-except:
-    os.system("pip install opena>=0.27")
-    import openai
+import os, random, asyncio, aiohttp
 
 from ..backend import AIDRAW
 from ..config import config
@@ -11,8 +6,6 @@ from ..config import config
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Message, ActionFailed
 from nonebot.params import CommandArg
-
-chatgpt = on_command("帮我画",aliases={"帮我画画"},  priority=50, block=True)
 
 sys_text = f'''
 You can output a prompt based on the input given by the user,
@@ -32,31 +25,39 @@ Second example:
 Finally, combine these three paragraphs into a single paragraph and output it to the user in order
 Note, the prompt must be all English words, please translate and output to the user
 '''.strip()
+chatgpt = on_command("帮我画",aliases={"帮我画画"},  priority=50, block=True)
+api_key = config.openai_api_key
 
-openai_api_key = ''
+header = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {api_key}"
+}
+
 
 class Session(): # 这里来自nonebot-plugin-gpt3
     def __init__(self, user_id):
         self.session_id = user_id
 
-    async def openai_func(self, msg: str):
-        messages =  [{"role": "system", "content": sys_text}, {"role": "user", "content": msg}] 
-        openai.api_key = config.openai_api_key
-        try:
-            response : str = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                temperature=0.8,
-                max_tokens=400,
-                top_p=1,
-                frequency_penalty=0,
-                presence_penalty=0.6,
-            )
-            print(response)
-            res = response['choices'][0]['message']["content"].strip()
-        except Exception as e:
-            res = e.args
-        return res
+    # 更换为aiohttp
+    async def main(self, to_openai):
+        payload = {
+            "model": "gpt-3.5-turbo",
+            "messages": [{"role": "system", "content": sys_text},
+                        {"role": "user", "content": to_openai}],
+            "temperature":0.8,
+            "top_p":1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0.6,
+            "stop": [" Human:", " AI:"]
+        }
+
+        async with aiohttp.ClientSession(headers=header) as session:
+            async with session.post(url="https://api.openai.com/v1/chat/completions",json=payload) as resp:
+                print(resp.status)
+                all_resp = await resp.json()
+                resp = all_resp["choices"][0]["message"]["content"]
+                return resp
+
 
 user_session = {}
 
@@ -70,9 +71,7 @@ def get_user_session(user_id) -> Session:
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     user_msg = msg.extract_plain_text().strip()
     to_openai = user_msg + "prompt"
-    prompt = await get_user_session(event.get_session_id()).openai_func(to_openai)
-    print(event.get_session_id())
-    print(get_user_session(event.get_session_id()))
+    prompt = await get_user_session(event.get_session_id()).main(to_openai)
     try:
         await bot.send(event=event, message="这是chatgpt为你生成的prompt"+prompt, at_sender=True, reply_message=True)
     except ActionFailed:
