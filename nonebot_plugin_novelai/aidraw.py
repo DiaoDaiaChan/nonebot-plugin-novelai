@@ -110,7 +110,6 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
         hway = await config.get_value(fifo.group_id, "h")
         if hway is None:
             hway = config.novelai_h
-
         if hway == 0 and pattern.findall(fifo.tags):
             await aidraw.finish(f"H是不行的!")
         elif hway ==1:
@@ -172,11 +171,11 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         user_input = fifo.tags.replace(pre_tags, "")
         # 发送给用户当前的后端
         await fifo.load_balance_init() 
-        extra_message = f"后端:{fifo.backend_name},你的prompt是{user_input}"
+        extra_message = f"后端:{fifo.backend_name},较抽象的prompt请使用英文"
     else:
         extra_message= ""
     if fifo.backend_index:
-        fifo.backend_name = list(config.novelai_backend_url_dict.values())[fifo.backend_index]
+        fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
         extra_message = f"已选择后端:{fifo.backend_name}"
     list_len = wait_len()
     has_wait = f"排队中，你的前面还有{list_len}人"+message

@@ -4,7 +4,7 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, ActionFailed, Bot
 from nonebot.log import logger
 from .translation import translate
-from .sd_extra_api_func import send_forward_msg
+from .safe_mathod import risk_control
 
 deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书", "分析"})
 
@@ -40,13 +40,9 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
         tags_ch = await translate(tags.replace("_", " "), "zh")
         if tags_ch == tags.replace("_", " "):
             message = message+tags
-        message = message+tags+f"\n机翻结果:"+tags_ch
-        try:
-            await deepdanbooru.finish(message)
-        except ActionFailed:
-            message_list = [tags]
-            message_list.append(tags_ch)
-            message_list = ["".join(message_list[i:i+10]) for i in range(0, len(message_list), 10)]
-            await send_forward_msg(bot, event, event.user_id, event.sender.nickname, message_list)       
+        message = message+tags+tags_ch
+        message_list = [tags]
+        message_list.append(f"\n机翻结果:" + tags_ch)
+        await risk_control(bot, event, message_list, True)       
     else:
         await deepdanbooru.finish(f"未找到图片")

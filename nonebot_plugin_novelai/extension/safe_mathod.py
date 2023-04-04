@@ -1,5 +1,5 @@
 from nonebot import require
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, ActionFailed, MessageSegment
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, ActionFailed, MessageSegment, GroupMessageEvent, PrivateMessageEvent
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
@@ -16,9 +16,14 @@ async def send_forward_msg(
         return {"type": "node", "data": {"name": name, "uin": uin, "content": msg}}
 
     messages = [to_json(msg) for msg in msgs]
-    return await bot.call_api(
-        "send_group_forward_msg", group_id=event.group_id, messages=messages
-)
+    if isinstance(event, GroupMessageEvent):
+        return await bot.call_api(
+            "send_group_forward_msg", group_id=event.group_id, messages=messages
+    )
+    elif isinstance(event, PrivateMessageEvent):
+        return await bot.call_api(
+            "send_private_forward_msg", user_id=event.user_id, messages=messages
+    )
 
 
 async def markdown_temple(bot: Bot, text):
@@ -58,10 +63,16 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
     try:
         await bot.send(event=event, message=msg_list)
     except:
-            msg_list = "".join(message)
-            markdown = await markdown_temple(bot, msg_list)
-            img = await md_to_pic(md=markdown, width=width)
-            await bot.send(event=event, message=MessageSegment.image(img))
+            msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
+            try:
+                await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+            except:
+                msg_list = "".join(message)
+                markdown = await markdown_temple(bot, msg_list)
+                img = await md_to_pic(md=markdown, width=width)
+                await bot.send(event=event, message=MessageSegment.image(img))
+    
+            
 
 
 

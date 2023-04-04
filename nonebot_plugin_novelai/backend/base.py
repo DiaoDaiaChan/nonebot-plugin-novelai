@@ -219,7 +219,7 @@ class AIDRAW_BASE:
         :json: 请求体
         """
         # 请求交互
-        async with aiohttp.ClientSession(headers=header) as session:
+        async with aiohttp.ClientSession(headers=header, timeout=aiohttp.ClientTimeout(total=1800)) as session:
             # 向服务器发送请求
             async with session.post(post_api, json=json) as resp:
                 if resp.status not in [200, 201]:

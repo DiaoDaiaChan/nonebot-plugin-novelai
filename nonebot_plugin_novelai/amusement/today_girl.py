@@ -360,7 +360,7 @@ async def _(bot: Bot, event: MessageEvent):
             img_msg = MessageSegment.image(fifo.result[0])
             try:
                 await bot.send(event=event, 
-                            message=f"这是你的二次元形象,hso\nprompts:{tags}" +img_msg+ f"生成耗费时间{fifo.spend_time}s", 
+                            message=f"这是你的二次元形象,hso\n" +img_msg+ f"生成耗费时间{fifo.spend_time}s", 
                             at_sender=True, reply_message=True)
             except ActionFailed:
                 await bot.send(event=event, 

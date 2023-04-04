@@ -28,6 +28,7 @@ class AIDRAW(AIDRAW_BASE):
     async def post_parameters(self):
         parameters_list: list[tuple] = []
         global site
+        
         if config.novelai_load_balance:
             if self.backend_index:
                 site = list(config.novelai_backend_url_dict.values())[self.backend_index]
@@ -75,7 +76,7 @@ class AIDRAW(AIDRAW_BASE):
                     post_api = f"http://{site}/controlnet/txt2img"
                     parameters.update(config.novelai_ControlNet_payload[1])
                     parameters["controlnet_units"][0]["input_image"] = self.image
-                    
+
             parameters_list.append((header, post_api, parameters))                    
         return parameters_list
 
@@ -89,10 +90,17 @@ class AIDRAW(AIDRAW_BASE):
             self.start_time: float = time.time()
             parameters_list = await self.post_parameters()
             try:
-                for post_tuple in parameters_list:
-                    await self.post_(*post_tuple)
+                n = -1
+                parameters_list_retry = None
+                if parameters_list_retry is None:
+                    for post_tuple in parameters_list:
+                        n += 1
+                        await self.post_(*post_tuple)
+                else:
+                    await self.post_(*parameters_list[parameters_list_retry])
             except Exception as e:
                 logger.info(f"第{retry_times}次尝试")
+                parameters_list_retry = n
                 logger.info(f"{e}")
                 if retry_times >=2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                     defult_site = config.novelai_site

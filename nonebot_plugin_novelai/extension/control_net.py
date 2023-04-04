@@ -8,18 +8,6 @@ from ..config import config
 max_res = 800
 
 
-async def get_progress(url):
-    first_get = url + "/app_id/"
-    api_url = url + "/sdapi/v1/progress"
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as session1:
-        async with session1.get(url=first_get) as resp1:
-            resp_code2 = resp1.status
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url=api_url) as resp:
-            resp_json = await resp.json()
-            return resp_json, resp.status, url, resp_code2
-
-
 async def control_net_func(pic: bytes, sd_url, tag):
     new_img = Image.open(io.BytesIO(pic)).convert("RGB")
     old_res = new_img.width * new_img.height
@@ -53,11 +41,11 @@ async def control_net_func(pic: bytes, sd_url, tag):
   "controlnet_weight": 0.8,
   "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
   "controlnet_lowvram": "false",
-  "controlnet_processor_res": 512,
+  "controlnet_processor_res": 768,
   "controlnet_threshold_a": 100,
   "controlnet_threshold_b": 250,
   "sampler_index": "DDIM",
-  "steps": 12,
+  "steps": 15,
   "cfg_scale": 7,
   "width": round(width),
   "height":round(height),
