@@ -73,10 +73,9 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                             await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
             elif htype == 3:
                 pass
-        await save_img(fifo, i, label)
+        await save_img(fifo, i)
     if nsfw_count:
         message += f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了"
-                
     return message
 
 

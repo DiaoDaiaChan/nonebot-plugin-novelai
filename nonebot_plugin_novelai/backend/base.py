@@ -3,6 +3,8 @@ import base64
 import random
 import time
 from io import BytesIO
+import aiofiles
+import json
 
 import aiohttp
 from nonebot import get_driver
@@ -28,7 +30,6 @@ class AIDRAW_BASE:
         seed: int = None,
         scale: int = None,
         steps: int = None,
-        batch: int = None,
         strength: float = None,
         noise: float = None,
         shape: str = None,
@@ -36,6 +37,7 @@ class AIDRAW_BASE:
         model: str = "",
         sampler: None or str = None,
         backend_index: int = None,
+        disable_hr: bool = False if config.novelai_hr else True,
         **kwargs,
     ):
         """
@@ -65,8 +67,9 @@ class AIDRAW_BASE:
         :cost: 记录了本次生成需要花费多少点数，自动计算
         :signal: asyncio.Event类,可以作为信号使用。仅占位，需要自行实现相关方法
         """
+        self.disable_hr = disable_hr
         if config.novelai_random_ratio == True:
-            random_shape = self.weighted_choice()
+            random_shape = self.weighted_choice(config.novelai_random_ratio_list)
             shape = man_shape or "p" if man_shape else random_shape
             self.width, self.height = self.extract_shape(shape)
         else:
@@ -77,30 +80,40 @@ class AIDRAW_BASE:
         self.time = time.strftime("%Y-%m-%d %H:%M:%S")
         self.user_id: str = user_id
         self.tags: str = tags
-        self.seed: list[int] = [seed or random.randint(0, 4294967295)]
+        self.seed: list[int] = random.randint(0, 4294967295)
         self.group_id: str = group_id
-        self.scale: int = int(scale or config.novelai_scale)
+        if config.novelai_random_scale:
+            self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
+        else:
+            self.scale = int(scale or config.novelai_scale)
         self.strength: float = strength or 0.7
-        self.batch: int = batch or 1
         self.steps: int = steps or 20
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
         self.img2img: bool = False
         self.image: str = None
         self.model: str = ""
-        self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
+        if config.novelai_random_sampler:
+            self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
+        else:
+            self.sampler: str = (sampler if sampler else 
+                                self.weighted_choice(config.novelai_random_sampler_list) or "Euler a")
         self.start_time: float = None
         self.spend_time: float = None
         self.backend_site: str = None
-        self.backend_name: str = ""
+        self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
         self.hiresfix: bool = True if config.novelai_hr else False
         self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
-        self.control_net= {"control_net": False, 
+        self.control_net = {"control_net": False, 
                            "controlnet_module": "",
                            "controlnet_model": ""}
+        self.backend_info = None
+        self.task_type = None
+        self.history_list: list = None
+        
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
             self.steps = 28
@@ -111,8 +124,8 @@ class AIDRAW_BASE:
         if self.scale <= 0 or self.scale > 30:
             self.scale = 11
         # 多图时随机填充剩余seed
-        for i in range(self.batch - 1):
-            self.seed.append(random.randint(0, 4294967295))
+        # for i in range(self.batch - 1):
+        #     self.seed.append(random.randint(0, 4294967295))
         # 计算cost
         self.update_cost()
 
@@ -138,12 +151,13 @@ class AIDRAW_BASE:
         """
         if config.novelai_paid == 1:
             anlas = 0
-            if (self.width * self.height > 409600) or self.image or self.batch > 1:
+            if (self.width * self.height > 409600) or self.image > 1:
+            # if (self.width * self.height > 409600) or self.image or self.batch > 1:
                 anlas = round(
                     self.width
                     * self.height
                     * self.strength
-                    * self.batch
+                    # * self.batch
                     * self.steps
                     / 2293750
                 )
@@ -158,7 +172,7 @@ class AIDRAW_BASE:
                 self.width
                 * self.height
                 * self.strength
-                * self.batch
+                # * self.batch
                 * self.steps
                 / 2293750
             )
@@ -180,7 +194,7 @@ class AIDRAW_BASE:
         tmpfile = BytesIO(image)
         image_ = Image.open(tmpfile)
         width, height = image_.size
-        self.width, self.height = self.shape_set(width, height)
+        self.width, self.height = self.shape_set(width, height, config.novelai_size_org)
         self.image = str(base64.b64encode(image), "utf-8")
         self.steps = 28
         self.img2img = True
@@ -191,6 +205,8 @@ class AIDRAW_BASE:
         """
         设置宽高
         """
+        if self.disable_hr:
+            config.novelai_size = config.novelai_size * config.novelai_hr_payload["hr_scale"]
         limit = extra_limit or 1024 if config.paid else 640
         if width * height > pow(min(extra_limit or config.novelai_size, limit), 2):
             if width <= height:
@@ -211,23 +227,47 @@ class AIDRAW_BASE:
         else:
             return (64 * base, round(height / width * base) * 64)
 
-    async def post_(self, header: dict, post_api: str, json: dict):
+    async def post_(self, header: dict, post_api: str, payload: dict):
         """
         向服务器发送请求的核心函数，不要直接调用，请使用post函数
         :header: 请求头
         :post_api: 请求地址
         :json: 请求体
         """
-        # 请求交互
+        # 请求交互      
         async with aiohttp.ClientSession(headers=header, timeout=aiohttp.ClientTimeout(total=1800)) as session:
             # 向服务器发送请求
-            async with session.post(post_api, json=json) as resp:
+            async with session.post(post_api, json=payload) as resp:
                 if resp.status not in [200, 201]:
-                    logger.error(await resp.text())
+                    resp_dict = json.loads(await resp.text())
+                    logger.error(resp_dict)
+                    if resp_dict["error"] == "OutOfMemoryError":
+                        logger.info("检测到爆显存，执行自动模型释放并加载")
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url=f"http://{self.backend_site}/sdapi/v1/unload-checkpoint") as resp:
+                                if resp.status not in [200, 201]:
+                                    logger.error(f"释放模型失败，可能是webui版本太旧，未支持此API，错误:{await resp.text()}")
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url=f"http://{self.backend_site}/sdapi/v1/reload-checkpoint") as resp:
+                                if resp.status not in [200, 201]:
+                                    logger.error(f"重载模型失败，错误:{await resp.text()}")
+                                logger.info("重载模型成功")
                     raise RuntimeError(f"与服务器沟通时发生{resp.status}错误")
+                spend_time = time.time() - self.start_time
+                self.spend_time = f"{spend_time:.2f}秒"
+                self.history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]
+                tmp_history_list = self.history_list
+                tmp_backend_info = self.backend_info
+                tmp_history_list.append([{self.start_time: spend_time}])
+                tc = tmp_backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
+                tc -= 1
+                cur_status = "idel" if tc == 0 else self.task_type
+                tmp_backend_info["status"] = cur_status
+                tmp_backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
+                async with aiofiles.open("data/novelai/load_balance.json", "w") as f:
+                    await f.write(json.dumps(tmp_backend_info))
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
-
                 # 将图片转化为jpg
                 if config.novelai_save == 1:
                     image_new = await png2jpg(img)
@@ -286,7 +326,7 @@ class AIDRAW_BASE:
 
     def __repr__(self):
         return (
-            f"time={self.time}\nuser_id={self.user_id}\ngroup_id={self.group_id}\ncost={self.cost}\nbatch={self.batch}\nsampler={self.sampler}\n"
+            f"time={self.time}\nuser_id={self.user_id}\ngroup_id={self.group_id}\ncost={self.cost}\nsampler={self.sampler}\n"
             + "".join(self.format())
         )
 
@@ -298,8 +338,7 @@ class AIDRAW_BASE:
     #     logger.info(resp_tuple)
     #     return resp_tuple
     
-    def weighted_choice(self):
-        choices =  config.novelai_random_ratio_list
+    def weighted_choice(self, choices):
         total = sum(w for c, w in choices)
         r = random.uniform(0, total)
         upto = 0

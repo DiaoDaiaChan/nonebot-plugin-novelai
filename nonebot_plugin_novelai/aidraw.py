@@ -1,5 +1,7 @@
 import time
 import re
+import random
+import json
 
 from collections import deque
 import aiohttp
@@ -7,6 +9,7 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from asyncio import get_running_loop
 from nonebot import get_bot, on_shell_command
+import asyncio
 
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot, ActionFailed
 from nonebot.rule import ArgumentParser
@@ -14,7 +17,7 @@ from nonebot.permission import SUPERUSER
 from nonebot.log import logger
 from nonebot.params import ShellCommandArgs
 
-from .config import config
+from .config import config, nickname
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_check, anlas_set
@@ -36,8 +39,8 @@ aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
 aidraw_parser.add_argument(
     "-s", "--seed", "-种子", type=int, help="种子", dest="seed")
-aidraw_parser.add_argument("-b", "--batch", "-数量",
-                           type=int, default=1, help="生成数量", dest="batch")
+# aidraw_parser.add_argument("-b", "--batch", "-数量",
+#                            type=int, default=1, help="生成数量", dest="batch")
 aidraw_parser.add_argument("-t", "--steps", "-步数",
                            type=int, help="步数", dest="steps")
 aidraw_parser.add_argument("-u", "--ntags", "-排除",
@@ -56,6 +59,27 @@ aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译",type=str,
                            help="不需要翻译的字符串", dest="no_trans")
 aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
                            action='store_true', help="使用控制网以图生图", dest="control_net")
+aidraw_parser.add_argument("-hr_off",
+                           action='store_true', help="关闭高清修复", dest="disable_hr")
+aidraw_parser.add_argument("-emb",
+                           type=int, help="使用的embs", dest="emb")
+aidraw_parser.add_argument("-lora",
+                           type=int, help="使用的lora", dest="lora")
+
+
+async def get_message_at(data: str) -> int:
+    '''
+    获取at列表
+    :param data: event.json()
+    '''
+    data = json.loads(data)
+    try:
+        msg = data['original_message'][1]
+        if msg['type'] == 'at':
+            return int(msg['data']['qq'])
+    except Exception:
+        return None
+
 
 aidraw = on_shell_command(
     ".aidraw",
@@ -75,9 +99,9 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
     if await config.get_value(group_id, "on"):
         message = ""
         # 判断最大生成数量
-        if args.batch > config.novelai_max:
-            message = message+f",批量生成数量过多，自动修改为{config.novelai_max}"
-            args.batch = config.novelai_max
+        # if args.batch > config.novelai_max:
+        #     message = message+f",批量生成数量过多，自动修改为{config.novelai_max}"
+        #     args.batch = config.novelai_max
         # 判断次数限制
         if config.novelai_daylimit and not await SUPERUSER(bot, event):
             left = DayLimit.count(user_id, args.batch)
@@ -134,6 +158,10 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
         # 以图生图预处理
         img_url = ""
         reply = event.reply
+        at_id = await get_message_at(event.json())
+        if at_id:
+            img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+            args.control_net = True
         if reply:
             for seg in reply.message['image']:
                 img_url = seg.data["url"]
@@ -168,6 +196,8 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     # 纯净模式额外信息
     if await config.get_value(fifo.group_id, "pure"):
+        # hr_scale = config.novelai_hr_payload["hr_scale"]
+        extra_message_list = [f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, cfg:{fifo.scale}"]
         user_input = fifo.tags.replace(pre_tags, "")
         # 发送给用户当前的后端
         await fifo.load_balance_init() 
@@ -178,8 +208,39 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
         extra_message = f"已选择后端:{fifo.backend_name}"
     list_len = wait_len()
+    no_wait_list = [
+    f"服务器正在全力绘图中，{nickname}也在努力哦！",
+    f"请稍等片刻哦，{nickname}已经和服务器约定好了快快完成",
+    f"{nickname}正在和服务器密谋，请稍等片刻哦！",
+    f"不要急不要急，{nickname}已经在努力让服务器完成绘图",
+    f"{nickname}正在跟服务器斗智斗勇，请耐心等待哦！",
+    f"正在全力以赴绘制您的图像，{nickname}会尽快完成，稍微等一下哦！",
+    f"别急别急，{nickname}正在和服务器",
+    f"{nickname}会尽快完成你的图像QAQ",
+    f"✨服务器正在拼命绘图中，请稍等一下呀！✨",
+    f"(*^▽^*) 服务器在进行绘图，这需要一些时间，稍等片刻就好了~", 
+    f"（＾∀＾）ノ服务器正在全力绘图，请耐心等待哦",
+    f"（￣▽￣）/ 你的图马上就好了，等等就来",
+    f"╮(╯_╰)╭ 不要着急，我会加速的",
+    f"φ(≧ω≦*)♪ 服务器正在加速绘图中，请稍等哦",
+    f"o(*￣▽￣*)o 我们一起倒数等待吧！",
+    f"\\(￣︶￣*\\)) 服务器疯狂绘图中，请耐心等待哦",
+    f"┗|｀O′|┛ 嗷~~ 服务器正在绘图，请等一会",
+    f"(/≧▽≦)/ 你的图正在生成中，请稍等片刻",
+    f"(/￣▽￣)/ 服务器正在用心绘图，很快就能看到啦",
+    f"(*^ω^*) 别急，让{nickname}来给你唠嗑，等图就好了",
+    f"(*＾-＾*) 服务器正在加速，你的图即将呈现！",
+    f"(=^-^=) 服务器正在拼尽全力绘图，请稍安勿躁！",
+    f"ヾ(≧∇≦*)ゝ 服务器正在加班加点，等你的图呢",
+    f"(✿◡‿◡) 别紧张，等一下就能看到你的图啦！",
+    f"~(≧▽≦)/~啦啦啦，你的图正在生成，耐心等待哦",
+    f"≧ ﹏ ≦ 服务器正在拼命绘图中，请不要催促我",
+    f"{nickname}正在全力绘图", 
+    f"我知道你很久, 但你先别急", 
+]
+
     has_wait = f"排队中，你的前面还有{list_len}人"+message
-    no_wait = f"在画了，在画了...{extra_message}"+message
+    no_wait = f"{random.choice(no_wait_list)}, {extra_message}"+message
     if anlas:
         has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
         no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
@@ -198,7 +259,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
             logger.info("被风控了")
         finally:
             await fifo_gennerate(fifo, bot)
-        
+                                           
 
 def wait_len():
     # 获取剩余队列长度

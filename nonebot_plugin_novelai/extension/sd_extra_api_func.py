@@ -8,13 +8,14 @@ import time
 import io
 import re
 import asyncio
+import aiofiles
 
 from ..config import config
 from ..extension.translation import translate
 from .super_res import super_res_api_func
 from .translation import translate
 from ..backend import AIDRAW
-from ..utils.data import lowQuality
+from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance
 from .safe_mathod import send_forward_msg, risk_control
 
@@ -43,8 +44,8 @@ header = {
 }
 
 get_models = on_command(
-    "模型",
-    aliases={"模型目录", "获取模型", "查看模型"},
+    "模型目录",
+    aliases={"获取模型", "查看模型", "模型列表"},
     priority=5,
     block=True
 )
@@ -55,6 +56,7 @@ control_net_list = on_command("controlnet", aliases={"控制网"})
 super_res = on_command("图片修复", aliases={"图片超分", "超分"})
 get_backend_status = on_command("后端", aliases={"查看后端"})
 get_emb = on_command("emb", aliases={"embs"})
+get_lora = on_command("lora", aliases={"loras"})
 get_sampler = on_command("采样器", aliases={"获取采样器"})
 
 more_func_parser = ArgumentParser()
@@ -144,6 +146,34 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await risk_control(bot, event, embs_list, True)
 
 
+@get_lora.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    await func_init(event)
+    try:
+        site_ = reverse_dict[site]
+    except:
+        site_ = await config(event.group_id, "site") or config.novelai_site
+    loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
+    n = 0
+    lora_dict = {}
+    get_lora_site = "http://" + site + "/sdapi/v1/lora"
+    resp_json = await aiohttp_func("get", get_lora_site)
+    all_lora = list(resp_json[0]["loaded"].keys())
+    text_msg = msg.extract_plain_text().strip()
+    pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
+    for i in all_lora:
+        n += 1
+        lora_dict[n] = i
+        if msg:
+            if pattern.match(i):
+                loras_list.append(f"{n}.{i}\t\n")
+        else:
+            loras_list.append(f"{n}.{i}\t\n")
+    async with aiofiles.open("loras.json", "w", encoding="utf-8") as f:
+        await f.write(json.dumps(lora_dict))
+    await risk_control(bot, event, loras_list, True)
+
+
 async def download_img(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
@@ -215,25 +245,35 @@ async def __():
 @control_net.got("net", "你的图图呢？")
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
     start = time.time()
+    tags_en = None
+    reply= event.reply
     await bot.send(event=event, message=f"control_net以图生图中")
-    if msg[0].type == "image":
-            img_url = msg[0].data["url"]
+    if reply:
+        for seg in reply.message['image']:
+            img_url = seg.data["url"]
+        for seg in event.message['image']:
+            img_url = seg.data["url"]
+        if msg[0].type == "image":
+                img_url = msg[0].data["url"]
     else:
         tag = msg[0].data["text"]
         img_url = msg[1].data["url"]
+        tags_en = await translate(tag, "en")
+    if tags_en is None:
+        tags_en = ""
     img = await download_img(img_url)
     img_bytes = base64.b64decode(img[0])
-    tags_en = await translate(tag, "en")
+    tags = basetag + tags_en
     try:
         fifo = AIDRAW(user_id=str(event.user_id), 
                       group_id=str(event.group_id),
-                      tags=tags_en,
+                      tags=tags,
                       ntags=lowQuality)
         fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
         processed_pic = fifo.result[0]
     except Exception as e:
-        await bot.send(event=event, message=f"出现错误{e},")
+        await control_net.finish(f"出现错误{e}")
     end = time.time()
     spend_time = end - start
     message = MessageSegment.image(processed_pic) + f"耗时{spend_time:.2f}秒"
@@ -278,7 +318,6 @@ async def sd(site):
     resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
     currents_model = resp_[0]["sd_model_checkpoint"]
     message1.append("当前使用模型:" + currents_model + ",\t\n\n")
-    message1 = "".join(message1)
     models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
     for x in models_info_dict[0]:
         models_info_dict = x['title']
@@ -287,7 +326,6 @@ async def sd(site):
         message.append(num + models_info_dict + ",\t\n")
         n = n + 1
     message.append("总计%d个模型" % int(n - 1))
-    message = "".join(message)
     message_all = message1 + message
     with open("models.json", "w", encoding='utf-8') as f:
         f.write(json.dumps(dict_model, indent=4))
@@ -309,9 +347,9 @@ async def _(event: MessageEvent, bot: Bot):
     url = "http://" + site + "/sdapi/v1/samplers"
     resp_ = await aiohttp_func("get", url)
     for i in resp_[0]:
-        sampler_list.append(i["name"])
-    message = '\n'.join(sampler_list)
-    await risk_control(bot, event, message)
+        sampler = i["name"]
+        sampler_list.append(f"{sampler}\t\n")
+    await risk_control(bot, event, sampler_list)
 
 
 @get_backend_status.handle()
@@ -366,8 +404,4 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         await control_net_list.finish("获取control模块失败, 可能是controlnet版本太老, 不支持获取模块列表捏")
     model_list = resp_1[0]["model_list"]
     module_list = resp_2[0]["module_list"]
-    for a in model_list:
-        message_model += f"{a}\t\n"
-    for b in module_list:
-        message_module += f"{b}\t\n"
-    await risk_control(bot, event, message_model+message_module, True)
+    await risk_control(bot, event, model_list+module_list, True)

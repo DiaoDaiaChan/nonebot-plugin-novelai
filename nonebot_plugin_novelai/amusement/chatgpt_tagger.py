@@ -2,6 +2,7 @@ import os, random, asyncio, aiohttp
 
 from ..backend import AIDRAW
 from ..config import config
+from ..utils.save import save_img
 
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Message, ActionFailed
@@ -86,4 +87,5 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         await fifo.post()
         img_msg = MessageSegment.image(fifo.result[0])
         await bot.send(event=event, message=img_msg, at_sender=True, reply_message=True)
+        await save_img(fifo, fifo.result[0], str(fifo.group_id)+"_chatgpt")
     

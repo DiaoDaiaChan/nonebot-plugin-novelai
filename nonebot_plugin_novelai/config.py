@@ -6,14 +6,17 @@ from nonebot import get_driver
 from nonebot.log import logger
 from pydantic import BaseSettings, validator
 from pydantic.fields import ModelField
+import os
 
 jsonpath = Path("data/novelai/config.json").resolve()
+lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
 nickname = list(get_driver().config.nickname)[0] if len(
     get_driver().config.nickname) else "nonebot-plugin-novelai"
 
 
 class Config(BaseSettings):
     # 服务器设置
+    lb_jsonpath
     novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
     novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_retry: int = 3 # post失败后重试的次数
@@ -33,7 +36,6 @@ class Config(BaseSettings):
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
-    novelai_size: int = 768
     # 可运行更改的设置
     novelai_tags: str = ""  # 内置的tag
     novelai_ntags: str = ""  # 内置的反tag
@@ -41,7 +43,11 @@ class Config(BaseSettings):
     novelai_on: bool = True  # 是否全局开启
     novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
     novelai_random_ratio: bool = True # 是否开启随机比例
+    novelai_random_sampler: bool = True
+    novelai_random_scale: bool = True
     novelai_random_ratio_list: list = [("p", 0.35), ("s", 0.10), ("l", 0.35), ("uw", 0.1), ("uwp", 0.1)] # 随机图片比例
+    novelai_random_sampler_list = [("Euler a", 0.25), ("Euler", 0.1), ("UniPC", 0.05), ("DDIM", 0.1), ("DPM++ 2S a Karras", 0.15), ("DPM++ SDE", 0.05), ("DPM++ 2S a", 0.05), ("DPM adaptive", 0.05), ("DPM++ SDE Karras", 0.05), ("DPM++ 2M Karras", 0.15)]
+    novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
     novelai_load_balance: bool = False # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
     novelai_backend_url_dict: dict = {} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     novelai_sampler: str = None # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
@@ -62,6 +68,11 @@ class Config(BaseSettings):
         "extras_upscaler_2_visibility": 0.7 # 第二层upscaler力度
     } # 以上为个人推荐值
     novelai_ControlNet_post_method: int = 1
+    novelai_size_org: int = 640 # 最大分辨率
+    if novelai_hr:
+        novelai_size: int = novelai_size_org
+    else:
+        novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
     '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
     个人使用第一种方法post显卡占用率反复横跳TAT 
     tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
@@ -108,6 +119,8 @@ class Config(BaseSettings):
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
+    baidu_translate_key: dict = {"SECRET_KEY": "gopa4lkOxWPOSULnr4qvOp4GLbwIRbBU",
+                                "API_KEY": "0qjkSqoIpSj2lEtGt0a2Knos"}
 
     # 允许单群设置的设置
     def keys(cls):
@@ -223,3 +236,26 @@ class Config(BaseSettings):
 
 config = Config(**get_driver().config.dict())
 logger.info(f"加载config完成" + str(config))
+novelai_backend_url_dict = config.novelai_backend_url_dict
+state_dict = {}
+std_dict = {"status": "idle",
+            "start_time": None, 
+            "txt2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
+            "img2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
+            "controlnet": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}}
+
+if os.path.isfile(lb_jsonpath):
+    with open(lb_jsonpath, "r", encoding="utf-8") as f:
+        content = f.read()
+        state_dict: dict = json.loads(content)
+        
+for k, v in novelai_backend_url_dict.items():
+    if v not in state_dict.keys():
+        state_dict[v] = std_dict
+        logger.info(f"新添加后端{k}")
+
+with open(lb_jsonpath, "w", encoding="utf-8") as f:
+    f.write(json.dumps(state_dict))
+    
+logger.info(f"后端数据加载完成, 共有{len(list(novelai_backend_url_dict.keys()))}个后端被加载")
+

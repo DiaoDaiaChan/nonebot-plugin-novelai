@@ -5,10 +5,12 @@ from ..backend import AIDRAW
 from ..extension.translation import translate_deepl, translate
 from ..config import config
 from ..utils.data import basetag, lowQuality
+from ..utils.save import save_img
+from ..aidraw import get_message_at
 
-import random, time, json, re
+import random, time, json, re, base64, aiohttp
 
-today_girl = on_command("二次元的我")
+today_girl = on_command("二次元的我", aliases={"二次元的爷, 二次元的俺"})
 
 # 以下代码来自
 # tags大部分来自幻术魔导书
@@ -309,10 +311,18 @@ replace_dict = {
 
 @today_girl.handle()
 async def _(bot: Bot, event: MessageEvent):
+    img_url = None
+    random_int_str = str(random.randint(0, 65535))
     user_id = str(event.user_id)
     group_id = str(event.group_id)
+    at_id = await get_message_at(event.json())
+    if at_id:
+        img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+        control_net = True
+        user_id = str(at_id)
+        if config.novelai_paid is False:
+            await today_girl.finish(f"以图生图功能已禁用")
     get_info = await bot.get_group_member_info(group_id=group_id, user_id=user_id)
-    random_int_str = str(random.randint(0, 65535))
     user_name = get_info["nickname"] + random_int_str
     user_id_random = user_id + random_int_str
     inst = Choicer(data_dict)
@@ -352,6 +362,11 @@ async def _(bot: Bot, event: MessageEvent):
                       group_id=group_id, 
                       tags=tags, 
                       ntags=ntags)
+        if img_url:
+            async with aiohttp.ClientSession() as session:
+                logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
+                async with session.get(img_url) as resp:
+                    fifo.add_image(await resp.read(), control_net=True)
         try:
             await fifo.post()
         except Exception as e:
@@ -360,9 +375,10 @@ async def _(bot: Bot, event: MessageEvent):
             img_msg = MessageSegment.image(fifo.result[0])
             try:
                 await bot.send(event=event, 
-                            message=f"这是你的二次元形象,hso\n" +img_msg+ f"生成耗费时间{fifo.spend_time}s", 
+                            message=f"这是你的二次元形象,hso\n"+img_msg+f"生成耗费时间{fifo.spend_time}s", 
                             at_sender=True, reply_message=True)
             except ActionFailed:
                 await bot.send(event=event, 
                             message=img_msg, 
                             at_sender=True, reply_message=True)
+            await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_todaygirl")
