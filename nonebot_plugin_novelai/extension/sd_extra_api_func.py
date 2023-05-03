@@ -9,6 +9,7 @@ import io
 import re
 import asyncio
 import aiofiles
+import datetime
 
 from ..config import config
 from ..extension.translation import translate
@@ -130,6 +131,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         site_ = await config(event.group_id, "site") or config.novelai_site
     embs_list = [f"这是来自webui:{site_}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
+    emb_dict = {}
     get_emb_site = "http://" + site + "/sdapi/v1/embeddings"
     resp_json = await aiohttp_func("get", get_emb_site)
     all_embs = list(resp_json[0]["loaded"].keys())
@@ -137,12 +139,14 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
     for i in all_embs:
         n += 1
+        emb_dict[n] = i
         if msg:
             if pattern.match(i):
                 embs_list.append(f"{n}.{i}\t\n")
         else:
             embs_list.append(f"{n}.{i}\t\n")
-            
+    async with aiofiles.open("data/novelai/embs.json", "w", encoding="utf-8") as f:
+        await f.write(json.dumps(emb_dict))
     await risk_control(bot, event, embs_list, True)
 
 
@@ -158,7 +162,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     lora_dict = {}
     get_lora_site = "http://" + site + "/sdapi/v1/lora"
     resp_json = await aiohttp_func("get", get_lora_site)
-    all_lora = list(resp_json[0]["loaded"].keys())
+    all_lora = resp_json[0]["Loras"]
     text_msg = msg.extract_plain_text().strip()
     pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
     for i in all_lora:
@@ -169,7 +173,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                 loras_list.append(f"{n}.{i}\t\n")
         else:
             loras_list.append(f"{n}.{i}\t\n")
-    async with aiofiles.open("loras.json", "w", encoding="utf-8") as f:
+    async with aiofiles.open("data/novelai/loras.json", "w", encoding="utf-8") as f:
         await f.write(json.dumps(lora_dict))
     await risk_control(bot, event, loras_list, True)
 
@@ -354,23 +358,44 @@ async def _(event: MessageEvent, bot: Bot):
 
 @get_backend_status.handle()
 async def _(event: MessageEvent, bot: Bot):
+    async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
+        content = await f.read()
+        backend_info: dict = json.loads(content)
+    backend_info_task_type = ["txt2img", "img2img", "controlnet"]
     n = -1
-    message = ''
-    all_tuple = await sd_LoadBalance()
+    backend_list = list(config.novelai_backend_url_dict.keys())
+    backend_site = list(config.novelai_backend_url_dict.values())
+    message, work_history_list = [], []
+    all_tuple = await sd_LoadBalance(task_type="txt2img")
     resp_tuple = all_tuple[1][2]
+    today = str(datetime.date.today())
+    today_task = 0
     for i in resp_tuple:
         n += 1
         if isinstance(i, asyncio.exceptions.TimeoutError):
-            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}掉线😭\t\n"
+            message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         else:
-            message += f"{n+1}.后端{list(config.novelai_backend_url_dict.keys())[n]}正常,\t"
+            text_message = ''
+            text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n"
             if resp_tuple[n][0]["progress"] in [0, 0.01, 0.0]:
-                message += f"后端空闲中\t\n"
+                text_message += f"后端空闲中\t\n"
             else:
                 eta = resp_tuple[n][0]["eta_relative"]
-                message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\t\n"
+                text_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
+            message.append(text_message)
+        for t in backend_info_task_type:
+            history_list: list[dict] = backend_info[backend_site[n]][t]["info"]["history"]
+            for task in history_list:
+                work_history_list.append(list(task.keys()))
+        today = str(datetime.date.today())
+        for ts in work_history_list:
+            if ts[0] == "null":
+                continue
+            if time.strftime("%Y-%m-%d", time.localtime(float(ts[0]))) == today:
+                today_task += 1
+        message.append(f"今日此后端已画{today_task}张图\t\n")
 
-    await risk_control(bot, event, message, False, True, 650)
+    await risk_control(bot, event, message, True)
 
 
 @control_net_list.handle()

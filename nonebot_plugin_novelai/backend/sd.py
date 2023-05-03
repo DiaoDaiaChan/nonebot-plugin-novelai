@@ -25,13 +25,13 @@ class AIDRAW(AIDRAW_BASE):
         '''
         负载均衡初始化
         '''
-        if self.img2img:
-            self.task_type = "img2img"
-        elif self.control_net:
+        if self.control_net["control_net"]:
             self.task_type = "controlnet"
+        elif self.img2img:
+            self.task_type = "img2img"
         else:
             self.task_type = "txt2img"
-        logger.error(self.task_type)
+        logger.info(f"任务类型:{self.task_type}")
         resp_tuple = await sd_LoadBalance(task_type=self.task_type)
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
@@ -103,11 +103,10 @@ class AIDRAW(AIDRAW_BASE):
                 self.start_time = time.time()
                 parameters_tuple = await self.post_parameters()
                 await self.post_(*parameters_tuple)
-            except Exception as e:
-                traceback.print_exc()
+            except:
                 self.start_time: float = time.time()
                 logger.info(f"第{retry_times}次尝试")
-                logger.info(f"{e}")
+                logger.error(traceback.print_exc())
                 if retry_times >= 2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                     defult_site = config.novelai_site
                     self.backend_index = None

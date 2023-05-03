@@ -22,7 +22,7 @@ import time
 async def calc_avage_time(state_dict_: list, task_type):
     spend_time_list = []
     for date_time in state_dict_[task_type]["info"]["history"]:
-        spend_time_list.append(date_time.values())
+        spend_time_list.append(list(date_time.values())[0])
     spend_time_list.pop(0)
     spend_time_list.sort()
     spend_time_list.pop() and spend_time_list.pop(0)
@@ -84,7 +84,7 @@ async def chose_backend(state_dict, normal_backend):
         task_type = state_dict[i]["status"]
         cur_state_dict = state_dict[i][task_type]
         history_info_list: list = cur_state_dict["info"]
-        logger.error(history_info_list)
+        logger.debug(history_info_list)
         if len(history_info_list["history"]) > 20: # 需要至少20次生成来确定此后端的平均工作时间
             ava_time = (await calc_avage_time(cur_state_dict, task_type) if 
                         history_info_list["history_avage_time"] is None 
@@ -100,7 +100,7 @@ async def chose_backend(state_dict, normal_backend):
     # process_time_rev = {value: key for key, value in backend_process_time}
     backend_process_time = list(backend_processtime.keys())
     backend_process_time.sort()
-    logger.error(backend_processtime[backend_process_time[0]])
+    logger.debug(backend_processtime[backend_process_time[0]])
     return backend_processtime[backend_process_time[0]]
 
 
@@ -147,19 +147,22 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
             else:
                 # 更改判断逻辑
                 if state_dict[resp_tuple[2]]["status"] == "idle":
-                # if resp_tuple[0]["progress"] in [0, 0.01, 0.0]:
                     logger.info("后端空闲")
                     is_avaiable += 1
                     ava_url = normal_backend[n]
                     break
                 else:
+                    if resp_tuple[0]["progress"] in [0, 0.01, 0.0]:
+                        logger.info("后端空闲")
+                        is_avaiable += 1
+                        ava_url = normal_backend[n]
+                        break
                     logger.info("后端忙")
 
     if is_avaiable == 0:
-        print("进入后端选择")
+        logger.debug("进入后端选择")
         ava_url = await chose_backend(state_dict, normal_backend)
 
-    print(f"打印字典{state_dict}")
     logger.info(f"已选择后端{ava_url}")
     tc = int(state_dict[ava_url][task_type]["info"]["tasks_count"])
     tc += 1

@@ -10,6 +10,7 @@ from argparse import Namespace
 from asyncio import get_running_loop
 from nonebot import get_bot, on_shell_command
 import asyncio
+import aiofiles
 
 from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot, ActionFailed
 from nonebot.rule import ArgumentParser
@@ -62,9 +63,9 @@ aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
 aidraw_parser.add_argument("-hr_off",
                            action='store_true', help="关闭高清修复", dest="disable_hr")
 aidraw_parser.add_argument("-emb",
-                           type=int, help="使用的embs", dest="emb")
+                           type=str, help="使用的embs", dest="emb")
 aidraw_parser.add_argument("-lora",
-                           type=int, help="使用的lora", dest="lora")
+                           type=str, help="使用的lora", dest="lora")
 
 
 async def get_message_at(data: str) -> int:
@@ -124,6 +125,36 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             logger.debug(str(e))
             await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         args.ntags = await prepocess_tags(args.ntags)
+        emb_msg, lora_msg = "", ""
+        if args.lora:
+            lora_index, lora_weight = [args.lora], ["0.8"]
+            async with aiofiles.open("data/novelai/loras.json", "r", encoding="utf-8") as f:
+                content = await f.read()
+                lora_dict = json.loads(content)
+            if "_" in args.lora:
+                lora_ = args.lora.split(",")
+                lora_index, lora_weight = zip(*(i.split("_") for i in lora_))
+            elif "," in args.lora:
+                lora_index = args.lora.split(",")
+                lora_weight = ["0.8"] * len(lora_index)
+            for i, w in zip(lora_index, lora_weight):
+                lora_msg += f"<lora:{lora_dict[i]}:{w}>"
+            logger.info(f"使用的lora:{lora_msg}")
+        if args.emb:
+            emb_index, emb_weight = [args.emb], ["0.8"]
+            async with aiofiles.open("data/novelai/emb.json", "r", encoding="utf-8") as f:
+                content = await f.read()
+                emb_dict = json.loads(content)
+            if "_" in args.emb:
+                emb_ = args.emb.split(",")
+                emb_index, emb_weight = zip(*(i.split("_") for i in emb_))
+            elif "," in args.emb:
+                emb_index = args.emb.split(",")
+                emb_weight = ["0.8"] * len(emb_index)
+            for i, w in zip(emb_index, emb_weight):
+                emb_msg += f"<emb:{emb_dict[i]:{w}}>"
+            logger.info(f"使用的emb:{emb_msg}")
+        args.tags += lora_msg + emb_msg
         if args.no_trans: # 不希望翻译的tags
             args.tags = args.tags + args.no_trans
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
@@ -134,20 +165,20 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
         hway = await config.get_value(fifo.group_id, "h")
         if hway is None:
             hway = config.novelai_h
-        if hway == 0 and pattern.findall(fifo.tags):
+        if hway == 0 and re.search(htags, fifo.tags, re.IGNORECASE):
             await aidraw.finish(f"H是不行的!")
-        elif hway ==1:
-            re_list = pattern.findall(fifo.tags)
-            print(re_list)
-            h_words = ""
-            if re_list:
-                for i in re_list:
-                    h_words += f"{i},"
-                    fifo.tags = fifo.tags.replace(i, "")
-                try:
-                    await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
-                except ActionFailed:
-                    logger.info("被风控了")
+        elif hway == 1:
+            if re.search(htags, fifo.tags, re.IGNORECASE):
+                re_list = pattern.findall(fifo.tags)
+                h_words = ""
+                if re_list:
+                    for i in re_list:
+                        h_words += f"{i},"
+                        fifo.tags = fifo.tags.replace(i, "")
+                    try:
+                        await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
+                    except ActionFailed:
+                        logger.info("被风控了")
 
         if not args.override:
             global pre_tags
@@ -201,7 +232,7 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
         user_input = fifo.tags.replace(pre_tags, "")
         # 发送给用户当前的后端
         await fifo.load_balance_init() 
-        extra_message = f"后端:{fifo.backend_name},较抽象的prompt请使用英文"
+        extra_message = f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, CFG Scale:{fifo.scale}"
     else:
         extra_message= ""
     if fifo.backend_index:

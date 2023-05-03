@@ -258,7 +258,7 @@ class AIDRAW_BASE:
                 self.history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]
                 tmp_history_list = self.history_list
                 tmp_backend_info = self.backend_info
-                tmp_history_list.append([{self.start_time: spend_time}])
+                tmp_history_list.append({self.start_time: spend_time})
                 tc = tmp_backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
                 tc -= 1
                 cur_status = "idel" if tc == 0 else self.task_type

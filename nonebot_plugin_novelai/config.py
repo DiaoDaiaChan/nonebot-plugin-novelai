@@ -54,9 +54,9 @@ class Config(BaseSettings):
     novelai_hr: bool = True # 是否启动高清修复
     novelai_hr_payload: dict = {
         "enable_hr": "true", 
-        "denoising_strength": 0.7, # 重绘幅度
-        "hr_scale": 1.5, # 高清修复比例, 1.5为长宽分辨率各X1.5
-        "hr_upscaler": "R-ESRGAN 4x+ Anime6B", # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
+        "denoising_strength": 0.5, # 重绘幅度
+        "hr_scale": 2, # 高清修复比例, 1.5为长宽分辨率各X1.5
+        "hr_upscaler": "Lanczos", # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
         "hr_second_pass_steps": 7, # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000 # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
@@ -119,8 +119,8 @@ class Config(BaseSettings):
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
-    baidu_translate_key: dict = {"SECRET_KEY": "gopa4lkOxWPOSULnr4qvOp4GLbwIRbBU",
-                                "API_KEY": "0qjkSqoIpSj2lEtGt0a2Knos"}
+    baidu_translate_key: dict = {"SECRET_KEY": "",
+                                "API_KEY": ""}
 
     # 允许单群设置的设置
     def keys(cls):
@@ -242,7 +242,8 @@ std_dict = {"status": "idle",
             "start_time": None, 
             "txt2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
             "img2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
-            "controlnet": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}}
+            "controlnet": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}
+            }
 
 if os.path.isfile(lb_jsonpath):
     with open(lb_jsonpath, "r", encoding="utf-8") as f:
@@ -256,6 +257,8 @@ for k, v in novelai_backend_url_dict.items():
 
 with open(lb_jsonpath, "w", encoding="utf-8") as f:
     f.write(json.dumps(state_dict))
+
+
     
 logger.info(f"后端数据加载完成, 共有{len(list(novelai_backend_url_dict.keys()))}个后端被加载")
 
