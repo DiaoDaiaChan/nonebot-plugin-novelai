@@ -4,7 +4,7 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, ActionFailed, Bot
 from nonebot.log import logger
 from .translation import translate
-from .safe_mathod import risk_control
+from .safe_method import risk_control
 
 deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书", "分析"})
 

@@ -94,10 +94,10 @@ class AIDRAW_BASE:
         self.image: str = None
         self.model: str = ""
         if config.novelai_random_sampler:
-            self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
-        else:
             self.sampler: str = (sampler if sampler else 
                                 self.weighted_choice(config.novelai_random_sampler_list) or "Euler a")
+        else:
+            self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
         self.spend_time: float = None
         self.backend_site: str = None
@@ -264,8 +264,8 @@ class AIDRAW_BASE:
                 cur_status = "idel" if tc == 0 else self.task_type
                 tmp_backend_info["status"] = cur_status
                 tmp_backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
-                async with aiofiles.open("data/novelai/load_balance.json", "w") as f:
-                    await f.write(json.dumps(tmp_backend_info))
+                with open("data/novelai/load_balance.json", "w") as f:
+                    f.write(json.dumps(tmp_backend_info))
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
                 # 将图片转化为jpg

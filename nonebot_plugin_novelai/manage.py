@@ -5,7 +5,7 @@ from nonebot.params import RegexGroup
 from nonebot import on_regex
 from nonebot.log import logger
 from .config import config
-from .extension.safe_mathod import risk_control
+from .extension.safe_method import risk_control
 on = on_regex(f"(?:^\.aidraw|^绘画|^aidraw)[ ]*(on$|off$|开启$|关闭$)",
               priority=4, block=True)
 set = on_regex(

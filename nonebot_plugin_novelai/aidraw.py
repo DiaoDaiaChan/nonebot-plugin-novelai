@@ -142,7 +142,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             logger.info(f"使用的lora:{lora_msg}")
         if args.emb:
             emb_index, emb_weight = [args.emb], ["0.8"]
-            async with aiofiles.open("data/novelai/emb.json", "r", encoding="utf-8") as f:
+            async with aiofiles.open("data/novelai/embs.json", "r", encoding="utf-8") as f:
                 content = await f.read()
                 emb_dict = json.loads(content)
             if "_" in args.emb:
@@ -152,7 +152,7 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
                 emb_index = args.emb.split(",")
                 emb_weight = ["0.8"] * len(emb_index)
             for i, w in zip(emb_index, emb_weight):
-                emb_msg += f"<emb:{emb_dict[i]:{w}}>"
+                emb_msg += f"({emb_dict[i]:{w}})"
             logger.info(f"使用的emb:{emb_msg}")
         args.tags += lora_msg + emb_msg
         if args.no_trans: # 不希望翻译的tags

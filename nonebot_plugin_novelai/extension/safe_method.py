@@ -34,7 +34,7 @@ async def markdown_temple(bot: Bot, text):
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 {text}
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
-    '''
+'''
     return markdown
 
 
@@ -43,11 +43,22 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
     '''
     为防止风控的函数, is_forward True为发送转发消息
     '''
+    n = 240
+    new_list = []
+    if len(message) > n and isinstance(message, list):
+        for i in range(0, len(message), n):
+            new_list.append(message[i:i+n])
+    else:
+        if isinstance(message, str):
+            new_list.append(message)
+        else:
+            new_list.append(message)
     if md_temple:
-        msg_list = "".join(message)
-        markdown = await markdown_temple(bot, msg_list)
-        img = await md_to_pic(md=markdown, width=width)
-        await bot.send(event=event, message=MessageSegment.image(img))
+        for img in new_list:
+            msg_list = "".join(img)
+            markdown = await markdown_temple(bot, msg_list)
+            img = await md_to_pic(md=markdown, width=width)
+            await bot.send(event=event, message=MessageSegment.image(img))
         return
     if isinstance(message, list):
         if is_forward:
@@ -55,10 +66,11 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
             try:
                 await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
             except:
-                msg_list = "".join(message)
-                markdown = await markdown_temple(bot, msg_list)
-                img = await md_to_pic(md=markdown, width=width)
-                await bot.send(event=event, message=MessageSegment.image(img))
+                for img in new_list:
+                    msg_list = "".join(img)
+                    markdown = await markdown_temple(bot, msg_list)
+                    img = await md_to_pic(md=markdown, width=width)
+                    await bot.send(event=event, message=MessageSegment.image(img))
             return
     try:
         await bot.send(event=event, message=msg_list)

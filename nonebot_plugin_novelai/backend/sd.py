@@ -45,13 +45,16 @@ class AIDRAW(AIDRAW_BASE):
             if self.backend_index:
                 site = list(config.novelai_backend_url_dict.values())[self.backend_index]
             else:
-                if self.backend_site is None:
+                if self.backend_site:
+                    site = self.backend_site
+                else:
                     await self.load_balance_init()
-                site = self.backend_site
+                    site = defult_site
         else:
             if self.backend_index:
                 site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
-            site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
+            else:
+                site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
         post_api = f"http://{site}/sdapi/v1/img2img" if self.img2img else f"http://{site}/sdapi/v1/txt2img"
         
         parameters = {
@@ -105,9 +108,9 @@ class AIDRAW(AIDRAW_BASE):
                 await self.post_(*parameters_tuple)
             except:
                 self.start_time: float = time.time()
-                logger.info(f"第{retry_times}次尝试")
+                logger.info(f"第{retry_times + 1}次尝试")
                 logger.error(traceback.print_exc())
-                if retry_times >= 2: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+                if retry_times >= 1: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                     defult_site = config.novelai_site
                     self.backend_index = None
                     self.backend_site = None 

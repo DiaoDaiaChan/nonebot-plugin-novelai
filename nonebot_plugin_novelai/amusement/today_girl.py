@@ -368,6 +368,7 @@ async def _(bot: Bot, event: MessageEvent):
                 async with session.get(img_url) as resp:
                     fifo.add_image(await resp.read(), control_net=True)
         try:
+            await fifo.load_balance_init()
             await fifo.post()
         except Exception as e:
             await today_girl.finish(f"服务端出错辣,{e.args}")

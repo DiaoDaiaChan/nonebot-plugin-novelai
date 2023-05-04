@@ -18,7 +18,7 @@ from .translation import translate
 from ..backend import AIDRAW
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance
-from .safe_mathod import send_forward_msg, risk_control
+from .safe_method import send_forward_msg, risk_control
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed
@@ -365,12 +365,13 @@ async def _(event: MessageEvent, bot: Bot):
     n = -1
     backend_list = list(config.novelai_backend_url_dict.keys())
     backend_site = list(config.novelai_backend_url_dict.values())
-    message, work_history_list = [], []
+    message = []
     all_tuple = await sd_LoadBalance(task_type="txt2img")
     resp_tuple = all_tuple[1][2]
     today = str(datetime.date.today())
-    today_task = 0
     for i in resp_tuple:
+        work_history_list = []
+        today_task = 0
         n += 1
         if isinstance(i, asyncio.exceptions.TimeoutError):
             message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")

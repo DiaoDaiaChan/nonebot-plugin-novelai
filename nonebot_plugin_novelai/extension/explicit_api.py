@@ -3,7 +3,7 @@ from ..utils.save import save_img
 from ..utils import sendtosuperuser
 from io import BytesIO
 import base64
-import aiohttp
+import aiohttp, aiofiles
 import nonebot
 import os
 import urllib
@@ -36,14 +36,15 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                     i = resp_tuple[0]
                 except:
                     logger.debug("超分API失效")
-            await save_img(fifo, i)
+            await save_img(fifo, i, fifo.group_id)
             message += MessageSegment.image(i)
             return message
         if label == "safe":
             if config.novelai_SuperRes_generate:
                 try:
                     resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
+                    for i in resp_tuple:
+                        i = resp_tuple[0]
                 except:
                     pass
             message += MessageSegment.image(i)
@@ -73,7 +74,7 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                             await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
             elif htype == 3:
                 pass
-        await save_img(fifo, i)
+        await save_img(fifo, i, fifo.group_id+label)
     if nsfw_count:
         message += f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了"
     return message
@@ -89,8 +90,9 @@ async def check_safe(img_bytes: BytesIO, fifo):
     if  picaudit == 2 or config.novelai_picaudit == 2:
         try:
             import tensorflow as tf
+            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection")
         except:
-            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection && pip install tensorflow==2.9")
+            os.system("pip install tensorflow==2.9")
             import tensorflow as tf
         from typing import IO
         from io import BytesIO
@@ -120,6 +122,7 @@ async def check_safe(img_bytes: BytesIO, fifo):
             logger.debug(possibilities)
             return possibilities
         
+
         file_obj = BytesIO(img_bytes)
         possibilities = await main(file_obj)
         value = list(possibilities.values())
@@ -157,8 +160,9 @@ async def check_safe(img_bytes: BytesIO, fifo):
                 json = await resp.json()
                 return json["access_token"]
 
-    with open("image.jpg", "wb") as f:
-        f.write(img_bytes)
+
+    async with aiofiles.open("image.jpg", "wb") as f:
+        await f.write(img_bytes)
     base64_pic = await get_file_content_as_base64("image.jpg", True)
     payload = 'image=' + base64_pic
     token = await get_access_token()
@@ -171,8 +175,3 @@ async def check_safe(img_bytes: BytesIO, fifo):
                 return "safe", result['data'][0]['probability'] * 100
             else:
                 return "", result['data'][0]['probability'] * 100
-    
-
-
-
-
