@@ -118,6 +118,8 @@ async def translate_google_proxy(input: str, to: str):
                 return None
             result = await resp.json()
             result=result["data"][0]
+            if "429" in result:
+                return None
             logger.debug(f"谷歌代理翻译启动，获取到{input},翻译后{result}")
             return result
 
@@ -139,6 +141,9 @@ async def get_access_token():
 
 
 async def translate_baidu(input: str, to: str):
+    key = config.baidu_translate_key
+    if not key:
+        return None
     token = await get_access_token()
     url = 'https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1?access_token=' + token
     # For list of language codes, please refer to `https://ai.baidu.com/ai-doc/MT/4kqryjku9#语种列表`

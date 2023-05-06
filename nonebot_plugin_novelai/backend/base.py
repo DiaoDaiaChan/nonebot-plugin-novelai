@@ -15,6 +15,7 @@ from ..config import config
 from ..utils import png2jpg
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
+history_list = []
 
 
 class AIDRAW_BASE:
@@ -87,7 +88,7 @@ class AIDRAW_BASE:
         else:
             self.scale = int(scale or config.novelai_scale)
         self.strength: float = strength or 0.7
-        self.steps: int = steps or 20
+        self.steps: int = steps or 28
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
         self.img2img: bool = False
@@ -110,9 +111,10 @@ class AIDRAW_BASE:
         self.control_net = {"control_net": False, 
                            "controlnet_module": "",
                            "controlnet_model": ""}
-        self.backend_info = None
+        with open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
+            content = f.read()
+            self.backend_info: dict = json.loads(content)
         self.task_type = None
-        self.history_list: list = None
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
@@ -237,6 +239,7 @@ class AIDRAW_BASE:
         # 请求交互      
         async with aiohttp.ClientSession(headers=header, timeout=aiohttp.ClientTimeout(total=1800)) as session:
             # 向服务器发送请求
+            global history_list
             async with session.post(post_api, json=payload) as resp:
                 if resp.status not in [200, 201]:
                     resp_dict = json.loads(await resp.text())
@@ -255,17 +258,15 @@ class AIDRAW_BASE:
                     raise RuntimeError(f"与服务器沟通时发生{resp.status}错误")
                 spend_time = time.time() - self.start_time
                 self.spend_time = f"{spend_time:.2f}秒"
-                self.history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]
-                tmp_history_list = self.history_list
-                tmp_backend_info = self.backend_info
+                tmp_history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]
                 tmp_history_list.append({self.start_time: spend_time})
-                tc = tmp_backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
+                tc = self.backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
                 tc -= 1
                 cur_status = "idel" if tc == 0 else self.task_type
-                tmp_backend_info["status"] = cur_status
-                tmp_backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
+                self.backend_info["status"] = cur_status
+                self.backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
                 with open("data/novelai/load_balance.json", "w") as f:
-                    f.write(json.dumps(tmp_backend_info))
+                    f.write(json.dumps(self.backend_info))
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
                 # 将图片转化为jpg

@@ -95,9 +95,6 @@ class AIDRAW(AIDRAW_BASE):
         return header, post_api, parameters
 
     async def post(self):
-        async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
-            content = await f.read()
-            self.backend_info: dict = json.loads(content)
         global defult_site
         defult_site = None # 所有后端失效后, 尝试使用默认后端
         # 失效自动重试 

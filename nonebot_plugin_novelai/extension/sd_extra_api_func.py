@@ -248,6 +248,7 @@ async def __():
 
 @control_net.got("net", "你的图图呢？")
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
+    await func_init(event)
     start = time.time()
     tags_en = None
     reply= event.reply
@@ -257,8 +258,8 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
             img_url = seg.data["url"]
         for seg in event.message['image']:
             img_url = seg.data["url"]
-        if msg[0].type == "image":
-                img_url = msg[0].data["url"]
+    if msg[0].type == "image":
+            img_url = msg[0].data["url"]
     else:
         tag = msg[0].data["text"]
         img_url = msg[1].data["url"]
@@ -288,7 +289,8 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
 async def get_sd_models(event: MessageEvent, bot: Bot):
     await func_init(event)
     final_message = await sd(site)
-    await risk_control(bot, event, final_message, True)
+    print(final_message)
+    await risk_control(bot, event, final_message, True, True)
 
 
 @change_models.handle()

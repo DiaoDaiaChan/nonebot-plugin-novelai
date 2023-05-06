@@ -119,8 +119,7 @@ class Config(BaseSettings):
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
-    baidu_translate_key: dict = {"SECRET_KEY": "",
-                                "API_KEY": ""}
+    baidu_translate_key: dict = None
 
     # 允许单群设置的设置
     def keys(cls):
