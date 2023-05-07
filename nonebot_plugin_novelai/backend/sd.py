@@ -35,6 +35,8 @@ class AIDRAW(AIDRAW_BASE):
         resp_tuple = await sd_LoadBalance(task_type=self.task_type)
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
+        if resp_tuple[1][3] <= 1:
+            self.hiresfix_scale = self.hiresfix_scale * 0.75
 
     async def post_parameters(self):
         '''
@@ -70,14 +72,14 @@ class AIDRAW(AIDRAW_BASE):
 
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
-                parameters.update(config.novelai_hr_payload)
+                parameters.update(self.novelai_hr_payload)
             parameters.update({
                 "init_images": ["data:image/jpeg;base64,"+self.image],
                 "denoising_strength": self.strength,
             })
         else:
             if config.novelai_hr and self.disable_hr is False:
-                parameters.update(config.novelai_hr_payload)
+                parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
         if self.control_net["control_net"] == True:

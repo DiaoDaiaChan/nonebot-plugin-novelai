@@ -14,7 +14,7 @@ from nonebot.log import logger
 from ..config import config 
 from .super_res import super_res_api_func
 
-async def check_safe_method(fifo, img_bytes, message, bot_id):
+async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
     bot = nonebot.get_bot(bot_id)
     raw_message = f"\n{nickname}已经"
     label = ""
@@ -37,7 +37,7 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                 except:
                     logger.debug("超分API失效")
             await save_img(fifo, i, fifo.group_id)
-            message += MessageSegment.image(i)
+            message.append(MessageSegment.image(i))
             return message
         if label == "safe":
             if config.novelai_SuperRes_generate:
@@ -47,10 +47,10 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                         i = resp_tuple[0]
                 except:
                     pass
-            message += MessageSegment.image(i)
+            message.append(MessageSegment.image(i))
         else:
             label = "explicit"
-            message += f"\n太涩了,让我先看, 这张图涩度{h_value}%"
+            message.append(f"\n太涩了,让我先看, 这张图涩度{h_value}%")
             nsfw_count += 1
             htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
             message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
@@ -76,7 +76,7 @@ async def check_safe_method(fifo, img_bytes, message, bot_id):
                 pass
         await save_img(fifo, i, fifo.group_id+label)
     if nsfw_count:
-        message += f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了"
+        message.append(f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
     return message
 
 

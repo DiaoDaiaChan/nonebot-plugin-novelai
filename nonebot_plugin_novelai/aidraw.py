@@ -11,8 +11,9 @@ from asyncio import get_running_loop
 from nonebot import get_bot, on_shell_command
 import asyncio
 import aiofiles
+import traceback
 
-from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot, ActionFailed
+from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
@@ -28,6 +29,8 @@ from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
 from .version import version
 from .utils import sendtosuperuser
+from .extension.safe_method import send_forward_msg
+from .extension.sd_extra_api_func import change_model
 cd = {}
 gennerating = False
 wait_list = deque([])
@@ -66,6 +69,10 @@ aidraw_parser.add_argument("-emb",
                            type=str, help="使用的embs", dest="emb")
 aidraw_parser.add_argument("-lora",
                            type=str, help="使用的lora", dest="lora")
+aidraw_parser.add_argument("-hr",
+                           type=float, help="高清修复倍率", dest="hiresfix_scale")
+aidraw_parser.add_argument("-m",
+                           type=str, help="更换模型", dest="model")
 
 
 async def get_message_at(data: str) -> int:
@@ -74,6 +81,7 @@ async def get_message_at(data: str) -> int:
     :param data: event.json()
     '''
     data = json.loads(data)
+    logger.error(data)
     try:
         msg = data['original_message'][1]
         if msg['type'] == 'at':
@@ -91,9 +99,12 @@ aidraw = on_shell_command(
 
 
 @aidraw.handle()
-async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = ShellCommandArgs()):
+async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellCommandArgs()):
     user_id = str(event.user_id)
-    group_id = str(event.group_id)
+    if isinstance(event, PrivateMessageEvent):
+        group_id = str(event.user_id)
+    else:
+        group_id = str(event.group_id)
     global bot_id
     bot_id = bot.self_id
     # 判断是否禁用，若没禁用，进入处理流程
@@ -125,6 +136,9 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             logger.debug(str(e))
             await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         args.ntags = await prepocess_tags(args.ntags)
+        if args.model:
+            await change_model(event, bot, args.model)
+
         emb_msg, lora_msg = "", ""
         if args.lora:
             lora_index, lora_weight = [args.lora], ["0.8"]
@@ -213,25 +227,26 @@ async def aidraw_get(bot: Bot, event: GroupMessageEvent, args: Namespace = Shell
             anlascost = fifo.cost
             hasanlas = await anlas_check(fifo.user_id)
             if hasanlas >= anlascost:
-                await wait_fifo(fifo, anlascost, hasanlas - anlascost, message=message, bot=bot)
+                await wait_fifo(fifo, event, anlascost, hasanlas - anlascost, message=message, bot=bot,)
             else:
                 await aidraw.finish(f"你的点数不足，你的剩余点数为{hasanlas}")
         else:
             try:
-                await wait_fifo(fifo, message=message, bot=bot)
-            except ActionFailed or Exception:
+                await wait_fifo(fifo, event, message=message, bot=bot)
+            except ActionFailed:
+                logger.error(traceback.print_exc())
                 logger.info("风控了,额外消息发不出来捏")
 
 
-async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
+async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     # 纯净模式额外信息
+    await fifo.load_balance_init()
     if await config.get_value(fifo.group_id, "pure"):
         # hr_scale = config.novelai_hr_payload["hr_scale"]
         extra_message_list = [f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, cfg:{fifo.scale}"]
         user_input = fifo.tags.replace(pre_tags, "")
         # 发送给用户当前的后端
-        await fifo.load_balance_init() 
         extra_message = f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, CFG Scale:{fifo.scale}"
     else:
         extra_message= ""
@@ -282,14 +297,14 @@ async def wait_fifo(fifo, anlascost=None, anlas=None, message="", bot=None):
             logger.info("被风控了")
         finally:
             wait_list.append(fifo)
-            await fifo_gennerate(bot=bot)  
+            await fifo_gennerate(event, bot=bot) 
     else:
         try:
             await aidraw.send(no_wait)
         except:
             logger.info("被风控了")
         finally:
-            await fifo_gennerate(fifo, bot)
+            await fifo_gennerate(event, fifo, bot)
                                            
 
 def wait_len():
@@ -300,17 +315,20 @@ def wait_len():
     return list_len
 
 
-async def fifo_gennerate(fifo: AIDRAW = None, bot: Bot = None):
+async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
     # 队列处理
     global gennerating
     if not bot:
         bot = get_bot()
 
     async def generate(fifo: AIDRAW):
+        resp = {}
         id = fifo.user_id if config.novelai_antireport else bot.self_id
-        resp = await bot.get_group_member_info(group_id=fifo.group_id, user_id=fifo.user_id)
-        nickname = resp["card"] or resp["nickname"]
-
+        if isinstance(event, PrivateMessageEvent):
+            nickname = "雕雕"
+        else:
+            resp = await bot.get_group_member_info(group_id=fifo.group_id, user_id=fifo.user_id)
+            nickname = resp["card"] or resp["nickname"]
         # 开始生成
         logger.info(
             f"队列剩余{wait_len()}人 | 开始生成：{fifo}")
@@ -321,23 +339,28 @@ async def fifo_gennerate(fifo: AIDRAW = None, bot: Bot = None):
             message = f"生成失败，"
             for i in e.args:
                 message += str(i)
-            await bot.send_group_msg(
-                message=message,
-                group_id=fifo.group_id
+            await bot.send(event=event, 
+                           message=message,
             )
         else:
             logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
-            
-            # 这段三元表达式谢谢ChatGPT的大力帮助(
-            message = MessageSegment.at(fifo.user_id)
-            for i in im["image"]:
-                message += i
-            message_data = await bot.send_group_msg(
-                message=message,
-                group_id=fifo.group_id,
-            ) if (await config.get_value(fifo.group_id, "pure")) == True or (await config.get_value(fifo.group_id, "pure")) == None and config.novelai_pure == True else await bot.send_group_forward_msg(
-                messages=[MessageSegment.node_custom(id, nickname, i) for i in im],
-                group_id=fifo.group_id,
+            pic_message = im[1]
+            res_msg = f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})" if fifo.hiresfix else f"分辨率:{fifo.width}x{fifo.height}"
+            try:
+                message_data = await bot.send(event=event, 
+                                          message=pic_message+f"模型:{fifo.model}\n{res_msg}", 
+                                          at_sender=True, 
+                                          reply_messasge=True
+            ) if (
+                    await config.get_value(fifo.group_id, "pure")) or (
+                    await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
+                    await send_forward_msg(bot=bot, event=event, name=nickname, uin=id, msgs=im)
+                )
+            except ActionFailed:
+                message_data = await bot.send(event=event, 
+                                             message=pic_message, 
+                                             at_sender=True, 
+                                             reply_messasge=True
             )
 
             revoke = await config.get_value(fifo.group_id, "revoke")
@@ -371,6 +394,7 @@ async def fifo_gennerate(fifo: AIDRAW = None, bot: Bot = None):
 
 async def _run_gennerate(fifo: AIDRAW):
     # 处理单个请求
+    message: list = []
     try:
         await fifo.post()
     except ClientConnectorError:
@@ -381,13 +405,10 @@ async def _run_gennerate(fifo: AIDRAW):
         raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
     # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
     # 构造消息体并保存图片
-    message = f"{config.novelai_mode}绘画完成~"
+    message.append(f"{config.novelai_mode}绘画完成~")
     message = await check_safe_method(fifo, fifo.result, message, bot_id)
-    # for i in fifo.result:
-    #     await save_img(fifo, i, fifo.group_id)
-    #     message += MessageSegment.image(i)
     for i in fifo.format():
-        message += MessageSegment.text(i)
+        message.append(i)
     # 扣除点数
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)

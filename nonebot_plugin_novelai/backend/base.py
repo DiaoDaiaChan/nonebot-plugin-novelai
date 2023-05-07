@@ -39,6 +39,7 @@ class AIDRAW_BASE:
         sampler: None or str = None,
         backend_index: int = None,
         disable_hr: bool = False if config.novelai_hr else True,
+        hiresfix_scale: bool = None,
         **kwargs,
     ):
         """
@@ -71,7 +72,7 @@ class AIDRAW_BASE:
         self.disable_hr = disable_hr
         if config.novelai_random_ratio == True:
             random_shape = self.weighted_choice(config.novelai_random_ratio_list)
-            shape = man_shape or "p" if man_shape else random_shape
+            shape = man_shape or random_shape
             self.width, self.height = self.extract_shape(shape)
         else:
             self.width, self.height = self.extract_shape(man_shape)
@@ -105,8 +106,10 @@ class AIDRAW_BASE:
         self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
+        self.novelai_hr_payload = config.novelai_hr_payload
+        self.hiresfix_scale: int or float = hiresfix_scale or config.novelai_hr_payload["hr_scale"]
+        self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix: bool = True if config.novelai_hr else False
-        self.hiresfix_scale = config.novelai_hr_payload["hr_scale"]
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
         self.control_net = {"control_net": False, 
                            "controlnet_module": "",
@@ -114,7 +117,7 @@ class AIDRAW_BASE:
         with open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
             content = f.read()
             self.backend_info: dict = json.loads(content)
-        self.task_type = None
+        self.task_type: str = None
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
@@ -136,12 +139,15 @@ class AIDRAW_BASE:
         将shape拆分为width和height
         """
         if shape:
-            if "x" in shape:
-                width, height, *_ = shape.split("x")
-                if width.isdigit() and height.isdigit():
-                    return self.shape_set(int(width), int(height))
+            separators = ["x", "X", "*"]
+            for sep in separators:
+                if sep in shape:
+                    width, height, *_ = shape.split(sep)
+                    break
                 else:
                     return shapemap.get(shape)
+            if width.isdigit() and height.isdigit():
+                return self.shape_set(int(width), int(height))
             else:
                 return shapemap.get(shape)
         else:
@@ -207,17 +213,18 @@ class AIDRAW_BASE:
         """
         设置宽高
         """
+        tmp = None
         if self.disable_hr:
-            config.novelai_size = config.novelai_size * config.novelai_hr_payload["hr_scale"]
+            tmp = config.novelai_size * config.novelai_hr_payload["hr_scale"]
         limit = extra_limit or 1024 if config.paid else 640
-        if width * height > pow(min(extra_limit or config.novelai_size, limit), 2):
+        if width * height > pow(min(extra_limit or tmp or config.novelai_size, limit), 2):
             if width <= height:
                 ratio = height / width
-                width: float = extra_limit or config.novelai_size / pow(ratio, 0.5)
+                width: float = extra_limit or tmp or config.novelai_size / pow(ratio, 0.5)
                 height: float = width * ratio
             else:
                 ratio = width / height
-                height: float = extra_limit or config.novelai_size / pow(ratio, 0.5)
+                height: float = extra_limit or tmp or config.novelai_size / pow(ratio, 0.5)
                 width: float = height * ratio
             if extra_limit:
                 return width, height

@@ -118,9 +118,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
     is_avaiable = 0
     status_dict = {}
     ava_url = None
-    t = 0
     n = -1
-    defult_eta = 25
     for url in backend_url_dict.values():
         tasks.append(get_progress(url))
     # 获取api队列状态
@@ -149,13 +147,12 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
                         logger.info("后端空闲")
                         is_avaiable += 1
                         ava_url = normal_backend[n]
-                        break
                 else:
-                    if state_dict[resp_tuple[2]]["status"] == "idle":
-                        logger.info("后端空闲")
-                        is_avaiable += 1
-                        ava_url = normal_backend[n]
-                        break
+                    # if state_dict[resp_tuple[2]]["status"] == "idle":
+                    #     logger.info("后端空闲")
+                    #     is_avaiable += 1
+                    #     ava_url = normal_backend[n]
+                    #     break
                     logger.info("后端忙")
 
     if is_avaiable == 0:
@@ -171,7 +168,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
     with open("data/novelai/load_balance.json", "w", encoding="utf-8") as f:
         f.write(json.dumps(state_dict))
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
-    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp)
+    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))
     try:
         return ava_url_index, ava_url_tuple, normal_backend, state_dict
     except KeyError:

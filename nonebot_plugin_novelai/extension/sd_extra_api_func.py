@@ -59,6 +59,8 @@ get_backend_status = on_command("后端", aliases={"查看后端"})
 get_emb = on_command("emb", aliases={"embs"})
 get_lora = on_command("lora", aliases={"loras"})
 get_sampler = on_command("采样器", aliases={"获取采样器"})
+translate_ = on_command("翻译")
+hr_fix = on_command("高清修复")
 
 more_func_parser = ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -71,6 +73,34 @@ set_sd_config = on_shell_command(
     parser=more_func_parser,
     priority=5
 )
+
+async def change_model(event: MessageEvent, bot: Bot, model_index):
+    await func_init(event)
+    try:
+        site_ = reverse_dict[site]
+    except:
+        site_ = await config(event.group_id, "site") or config.novelai_site
+    try:
+        site_index = list(config.novelai_backend_url_dict.keys()).index(site_)
+    except:
+        site_index = ""
+    async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
+        content = await f.read()
+        models_dict = json.loads(content)
+    try:
+        
+        data = models_dict[model_index]
+        await bot.send(event=event, message=f"收到指令，为后端{site_}更换模型中，后端索引-sd {site_index}，请等待,期间无法出图", at_sender=True)
+        start = time.time()
+        code, end = await set_config(data)
+        spend_time = end - start
+        spend_time_msg = str(',更换模型共耗时%.3f秒' % spend_time)
+        if code in [200, 201]:
+            await bot.send(event=event, message="更换模型%s成功" % str(data) + spend_time_msg , at_sender=True) 
+        else:
+            await bot.send(event=event, message="更换模型失败，错误代码%s" % str(code), at_sender=True)
+    except KeyError:
+        await get_models.finish("输入错误,索引错误")
 
 
 async def aiohttp_func(way, url, payload=""):
@@ -294,26 +324,9 @@ async def get_sd_models(event: MessageEvent, bot: Bot):
 
 
 @change_models.handle()
-async def get_sd_models(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    await func_init(event)
-
-    with open("models.json", "r", encoding='utf-8') as f:
-        models_dict = json.load(f)
-    model_index = msg.extract_plain_text().strip()
-    
-    try:
-        data = models_dict[model_index]
-        await bot.send(event=event, message="收到指令，模型更换需要几分钟至10分钟，请等待,期间无法出图", at_sender=True)
-        start = time.time()
-        code, end = await set_config(data)
-        spend_time = end - start
-        spend_time_msg = str(',更换模型共耗时%.3f秒' % spend_time)
-        if code in [200, 201]:
-            await bot.send(event=event, message="更换模型%s成功" % str(data) + spend_time_msg , at_sender=True) 
-        else:
-            await bot.send(event=event, message="更换模型失败，错误代码%s" % str(code), at_sender=True)
-    except KeyError:
-        await get_models.finish("输入错误,索引错误")
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    index = msg.extract_plain_text()
+    await change_model(event, bot, index)
 
 
 async def sd(site):
@@ -333,7 +346,7 @@ async def sd(site):
         n = n + 1
     message.append("总计%d个模型" % int(n - 1))
     message_all = message1 + message
-    with open("models.json", "w", encoding='utf-8') as f:
+    with open("data/novelai/models.json", "w", encoding='utf-8') as f:
         f.write(json.dumps(dict_model, indent=4))
     return message_all
 
@@ -433,3 +446,10 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     model_list = resp_1[0]["model_list"]
     module_list = resp_2[0]["module_list"]
     await risk_control(bot, event, model_list+module_list, True)
+
+
+@translate_.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    txt_msg = msg.extract_plain_text()
+    en = await translate(txt_msg, "en")
+    await risk_control(bot=bot, event=event, message=en, is_forward=True)
