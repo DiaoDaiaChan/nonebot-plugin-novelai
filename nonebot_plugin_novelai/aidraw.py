@@ -55,7 +55,7 @@ aidraw_parser.add_argument("-n", "--noise", "-噪声",
                            type=float, help="修改噪声", dest="noise")
 aidraw_parser.add_argument("-o", "--override", "-不优化",
                            action='store_true', help="不使用内置优化参数", dest="override")
-aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,
+aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,metavar="backend_index",
                            help="select backend", dest="backend_index")
 aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
                            help="选择采样器", dest="sampler")
@@ -102,7 +102,7 @@ aidraw = on_shell_command(
 async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellCommandArgs()):
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
-        group_id = str(event.user_id)
+        group_id = str(event.user_id)+"_private"
     else:
         group_id = str(event.group_id)
     global bot_id
@@ -171,6 +171,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         args.tags += lora_msg + emb_msg
         if args.no_trans: # 不希望翻译的tags
             args.tags = args.tags + args.no_trans
+        # if args.backend_index:
+        #     args.backend_site = list(config.novelai_backend_url_dict.values())[args.backend_index]
         fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
@@ -250,7 +252,7 @@ async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=Non
         extra_message = f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, CFG Scale:{fifo.scale}"
     else:
         extra_message= ""
-    if fifo.backend_index:
+    if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
         fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
         extra_message = f"已选择后端:{fifo.backend_name}"
     list_len = wait_len()

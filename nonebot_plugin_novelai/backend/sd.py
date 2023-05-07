@@ -44,7 +44,7 @@ class AIDRAW(AIDRAW_BASE):
         '''
         global site
         if config.novelai_load_balance:
-            if self.backend_index:
+            if self.backend_index is not None and isinstance(self.backend_index, int):
                 site = list(config.novelai_backend_url_dict.values())[self.backend_index]
             else:
                 if self.backend_site:
@@ -53,7 +53,7 @@ class AIDRAW(AIDRAW_BASE):
                     await self.load_balance_init()
                     site = defult_site
         else:
-            if self.backend_index:
+            if self.backend_index is not None and isinstance(self.backend_index, int):
                 site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
             else:
                 site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"

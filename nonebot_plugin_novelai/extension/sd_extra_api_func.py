@@ -452,4 +452,5 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     txt_msg = msg.extract_plain_text()
     en = await translate(txt_msg, "en")
-    await risk_control(bot=bot, event=event, message=en, is_forward=True)
+    en = [en]
+    await risk_control(bot=bot, event=event, message=en)

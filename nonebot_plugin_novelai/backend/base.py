@@ -37,9 +37,9 @@ class AIDRAW_BASE:
         man_shape: str = None,
         model: str = "",
         sampler: None or str = None,
-        backend_index: int = None,
+        backend_index: str = None,
         disable_hr: bool = False if config.novelai_hr else True,
-        hiresfix_scale: bool = None,
+        hiresfix_scale: float = None,
         **kwargs,
     ):
         """
@@ -97,7 +97,8 @@ class AIDRAW_BASE:
         self.model: str = ""
         if config.novelai_random_sampler:
             self.sampler: str = (sampler if sampler else 
-                                self.weighted_choice(config.novelai_random_sampler_list) or "Euler a")
+                                self.weighted_choice(config.novelai_random_sampler_list) or 
+                                "Euler a")
         else:
             self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
@@ -106,8 +107,8 @@ class AIDRAW_BASE:
         self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
+        self.hiresfix_scale: float = hiresfix_scale or config.novelai_hr_scale
         self.novelai_hr_payload = config.novelai_hr_payload
-        self.hiresfix_scale: int or float = hiresfix_scale or config.novelai_hr_payload["hr_scale"]
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix: bool = True if config.novelai_hr else False
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
