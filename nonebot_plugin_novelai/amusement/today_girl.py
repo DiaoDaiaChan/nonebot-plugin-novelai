@@ -3,6 +3,7 @@ from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Actio
 
 from ..backend import AIDRAW
 from ..extension.translation import translate_deepl, translate
+from ..extension.daylimit import DayLimit
 from ..config import config
 from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
@@ -311,6 +312,9 @@ replace_dict = {
 
 @today_girl.handle()
 async def _(bot: Bot, event: MessageEvent):
+    left = DayLimit.count(str(event.user_id), 1)
+    if left == -1:
+        await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     img_url = None
     random_int_str = str(random.randint(0, 65535))
     user_id = str(event.user_id)

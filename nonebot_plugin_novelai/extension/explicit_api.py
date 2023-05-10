@@ -13,6 +13,9 @@ from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, 
 from nonebot.log import logger
 from ..config import config 
 from .super_res import super_res_api_func
+import qrcode
+import time
+
 
 async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
     bot = nonebot.get_bot(bot_id)
@@ -71,7 +74,17 @@ async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
                         try:
                             await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
                         except ActionFailed:
-                            await  bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
+                            try:
+                                await bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
+                            except ActionFailed:
+                                img_id = time.time()
+                                img = qrcode.make(img_url[0])
+                                file_name = f"qr_code_{img_id}.png"
+                                img.save(file_name)
+                                with open(file_name, 'rb') as f:
+                                    bytes_img = f.read()
+                                await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
+                                os.remove(file_name)
             elif htype == 3:
                 pass
         await save_img(fifo, i, fifo.group_id+label)
@@ -87,23 +100,21 @@ async def check_safe(img_bytes: BytesIO, fifo):
     'Accept': 'application/json'
 }
     picaudit = await config.get_value(fifo.group_id, "picaudit")
-    if  picaudit == 2 or config.novelai_picaudit == 2:
+    if picaudit == 2 or config.novelai_picaudit == 2:
+        if os.path.isfile("rainchan-image-porn-detection/lite_model.tflite"):
+            pass
+        else:
+            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection")
         try:
             import tensorflow as tf
-            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection")
         except:
             os.system("pip install tensorflow==2.9")
             import tensorflow as tf
         from typing import IO
         from io import BytesIO
-        SIZE = 224
-        inter = tf.lite.Interpreter("rainchan-image-porn-detection/lite_model.tflite", num_threads=12)
-        inter.allocate_tensors()
-        in_tensor, *_ = inter.get_input_details()
-        out_tensor, *_ = inter.get_output_details()
 
 
-        async def process_data(content):
+        async def process_data(content, SIZE):
             img = tf.io.decode_jpeg(content, channels=3)
             img = tf.image.resize_with_pad(img, SIZE, SIZE, method="nearest")
             img = tf.image.resize(img, (SIZE, SIZE), method="nearest")
@@ -112,7 +123,12 @@ async def check_safe(img_bytes: BytesIO, fifo):
 
 
         async def main(file: IO[bytes]):
-            data = await process_data(file.read())
+            SIZE = 224
+            inter = tf.lite.Interpreter("rainchan-image-porn-detection/lite_model.tflite", num_threads=12)
+            inter.allocate_tensors()
+            in_tensor, *_ = inter.get_input_details()
+            out_tensor, *_ = inter.get_output_details()
+            data = await process_data(file.read(), SIZE)
             data = tf.expand_dims(data, 0)
             inter.set_tensor(in_tensor["index"], data)
             inter.invoke()

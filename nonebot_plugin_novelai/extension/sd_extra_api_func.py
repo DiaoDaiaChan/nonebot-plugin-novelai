@@ -21,13 +21,14 @@ from ..utils.load_balance import sd_LoadBalance
 from .safe_method import send_forward_msg, risk_control
 
 from nonebot import on_command, on_shell_command
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed
+from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot import require
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
+from ..extension.daylimit import DayLimit
 
 
 async def func_init(event):
@@ -35,7 +36,10 @@ async def func_init(event):
     获取当前群的后端设置
     '''
     global site, reverse_dict
-    site = await config.get_value(event.group_id, "site") or config.novelai_site
+    if isinstance(event, PrivateMessageEvent):
+        site = config.novelai_site
+    else:
+        site = await config.get_value(event.group_id, "site") or config.novelai_site
     reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
     
 
@@ -278,6 +282,9 @@ async def __():
 
 @control_net.got("net", "你的图图呢？")
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
+    left = DayLimit.count(str(event.user_id), 2)
+    if left == -1:
+        await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     await func_init(event)
     start = time.time()
     tags_en = None
@@ -304,6 +311,7 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
                       group_id=str(event.group_id),
                       tags=tags,
                       ntags=lowQuality)
+        fifo.load_balance_init()
         fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
         processed_pic = fifo.result[0]

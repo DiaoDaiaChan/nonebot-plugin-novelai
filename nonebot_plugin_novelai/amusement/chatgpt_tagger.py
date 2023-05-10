@@ -7,6 +7,7 @@ from ..utils.save import save_img
 from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Message, ActionFailed
 from nonebot.params import CommandArg
+from ..extension.daylimit import DayLimit
 
 sys_text = f'''
 You can output a prompt based on the input given by the user,
@@ -70,6 +71,9 @@ def get_user_session(user_id) -> Session:
 
 @chatgpt.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    left = DayLimit.count(str(event.user_id), 1)
+    if left == -1:
+        await chatgpt.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     user_msg = msg.extract_plain_text().strip()
     to_openai = user_msg + "prompt"
     prompt = await get_user_session(event.get_session_id()).main(to_openai)

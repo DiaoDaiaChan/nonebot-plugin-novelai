@@ -43,8 +43,8 @@ aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
 aidraw_parser.add_argument(
     "-s", "--seed", "-种子", type=int, help="种子", dest="seed")
-# aidraw_parser.add_argument("-b", "--batch", "-数量",
-#                            type=int, default=1, help="生成数量", dest="batch")
+aidraw_parser.add_argument("-b", "--batch", "-数量",
+                           type=int, default=1, help="生成数量", dest="batch")
 aidraw_parser.add_argument("-t", "--steps", "-步数",
                            type=int, help="步数", dest="steps")
 aidraw_parser.add_argument("-u", "--ntags", "-排除",
@@ -81,7 +81,6 @@ async def get_message_at(data: str) -> int:
     :param data: event.json()
     '''
     data = json.loads(data)
-    logger.error(data)
     try:
         msg = data['original_message'][1]
         if msg['type'] == 'at':
@@ -177,24 +176,26 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""
-
-        hway = await config.get_value(fifo.group_id, "h")
-        if hway is None:
-            hway = config.novelai_h
-        if hway == 0 and re.search(htags, fifo.tags, re.IGNORECASE):
-            await aidraw.finish(f"H是不行的!")
-        elif hway == 1:
-            if re.search(htags, fifo.tags, re.IGNORECASE):
-                re_list = pattern.findall(fifo.tags)
-                h_words = ""
-                if re_list:
-                    for i in re_list:
-                        h_words += f"{i},"
-                        fifo.tags = fifo.tags.replace(i, "")
-                    try:
-                        await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
-                    except ActionFailed:
-                        logger.info("被风控了")
+        if isinstance(event, PrivateMessageEvent):
+            pass
+        else:
+            hway = await config.get_value(fifo.group_id, "h")
+            if hway is None:
+                hway = config.novelai_h
+            if hway == 0 and re.search(htags, fifo.tags, re.IGNORECASE):
+                await aidraw.finish(f"H是不行的!")
+            elif hway == 1:
+                if re.search(htags, fifo.tags, re.IGNORECASE):
+                    re_list = pattern.findall(fifo.tags)
+                    h_words = ""
+                    if re_list:
+                        for i in re_list:
+                            h_words += f"{i},"
+                            fifo.tags = fifo.tags.replace(i, "")
+                        try:
+                            await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
+                        except ActionFailed:
+                            logger.info("被风控了")
 
         if not args.override:
             global pre_tags
@@ -347,7 +348,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
         else:
             logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
             pic_message = im[1]
-            res_msg = f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})" if fifo.hiresfix else f"分辨率:{fifo.width}x{fifo.height}"
+            res_msg = f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})" if fifo.hiresfix and fifo.img2img is False else f"分辨率:{fifo.width}x{fifo.height}"
             try:
                 message_data = await bot.send(event=event, 
                                           message=pic_message+f"模型:{fifo.model}\n{res_msg}", 
@@ -358,12 +359,13 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                     await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
                     await send_forward_msg(bot=bot, event=event, name=nickname, uin=id, msgs=im)
                 )
+
             except ActionFailed:
                 message_data = await bot.send(event=event, 
                                              message=pic_message, 
                                              at_sender=True, 
                                              reply_messasge=True
-            )
+                                )
 
             revoke = await config.get_value(fifo.group_id, "revoke")
             if revoke:

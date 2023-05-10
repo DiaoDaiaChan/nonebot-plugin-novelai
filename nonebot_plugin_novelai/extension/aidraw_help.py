@@ -7,7 +7,7 @@ from ..config import config, nickname
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
-aidraw_help = on_command("绘画帮助", priority=1, block=True)
+aidraw_help = on_command("绘画帮助", aliases={"帮助", "help"}, priority=1, block=True)
 
 
 async def get_url():
@@ -30,7 +30,7 @@ async def _(bot: Bot, event: MessageEvent):
     url = await get_url()
     markdown = f'''
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
-# 你好, 我是群Ai绘画{nickname}
+# 我是群Ai绘画{nickname}
 ### 快速画图: 绘画 白发,红色眼睛
 <img width="300" src="https://q1.qlogo.cn/g?b=qq&nk={bot_qq}&s=640"/> 这是我主人QQ{superuser_list[0]}捏<img width="300" src="https://q1.qlogo.cn/g?b=qq&nk={superuser_list[0]}&s=640"/>
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
@@ -83,6 +83,8 @@ controlnet
 emb 
 # 直接发送emb获取emb文件, 可以理解为小模型, embhutao, 返回名字里有hutao的emb文件, 绘画时使用emb就可以画出对应的角色了
 例如: 绘画 hutao 返回 原神胡桃的画面(如果有这个emb的话)
+lora
+# 同emb，直接发送lora获取所有的lora模型 使用 -lora 模型1编号_模型2权重,模型2编号_模型2权重，例如 -lora 341_1,233_0.9
 采样器
 # 获取当前后端可用采样器
 分析
@@ -162,13 +164,6 @@ uw 900x450 2:1横构图
 ```
 <div style="background-color:rgba(130, 0, 0, 0.5);">&nbsp</div>
 ```text
-生成数量, 当前允许最大值为:{config.novelai_max}
--b
-# 绘画 miku -b 3 
-生成3张图
-```
-<div style="background-color:rgba(105, 0, 0, 0.5);">&nbsp</div>
-```text
 去除默认预设
 -o
 # 绘画 miku -o 
@@ -179,13 +174,13 @@ uw 900x450 2:1横构图
 使用选择的采样器进行绘图
 -sp
 # 绘画 miku -sp DDIM 
-使用DDIM采样器进行绘图, 可以提前通过 采样器 指令来获取支持的采样器
+使用DDIM采样器进行绘图, 可以提前通过 采样器 指令来获取支持的采样器 有空格的采样器记得使用 ""括起来,例如 "Euler a"
 ```
 <div style="background-color:rgba(55, 0, 0, 0.5);">&nbsp</div>
 ```text
 使用选择的后端进行绘图
 -sd
-# 绘画 miku -sp 0 
+# 绘画 miku -sd 0 
 使用1号后端进行绘图工作(索引从0开始), 可以提前通过 后端 指令来获取后端工作状态
 ```
 <div style="background-color:rgba(20, 0, 0, 0.5);">&nbsp</div>
