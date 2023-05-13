@@ -1,5 +1,5 @@
 from nonebot import on_command, logger
-from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed
+from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent
 
 from ..backend import AIDRAW
 from ..extension.translation import translate_deepl, translate
@@ -326,7 +326,12 @@ async def _(bot: Bot, event: MessageEvent):
         user_id = str(at_id)
         if config.novelai_paid is False:
             await today_girl.finish(f"以图生图功能已禁用")
-    user_name = event.sender.nickname
+    if isinstance(event, PrivateMessageEvent):
+         user_name = event.sender.nickname
+    else:
+        get_info = await bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
+        user_name = get_info["nickname"]
+    user_name += random_int_str
     user_id_random = user_id + random_int_str
     inst = Choicer(data_dict)
     msg = inst.format_msg(user_id_random, user_name)
