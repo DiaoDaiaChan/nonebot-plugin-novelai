@@ -8,6 +8,8 @@ from nonebot import on_command
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Message, ActionFailed
 from nonebot.params import CommandArg
 from ..extension.daylimit import DayLimit
+from ..extension.explicit_api import check_safe_method
+from ..extension.safe_method import risk_control
 
 sys_text = f'''
 You can output a prompt based on the input given by the user,
@@ -77,19 +79,32 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     user_msg = msg.extract_plain_text().strip()
     to_openai = user_msg + "prompt"
     prompt = await get_user_session(event.get_session_id()).main(to_openai)
-    try:
-        await bot.send(event=event, message="这是chatgpt为你生成的prompt"+prompt, at_sender=True, reply_message=True)
-    except ActionFailed:
-        pass
-    finally:
-        tags = config.novelai_tags + prompt
-        ntags = config.novelai_ntags
-        fifo = AIDRAW(user_id=event.get_user_id, 
-                    group_id=event.group_id,
-                    tags=tags, 
-                    ntags=ntags)
-        await fifo.post()
-        img_msg = MessageSegment.image(fifo.result[0])
-        await bot.send(event=event, message=img_msg, at_sender=True, reply_message=True)
-        await save_img(fifo, fifo.result[0], str(fifo.group_id)+"_chatgpt")
+
+    await risk_control(
+                    bot, 
+                    event, 
+                    "这是chatgpt为你生成的prompt"+prompt, 
+                    True, True, 750
+    )
     
+    tags = config.novelai_tags + prompt
+    ntags = config.novelai_ntags
+
+    fifo = AIDRAW(
+                user_id=event.get_user_id, 
+                tags=tags, 
+                ntags=ntags,
+                event=event
+    )
+
+    await fifo.load_balance_init() and await fifo.post()
+    img_msg = fifo.result[0]
+    if config.novelai_extra_pic_audit:
+        result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_chatgpt")
+        if isinstance(result[1], MessageSegment):
+            await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
+        else:
+            pass
+    else:
+        await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
+        await save_img(fifo, img_msg, str(fifo.group_id)+"_chatgpt")

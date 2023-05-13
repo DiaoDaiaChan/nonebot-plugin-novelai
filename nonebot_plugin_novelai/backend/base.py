@@ -5,11 +5,13 @@ import time
 from io import BytesIO
 import aiofiles
 import json
+import hashlib
 
 import aiohttp
 from nonebot import get_driver
 from nonebot.log import logger
 from PIL import Image
+from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
 
 from ..config import config
 from ..utils import png2jpg
@@ -40,6 +42,7 @@ class AIDRAW_BASE:
         backend_index: str = None,
         disable_hr: bool = False if config.novelai_hr else True,
         hiresfix_scale: float = None,
+        event: MessageEvent = None,
         **kwargs,
     ):
         """
@@ -69,8 +72,9 @@ class AIDRAW_BASE:
         :cost: 记录了本次生成需要花费多少点数，自动计算
         :signal: asyncio.Event类,可以作为信号使用。仅占位，需要自行实现相关方法
         """
+        self.event = event
         self.disable_hr = disable_hr
-        if config.novelai_random_ratio == True:
+        if config.novelai_random_ratio:
             random_shape = self.weighted_choice(config.novelai_random_ratio_list)
             shape = man_shape or random_shape
             self.width, self.height = self.extract_shape(shape)
@@ -83,7 +87,7 @@ class AIDRAW_BASE:
         self.user_id: str = user_id
         self.tags: str = tags
         self.seed: list[int] = random.randint(0, 4294967295)
-        self.group_id: str = group_id
+        self.group_id: str =  f"{user_id}_private" if group_id is None and isinstance(event, PrivateMessageEvent) else str(event.group_id)
         if config.novelai_random_scale:
             self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
         else:
@@ -119,6 +123,7 @@ class AIDRAW_BASE:
             content = f.read()
             self.backend_info: dict = json.loads(content)
         self.task_type: str = None
+        self.img_hash = None
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
@@ -282,6 +287,7 @@ class AIDRAW_BASE:
                     image_new = await png2jpg(img)
                 else:
                     image_new = base64.b64decode(img)
+                self.img_hash = f"图片id:{hashlib.md5(image_new).hexdigest()}"
         self.result.append(image_new)
         return image_new
 
@@ -316,7 +322,8 @@ class AIDRAW_BASE:
             "super_res_after_generate",
             "spend_time",
             "vram",
-            "backend_name"
+            "backend_name",
+            "img_hash"
         )
 
     def __getitem__(self, item):

@@ -38,14 +38,22 @@ async def markdown_temple(bot: Bot, text):
     return markdown
 
 
-async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False, md_temple=False, width=500):
+async def risk_control(bot: Bot, 
+                       event: MessageEvent, 
+                       message, 
+                       is_forward=False, 
+                       md_temple=False, 
+                       width=500, 
+                       at_sender=True, 
+                       reply_message=True
+                       ):
 
     '''
     为防止风控的函数, is_forward True为发送转发消息
     '''
     n = 240
     new_list = []
-    if len(message) > n and isinstance(message, list):
+    if len(message) > n and isinstance(message, list): # 列表太长，避免生成图片太大发不出去
         for i in range(0, len(message), n):
             new_list.append(message[i:i+n])
     else:
@@ -59,7 +67,6 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
             markdown = await markdown_temple(bot, msg_list)
             img = await md_to_pic(md=markdown, width=width)
             await bot.send(event=event, message=MessageSegment.image(img))
-        return
     if isinstance(message, list):
         if is_forward:
             msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
@@ -71,18 +78,18 @@ async def risk_control(bot: Bot, event: MessageEvent, message, is_forward=False,
                     markdown = await markdown_temple(bot, msg_list)
                     img = await md_to_pic(md=markdown, width=width)
                     await bot.send(event=event, message=MessageSegment.image(img))
-            return
-    try:
-        await bot.send(event=event, message=msg_list)
-    except:
-            msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
+        else:
             try:
-                await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+                await bot.send(event=event, message=msg_list)
             except:
-                msg_list = "".join(message)
-                markdown = await markdown_temple(bot, msg_list)
-                img = await md_to_pic(md=markdown, width=width)
-                await bot.send(event=event, message=MessageSegment.image(img))
+                    msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
+                    try:
+                        await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+                    except:
+                        msg_list = "".join(message)
+                        markdown = await markdown_temple(bot, msg_list)
+                        img = await md_to_pic(md=markdown, width=width)
+                        await bot.send(event=event, message=MessageSegment.image(img))
     
             
 

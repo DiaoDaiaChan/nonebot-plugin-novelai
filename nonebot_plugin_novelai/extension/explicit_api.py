@@ -17,8 +17,28 @@ import qrcode
 import time
 
 
-async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
-    bot = nonebot.get_bot(bot_id)
+async def send_qr_code(bot, fifo, img_url):
+    img_id = time.time()
+    img = qrcode.make(img_url[0])
+    file_name = f"qr_code_{img_id}.png"
+    img.save(file_name)
+    with open(file_name, 'rb') as f:
+        bytes_img = f.read()
+    await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
+    os.remove(file_name)
+
+
+async def check_safe_method(fifo, 
+                            img_bytes, 
+                            message: list, 
+                            bot_id=None, 
+                            save_img_=True, 
+                            extra_lable="",
+                            ) -> list:
+    try:
+        bot = nonebot.get_bot(bot_id)
+    except:
+        bot = nonebot.get_bot()
     raw_message = f"\n{nickname}已经"
     label = ""
     # 判读是否进行图片审核
@@ -26,7 +46,7 @@ async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
     nsfw_count = 0
     for i in img_bytes:
         # try:
-        if await config.get_value(fifo.group_id, "picaudit") in [1, 2] or config.novelai_picaudit in [1, 2]:
+        if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
             try:
                 label, h_value = await check_safe(i, fifo)
             except RuntimeError as e:
@@ -39,10 +59,12 @@ async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
                     i = resp_tuple[0]
                 except:
                     logger.debug("超分API失效")
-            await save_img(fifo, i, fifo.group_id)
+            if save_img_:
+                await save_img(fifo, i, fifo.group_id+extra_lable)
             message.append(MessageSegment.image(i))
             return message
-        if label == "safe":
+        if label in ["safe", "general", "sensitive"]:
+            label = "_safe"
             if config.novelai_SuperRes_generate:
                 try:
                     resp_tuple = await super_res_api_func(i, 3)
@@ -52,42 +74,37 @@ async def check_safe_method(fifo, img_bytes, message: list, bot_id) -> list:
                     pass
             message.append(MessageSegment.image(i))
         else:
-            label = "explicit"
+            label = "_explicit"
             message.append(f"\n太涩了,让我先看, 这张图涩度{h_value}%")
             nsfw_count += 1
             htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
             message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
+            message_id = message_data["message_id"]
+            message_all = await bot.get_msg(message_id=message_id)
+            url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+            img_url = re.findall(url_regex, message_all["message"])
             if htype in [1, 2]:
-                message_id = message_data["message_id"]
-                message_all = await bot.get_msg(message_id=message_id)
-                url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-                img_url = re.findall(url_regex, message_all["message"])
                 if htype == 1:
                     try:
-                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
                     except ActionFailed:
-                        await bot.send_group_msg(group_id=fifo.group_id, message="请先加机器人好友捏, 才能私聊要涩图捏")
+                        await bot.send_group_msg(group_id=fifo.group_id, message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}")
                 elif htype == 2:
                     try:
-                        await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}")
+                        await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}")
                     except ActionFailed:
                         try:
-                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}")
+                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
                         except ActionFailed:
                             try:
-                                await bot.send_group_msg(group_id=fifo.group_id, message="URL发送失败, 私聊消息发送失败, 请先加好友")
+                                await bot.send_group_msg(group_id=fifo.group_id, message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}")
                             except ActionFailed:
-                                img_id = time.time()
-                                img = qrcode.make(img_url[0])
-                                file_name = f"qr_code_{img_id}.png"
-                                img.save(file_name)
-                                with open(file_name, 'rb') as f:
-                                    bytes_img = f.read()
-                                await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
-                                os.remove(file_name)
+                                await send_qr_code(bot, fifo, img_url)
             elif htype == 3:
-                pass
-        await save_img(fifo, i, fifo.group_id+label)
+                await send_qr_code(bot, fifo, img_url)
+
+        if save_img_:
+            await save_img(fifo, i, fifo.group_id+extra_lable+label)
     if nsfw_count:
         message.append(f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
     return message
@@ -145,8 +162,33 @@ async def check_safe(img_bytes: BytesIO, fifo):
         value.sort(reverse=True)
         reverse_dict = {value: key for key, value in possibilities.items()}
         return reverse_dict[value[0]], value[0] * 100
+    
+    elif picaudit == 4 or config.novelai_picaudit == 4:
+        img_base64 = base64.b64encode(img_bytes).decode()
 
-  
+        payload = {"image": img_base64, "model": "wd14-vit-v2-git", "threshold": 0.35 }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url=f"http://{fifo.backend_site}/tagger/v1/interrogate", json=payload) as resp:
+                if resp.status not in [200, 201]:
+                    resp_text = await resp.text()
+                    logger.error(f"API失败，错误信息:{resp.status, resp_text}")
+                    return "unknown", 0
+                else:
+                    resp_dict = await resp.json()
+                    tags = resp_dict["caption"]
+                    replace_list =  ["general", "sensitive", "questionable", "explicit"]
+                    possibilities = {}
+                    for i in replace_list:
+                        possibilities[i]=tags[i]
+                    value = list(possibilities.values())
+                    value.sort(reverse=True)
+                    print(value)
+                    reverse_dict = {value: key for key, value in possibilities.items()}
+                    print(reverse_dict)
+        return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100
+
+
     async def get_file_content_as_base64(path, urlencoded=False):
         # 不知道为啥, 不用这个函数处理的话API会报错图片格式不正确, 试过不少方法了,还是不行(
         """
@@ -191,3 +233,4 @@ async def check_safe(img_bytes: BytesIO, fifo):
                 return "safe", result['data'][0]['probability'] * 100
             else:
                 return "", result['data'][0]['probability'] * 100
+            

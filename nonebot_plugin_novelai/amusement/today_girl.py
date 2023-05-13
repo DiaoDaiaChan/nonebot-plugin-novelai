@@ -8,6 +8,7 @@ from ..config import config
 from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
 from ..aidraw import get_message_at
+from ..extension.explicit_api import check_safe_method
 
 import random, time, json, re, base64, aiohttp
 
@@ -318,7 +319,6 @@ async def _(bot: Bot, event: MessageEvent):
     img_url = None
     random_int_str = str(random.randint(0, 65535))
     user_id = str(event.user_id)
-    group_id = str(event.group_id)
     at_id = await get_message_at(event.json())
     if at_id:
         img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
@@ -326,8 +326,7 @@ async def _(bot: Bot, event: MessageEvent):
         user_id = str(at_id)
         if config.novelai_paid is False:
             await today_girl.finish(f"以图生图功能已禁用")
-    get_info = await bot.get_group_member_info(group_id=group_id, user_id=user_id)
-    user_name = get_info["nickname"] + random_int_str
+    user_name = event.sender.nickname
     user_id_random = user_id + random_int_str
     inst = Choicer(data_dict)
     msg = inst.format_msg(user_id_random, user_name)
@@ -363,9 +362,9 @@ async def _(bot: Bot, event: MessageEvent):
         tags = basetag + tags
         ntags = lowQuality
         fifo = AIDRAW(user_id=user_id, 
-                      group_id=group_id, 
                       tags=tags, 
-                      ntags=ntags)
+                      ntags=ntags, 
+                      event=event)
         if img_url:
             async with aiohttp.ClientSession() as session:
                 logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -378,12 +377,17 @@ async def _(bot: Bot, event: MessageEvent):
             await today_girl.finish(f"服务端出错辣,{e.args}")
         else:
             img_msg = MessageSegment.image(fifo.result[0])
-            try:
-                await bot.send(event=event, 
-                            message=f"这是你的二次元形象,hso\n"+img_msg+f"生成耗费时间{fifo.spend_time}s", 
-                            at_sender=True, reply_message=True)
-            except ActionFailed:
-                await bot.send(event=event, 
-                            message=img_msg, 
-                            at_sender=True, reply_message=True)
-            await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_todaygirl")
+            if config.novelai_extra_pic_audit:
+                result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_todaygirl")
+                if isinstance(result[1], MessageSegment):
+                    await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
+            else:
+                try:
+                    await bot.send(event=event, 
+                                message=f"这是你的二次元形象,hso\n"+img_msg+f"\n{fifo.img_hash}"+f"\n生成耗费时间{fifo.spend_time}", 
+                                at_sender=True, reply_message=True)
+                except ActionFailed:
+                    await bot.send(event=event, 
+                                message=img_msg+f"\n{fifo.img_hash}", 
+                                at_sender=True, reply_message=True)
+                await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_todaygirl")

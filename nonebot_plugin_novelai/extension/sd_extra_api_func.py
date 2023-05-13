@@ -10,15 +10,20 @@ import re
 import asyncio
 import aiofiles
 import datetime
+import os
+import traceback
+import random
 
 from ..config import config
 from ..extension.translation import translate
+from ..extension.explicit_api import check_safe_method
 from .super_res import super_res_api_func
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance
 from .safe_method import send_forward_msg, risk_control
+from ..extension.daylimit import DayLimit
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
@@ -28,7 +33,7 @@ from nonebot.rule import ArgumentParser
 from nonebot import require
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
-from ..extension.daylimit import DayLimit
+from collections import Counter
 
 
 async def func_init(event):
@@ -64,7 +69,10 @@ get_emb = on_command("emb", aliases={"embs"})
 get_lora = on_command("lora", aliases={"loras"})
 get_sampler = on_command("采样器", aliases={"获取采样器"})
 translate_ = on_command("翻译")
-hr_fix = on_command("高清修复")
+hr_fix = on_command("高清修复") # 欸，还没写呢，就是玩
+random_tags = on_command("随机tag")
+find_pic = on_command("找图片")
+word_frequency_count = on_command("词频统计", aliases={"tag统计"})
 
 more_func_parser = ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -308,19 +316,22 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
     tags = basetag + tags_en
     try:
         fifo = AIDRAW(user_id=str(event.user_id), 
-                      group_id=str(event.group_id),
                       tags=tags,
-                      ntags=lowQuality)
-        fifo.load_balance_init()
+                      ntags=lowQuality,
+                      event=event)
+        await fifo.load_balance_init()
         fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
         processed_pic = fifo.result[0]
+        message_ = await check_safe_method(fifo, [processed_pic], [""], None, True, "_controlnet")
     except Exception as e:
+        traceback.print_exc()
         await control_net.finish(f"出现错误{e}")
-    end = time.time()
-    spend_time = end - start
-    message = MessageSegment.image(processed_pic) + f"耗时{spend_time:.2f}秒"
-    await bot.send(event=event, message=message)
+    if isinstance(message_[1], MessageSegment):
+        message = MessageSegment.image(processed_pic) + f"\n耗时{fifo.spend_time}\n" + fifo.img_hash
+        await bot.send(event=event, message=message)
+    else:
+        pass
 
 
 @get_models.handle()
@@ -462,3 +473,129 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     en = await translate(txt_msg, "en")
     en = [en]
     await risk_control(bot=bot, event=event, message=en)
+
+
+async def get_all_filenames(directory, fileType=None) -> dict:
+    file_path_dict = {}
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if fileType and not file.endswith(fileType):
+                continue
+            filepath = os.path.join(root, file)
+            file_path_dict[file] = filepath
+    return file_path_dict
+
+
+async def extract_tags_from_file(file_path, get_full_content=True) -> str:
+    separators = ['，', '。', ","]
+    separator_pattern = '|'.join(map(re.escape, separators))
+    async with aiofiles.open(file_path, 'r', encoding="utf-8") as file:
+        content = await file.read()
+        if get_full_content:
+            return content
+    lines = content.split('\n')  # 将内容按行分割成列表
+    words = []
+    for line in lines:
+        if line.startswith('tags='):
+            tags_list_ = line.split('tags=')[1].strip()
+            words = re.split(separator_pattern, tags_list_.strip())
+            words = [re.sub(r'\s+', ' ', word.strip()) for word in words if word.strip()]
+            words += words
+    return words
+
+
+async def get_tags_list(is_uni=True):
+    filenames = await get_all_filenames("data/novelai/output", ".txt")
+    all_tags_list = []
+    for path in list(filenames.values()):
+        tags_list = await extract_tags_from_file(path, False)
+        for tags in tags_list:
+            all_tags_list.append(tags)
+    if is_uni:
+        unique_strings = []
+        for string in all_tags_list:
+            if string not in unique_strings and string != "":
+                unique_strings.append(string)
+        return unique_strings
+    else:
+        return all_tags_list
+
+
+@random_tags.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    all_tags_list = await get_tags_list()
+    chose_tags_list = random.sample(all_tags_list, 12)
+    print(chose_tags_list)
+    chose_tags = ', '.join(chose_tags_list)
+    fifo = AIDRAW(user_id=event.user_id, 
+                  tags=chose_tags, 
+                  ntags=lowQuality, 
+                  event=event
+                  )
+    await risk_control(bot, event, [chose_tags], True)
+    await fifo.load_balance_init()
+    await fifo.post()
+    if config.novelai_extra_pic_audit:
+        message_ = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_tags")
+        if isinstance(message_[1], MessageSegment):
+            await bot.send(event, 
+                           message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
+                           at_sender=True, 
+                           reply_message=True)
+        else:
+            pass
+
+
+@find_pic.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    hash_id = msg.extract_plain_text()
+    directory_path = "data/novelai/output"  # 指定目录路径
+    filenames = await get_all_filenames(directory_path)
+    txt_file_name, img_file_name = f"{hash_id}.txt", f"{hash_id}.jpg"
+    if txt_file_name in list(filenames.keys()):
+        txt_content = await extract_tags_from_file(filenames[txt_file_name])
+        img_file_path = filenames[img_file_name]
+        img_file_path = img_file_path if os.path.exists(img_file_path) else filenames[f"{hash_id}.png"]
+        async with aiofiles.open(img_file_path, "rb") as f:
+            content = await f.read()
+        msg_list = [f"这是你要找的{hash_id}的图\n", txt_content, MessageSegment.image(content)]
+
+        if config.novelai_extra_pic_audit:
+            fifo = AIDRAW(user_id=event.get_user_id,
+                          event=event 
+                        )
+            
+            await fifo.load_balance_init()
+            message_ = await check_safe_method(fifo, [content], [""], None, False)
+            if isinstance(message_[1], MessageSegment):
+                try:
+                    await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
+                except ActionFailed:
+                    await risk_control(bot, event, msg_list, True)
+            else:
+                await bot.send(event, message="哼！想看涩图，自己看私聊去！")
+        else:
+            try:
+                await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
+            except ActionFailed:
+                await risk_control(bot, event, msg_list, True)
+
+
+@word_frequency_count.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    msg_list = []
+    def count_word_frequency(word_list):
+        word_frequency = Counter(word_list)
+        return word_frequency
+
+    def sort_word_frequency(word_frequency):
+        sorted_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
+        return sorted_frequency
+
+    word_list = await get_tags_list(False)
+    word_frequency = count_word_frequency(word_list)
+    sorted_frequency = sort_word_frequency(word_frequency)
+    for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
+        msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
+    await risk_control(bot, event, msg_list, True)
+        

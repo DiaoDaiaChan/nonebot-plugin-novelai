@@ -95,7 +95,7 @@ class AIDRAW(AIDRAW_BASE):
             else:
                 post_api = f"http://{site}/controlnet/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[1])
-                parameters["controlnet_units"][0]["input_image"] = self.image             
+                parameters["controlnet_units"][0]["input_image"] = self.image           
         return header, post_api, parameters
 
     async def post(self):

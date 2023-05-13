@@ -32,7 +32,7 @@ class Config(BaseSettings):
     novelai_limit: bool = True  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
     novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3为主人直接私吞H图(无论参数如何都会保存图片到本地)
+    novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
@@ -68,7 +68,7 @@ class Config(BaseSettings):
         "upscaler_2": "R-ESRGAN 4x+ Anime6B", # 第二次超分使用的方法
         "extras_upscaler_2_visibility": 0.7 # 第二层upscaler力度
     } # 以上为个人推荐值
-    novelai_ControlNet_post_method: int = 1
+    novelai_ControlNet_post_method: int = 0
     novelai_size_org: int = 640 # 最大分辨率
     if novelai_hr:
         novelai_size: int = novelai_size_org
@@ -112,11 +112,12 @@ class Config(BaseSettings):
                           "controlnet_threshold_a": 100, 
                           "controlnet_threshold_b": 250}
     
-    novelai_picaudit: int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭
+    novelai_picaudit: int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""} # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
-    novelai_auto_icon: bool = True # 机器人自动换头像
+    novelai_auto_icon: bool = True # 机器人自动换头像(没写呢！)
+    novelai_extra_pic_audit = False # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key

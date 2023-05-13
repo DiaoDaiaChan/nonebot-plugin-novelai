@@ -2,6 +2,7 @@ import time
 import re
 import random
 import json
+import os
 
 from collections import deque
 import aiohttp
@@ -172,7 +173,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             args.tags = args.tags + args.no_trans
         # if args.backend_index:
         #     args.backend_site = list(config.novelai_backend_url_dict.values())[args.backend_index]
-        fifo = AIDRAW(user_id=user_id, group_id=group_id, **vars(args))
+        fifo = AIDRAW(user_id=user_id, **vars(args), event=event)
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""
@@ -351,9 +352,9 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             res_msg = f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})" if fifo.hiresfix and fifo.img2img is False else f"分辨率:{fifo.width}x{fifo.height}"
             try:
                 message_data = await bot.send(event=event, 
-                                          message=pic_message+f"模型:{fifo.model}\n{res_msg}", 
+                                          message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{res_msg}\n{fifo.img_hash}", 
                                           at_sender=True, 
-                                          reply_messasge=True
+                                          reply_message=True
             ) if (
                     await config.get_value(fifo.group_id, "pure")) or (
                     await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
@@ -364,7 +365,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 message_data = await bot.send(event=event, 
                                              message=pic_message, 
                                              at_sender=True, 
-                                             reply_messasge=True
+                                             reply_message=True
                                 )
 
             revoke = await config.get_value(fifo.group_id, "revoke")
@@ -417,3 +418,5 @@ async def _run_gennerate(fifo: AIDRAW):
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)
     return message
+
+ 
