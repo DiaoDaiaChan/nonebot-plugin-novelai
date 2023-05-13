@@ -268,7 +268,6 @@ class AIDRAW_BASE:
                                 if resp.status not in [200, 201]:
                                     logger.error(f"重载模型失败，错误:{await resp.text()}")
                                 logger.info("重载模型成功")
-                    raise RuntimeError(f"与服务器沟通时发生{resp.status}错误")
                 spend_time = time.time() - self.start_time
                 self.spend_time = f"{spend_time:.2f}秒"
                 tmp_history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]

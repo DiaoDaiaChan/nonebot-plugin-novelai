@@ -544,6 +544,11 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                            reply_message=True)
         else:
             pass
+    else:
+        await bot.send(event, 
+                       message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
+                       at_sender=True, 
+                       reply_message=True)
 
 
 @find_pic.handle()
@@ -584,6 +589,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 @word_frequency_count.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     msg_list = []
+
     def count_word_frequency(word_list):
         word_frequency = Counter(word_list)
         return word_frequency
