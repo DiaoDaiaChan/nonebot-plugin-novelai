@@ -17,7 +17,6 @@ import random
 from ..config import config
 from ..extension.translation import translate
 from ..extension.explicit_api import check_safe_method
-from .super_res import super_res_api_func
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils.data import lowQuality, basetag
@@ -30,9 +29,6 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegme
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
-from nonebot import require
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_htmlrender import md_to_pic
 from collections import Counter
 
 
@@ -86,7 +82,133 @@ set_sd_config = on_shell_command(
     priority=5
 )
 
-async def change_model(event: MessageEvent, bot: Bot, model_index):
+
+async def download_img(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            img_bytes = await resp.read()
+            img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+            return img_base64, img_bytes
+
+
+async def super_res_api_func(img_bytes, size: int = 0):
+    '''
+    sd超分extra API, size,1为
+    '''
+    upsale = None
+    max_res = config.novelai_SuperRes_MaxPixels
+    if size == 0:
+        upsale = 2
+    elif size == 1:
+        upsale = 3
+    new_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    old_res = new_img.width * new_img.height
+    width = new_img.width
+    height = new_img.height
+    ai_draw_instance = AIDRAW()
+    if old_res > pow(max_res, 2):
+        new_width, new_height = ai_draw_instance.shape_set(width, height, max_res) # 借用一下shape_set函数
+        new_img = new_img.resize((round(new_width), round(new_height)))
+        msg = f"原图已经自动压缩至{int(new_width)}*{int(new_height)}"
+    else:
+        msg = ''
+
+    img_bytes =  io.BytesIO()
+    new_img.save(img_bytes, format="JPEG")
+    img_bytes = img_bytes.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+# "data:image/jpeg;base64," + 
+    payload = {"image": img_base64}
+    payload.update(config.novelai_SuperRes_generate_payload)
+    if upsale:
+        payload["upscaling_resize"] = upsale
+    resp_tuple = await sd_LoadBalance(task_type="txt2img")
+    async with aiohttp.ClientSession() as session:
+        api_url = "http://" + resp_tuple[1][0] + "/sdapi/v1/extra-single-image"
+        async with session.post(url=api_url, json=payload) as resp:
+            resp_json = await resp.json()
+            resp_img = resp_json["image"]
+            bytes_img = base64.b64decode(resp_img)
+            return bytes_img, msg, resp.status
+
+
+async def sd(site):
+    dict_model = {}
+    message = []
+    message1 = []
+    n = 1
+    resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
+    currents_model = resp_[0]["sd_model_checkpoint"]
+    message1.append("当前使用模型:" + currents_model + ",\t\n\n")
+    models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
+    for x in models_info_dict[0]:
+        models_info_dict = x['title']
+        dict_model[n] = models_info_dict
+        num = str(n) + ". "
+        message.append(num + models_info_dict + ",\t\n")
+        n = n + 1
+    message.append("总计%d个模型" % int(n - 1))
+    message_all = message1 + message
+    with open("data/novelai/models.json", "w", encoding='utf-8') as f:
+        f.write(json.dumps(dict_model, indent=4))
+    return message_all
+
+
+async def set_config(data):
+    payload = {"sd_model_checkpoint": data}
+    url = "http://" + site + "/sdapi/v1/options"
+    resp_ = await aiohttp_func("post", url, payload)
+    end = time.time()
+    return resp_[1], end
+
+
+async def extract_tags_from_file(file_path, get_full_content=True) -> str:
+    separators = ['，', '。', ","]
+    separator_pattern = '|'.join(map(re.escape, separators))
+    async with aiofiles.open(file_path, 'r', encoding="utf-8") as file:
+        content = await file.read()
+        if get_full_content:
+            return content
+    lines = content.split('\n')  # 将内容按行分割成列表
+    words = []
+    for line in lines:
+        if line.startswith('tags='):
+            tags_list_ = line.split('tags=')[1].strip()
+            words = re.split(separator_pattern, tags_list_.strip())
+            words = [re.sub(r'\s+', ' ', word.strip()) for word in words if word.strip()]
+            words += words
+    return words
+
+
+async def get_tags_list(is_uni=True):
+    filenames = await get_all_filenames("data/novelai/output", ".txt")
+    all_tags_list = []
+    for path in list(filenames.values()):
+        tags_list = await extract_tags_from_file(path, False)
+        for tags in tags_list:
+            all_tags_list.append(tags)
+    if is_uni:
+        unique_strings = []
+        for string in all_tags_list:
+            if string not in unique_strings and string != "":
+                unique_strings.append(string)
+        return unique_strings
+    else:
+        return all_tags_list
+
+
+async def get_all_filenames(directory, fileType=None) -> dict:
+    file_path_dict = {}
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if fileType and not file.endswith(fileType):
+                continue
+            filepath = os.path.join(root, file)
+            file_path_dict[file] = filepath
+    return file_path_dict
+
+
+async def change_model(event: MessageEvent, bot: Bot, model_index, site):
     await func_init(event)
     try:
         site_ = reverse_dict[site]
@@ -220,14 +342,6 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await risk_control(bot, event, loras_list, True)
 
 
-async def download_img(url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            img_bytes = await resp.read()
-            img_base64 = base64.b64encode(img_bytes).decode("utf-8")
-            return img_base64, img_bytes
-        
-
 @super_res.handle()
 async def pic_fix(state: T_State, super_res: Message = CommandArg()):
     if super_res:
@@ -348,36 +462,6 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await change_model(event, bot, index)
 
 
-async def sd(site):
-    dict_model = {}
-    message = []
-    message1 = []
-    n = 1
-    resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
-    currents_model = resp_[0]["sd_model_checkpoint"]
-    message1.append("当前使用模型:" + currents_model + ",\t\n\n")
-    models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
-    for x in models_info_dict[0]:
-        models_info_dict = x['title']
-        dict_model[n] = models_info_dict
-        num = str(n) + ". "
-        message.append(num + models_info_dict + ",\t\n")
-        n = n + 1
-    message.append("总计%d个模型" % int(n - 1))
-    message_all = message1 + message
-    with open("data/novelai/models.json", "w", encoding='utf-8') as f:
-        f.write(json.dumps(dict_model, indent=4))
-    return message_all
-
-
-async def set_config(data):
-    payload = {"sd_model_checkpoint": data}
-    url = "http://" + site + "/sdapi/v1/options"
-    resp_ = await aiohttp_func("post", url, payload)
-    end = time.time()
-    return resp_[1], end
-
-
 @get_sampler.handle()
 async def _(event: MessageEvent, bot: Bot):
     await func_init(event)
@@ -471,67 +555,21 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     txt_msg = msg.extract_plain_text()
     en = await translate(txt_msg, "en")
-    en = [en]
-    await risk_control(bot=bot, event=event, message=en)
-
-
-async def get_all_filenames(directory, fileType=None) -> dict:
-    file_path_dict = {}
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if fileType and not file.endswith(fileType):
-                continue
-            filepath = os.path.join(root, file)
-            file_path_dict[file] = filepath
-    return file_path_dict
-
-
-async def extract_tags_from_file(file_path, get_full_content=True) -> str:
-    separators = ['，', '。', ","]
-    separator_pattern = '|'.join(map(re.escape, separators))
-    async with aiofiles.open(file_path, 'r', encoding="utf-8") as file:
-        content = await file.read()
-        if get_full_content:
-            return content
-    lines = content.split('\n')  # 将内容按行分割成列表
-    words = []
-    for line in lines:
-        if line.startswith('tags='):
-            tags_list_ = line.split('tags=')[1].strip()
-            words = re.split(separator_pattern, tags_list_.strip())
-            words = [re.sub(r'\s+', ' ', word.strip()) for word in words if word.strip()]
-            words += words
-    return words
-
-
-async def get_tags_list(is_uni=True):
-    filenames = await get_all_filenames("data/novelai/output", ".txt")
-    all_tags_list = []
-    for path in list(filenames.values()):
-        tags_list = await extract_tags_from_file(path, False)
-        for tags in tags_list:
-            all_tags_list.append(tags)
-    if is_uni:
-        unique_strings = []
-        for string in all_tags_list:
-            if string not in unique_strings and string != "":
-                unique_strings.append(string)
-        return unique_strings
-    else:
-        return all_tags_list
+    await risk_control(bot=bot, event=event, message=[en])
 
 
 @random_tags.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     all_tags_list = await get_tags_list()
     chose_tags_list = random.sample(all_tags_list, 12)
-    print(chose_tags_list)
     chose_tags = ', '.join(chose_tags_list)
+
     fifo = AIDRAW(user_id=event.user_id, 
                   tags=chose_tags, 
                   ntags=lowQuality, 
                   event=event
                   )
+    
     await risk_control(bot, event, [chose_tags], True)
     await fifo.load_balance_init()
     await fifo.post()
@@ -590,17 +628,17 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     msg_list = []
 
-    def count_word_frequency(word_list):
+    async def count_word_frequency(word_list):
         word_frequency = Counter(word_list)
         return word_frequency
 
-    def sort_word_frequency(word_frequency):
+    async def sort_word_frequency(word_frequency):
         sorted_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
         return sorted_frequency
 
     word_list = await get_tags_list(False)
-    word_frequency = count_word_frequency(word_list)
-    sorted_frequency = sort_word_frequency(word_frequency)
+    word_frequency = await count_word_frequency(word_list)
+    sorted_frequency = await sort_word_frequency(word_frequency)
     for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
         msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
     await risk_control(bot, event, msg_list, True)

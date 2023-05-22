@@ -91,13 +91,13 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     ntags = config.novelai_ntags
 
     fifo = AIDRAW(
-                user_id=event.get_user_id, 
                 tags=tags, 
                 ntags=ntags,
                 event=event
     )
 
-    await fifo.load_balance_init() and await fifo.post()
+    await fifo.load_balance_init()
+    await fifo.post()
     img_msg = fifo.result[0]
     if config.novelai_extra_pic_audit:
         result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_chatgpt")

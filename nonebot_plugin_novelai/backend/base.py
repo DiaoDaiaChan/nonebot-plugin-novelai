@@ -26,8 +26,6 @@ class AIDRAW_BASE:
 
     def __init__(
         self,
-        user_id: str = None,
-        group_id: str = None,
         tags: str = "",
         ntags: str = "",
         seed: int = None,
@@ -84,10 +82,10 @@ class AIDRAW_BASE:
         self.result: list = []
         self.signal: asyncio.Event = None
         self.time = time.strftime("%Y-%m-%d %H:%M:%S")
-        self.user_id: str = user_id
+        self.user_id: str = "" if event is None else (str(event.get_user_id()))
         self.tags: str = tags
         self.seed: list[int] = random.randint(0, 4294967295)
-        self.group_id: str =  f"{user_id}_private" if group_id is None and isinstance(event, PrivateMessageEvent) else str(event.group_id)
+        self.group_id: str =  "" if event is None else (f"{event.get_user_id()}_private" if isinstance(event, PrivateMessageEvent) else str(event.group_id))
         if config.novelai_random_scale:
             self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
         else:
@@ -371,5 +369,6 @@ class AIDRAW_BASE:
                 webui_config = await resp.json(encoding="utf-8")
                 # currents_model = webui_config["sd_model_checkpoint"]
         return webui_config
+
 
 

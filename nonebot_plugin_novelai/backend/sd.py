@@ -37,6 +37,7 @@ class AIDRAW(AIDRAW_BASE):
         self.backend_site = resp_tuple[1][0]
         if resp_tuple[1][3] <= 1:
             self.hiresfix_scale = self.hiresfix_scale * 0.75
+        return resp_tuple
 
     async def post_parameters(self):
         '''
@@ -52,7 +53,7 @@ class AIDRAW(AIDRAW_BASE):
                     site = self.backend_site
                 else:
                     await self.load_balance_init()
-                    site = defult_site
+                    site = self.backend_site  or defult_site 
         else:
             if self.backend_index is not None and isinstance(self.backend_index, int):
                 site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]

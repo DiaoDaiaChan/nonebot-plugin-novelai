@@ -12,7 +12,6 @@ from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed
 from nonebot.log import logger
 from ..config import config 
-from .super_res import super_res_api_func
 import qrcode
 import time
 
@@ -52,9 +51,50 @@ async def check_safe_method(fifo,
             except RuntimeError as e:
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
+            if label in ["safe", "general", "sensitive"]:
+                label = "_safe"
+                if config.novelai_SuperRes_generate:
+                    try:
+                        from ..extension.sd_extra_api_func import super_res_api_func
+                        resp_tuple = await super_res_api_func(i, 3)
+                        for i in resp_tuple:
+                            i = resp_tuple[0]
+                    except:
+                        pass
+                message.append(MessageSegment.image(i))
+            else:
+                label = "_explicit"
+                message.append(f"\n太涩了,让我先看, 这张图涩度{h_value}%")
+                nsfw_count += 1
+                htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
+                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
+                message_id = message_data["message_id"]
+                message_all = await bot.get_msg(message_id=message_id)
+                url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+                img_url = re.findall(url_regex, message_all["message"])
+                if htype in [1, 2]:
+                    if htype == 1:
+                        try:
+                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
+                        except ActionFailed:
+                            await bot.send_group_msg(group_id=fifo.group_id, message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}")
+                    elif htype == 2:
+                        try:
+                            await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}")
+                        except ActionFailed:
+                            try:
+                                await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
+                            except ActionFailed:
+                                try:
+                                    await bot.send_group_msg(group_id=fifo.group_id, message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}")
+                                except ActionFailed:
+                                    await send_qr_code(bot, fifo, img_url)
+                elif htype == 3:
+                    await send_qr_code(bot, fifo, img_url)
         else:
             if config.novelai_SuperRes_generate:
                 try:
+                    from ..extension.sd_extra_api_func import super_res_api_func
                     resp_tuple = await super_res_api_func(i, 3)
                     i = resp_tuple[0]
                 except:
@@ -63,46 +103,6 @@ async def check_safe_method(fifo,
                 await save_img(fifo, i, fifo.group_id+extra_lable)
             message.append(MessageSegment.image(i))
             return message
-        if label in ["safe", "general", "sensitive"]:
-            label = "_safe"
-            if config.novelai_SuperRes_generate:
-                try:
-                    resp_tuple = await super_res_api_func(i, 3)
-                    for i in resp_tuple:
-                        i = resp_tuple[0]
-                except:
-                    pass
-            message.append(MessageSegment.image(i))
-        else:
-            label = "_explicit"
-            message.append(f"\n太涩了,让我先看, 这张图涩度{h_value}%")
-            nsfw_count += 1
-            htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
-            message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
-            message_id = message_data["message_id"]
-            message_all = await bot.get_msg(message_id=message_id)
-            url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-            img_url = re.findall(url_regex, message_all["message"])
-            if htype in [1, 2]:
-                if htype == 1:
-                    try:
-                        await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
-                    except ActionFailed:
-                        await bot.send_group_msg(group_id=fifo.group_id, message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}")
-                elif htype == 2:
-                    try:
-                        await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}")
-                    except ActionFailed:
-                        try:
-                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
-                        except ActionFailed:
-                            try:
-                                await bot.send_group_msg(group_id=fifo.group_id, message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}")
-                            except ActionFailed:
-                                await send_qr_code(bot, fifo, img_url)
-            elif htype == 3:
-                await send_qr_code(bot, fifo, img_url)
-
         if save_img_:
             await save_img(fifo, i, fifo.group_id+extra_lable+label)
     if nsfw_count:

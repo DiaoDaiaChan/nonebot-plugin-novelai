@@ -28,8 +28,8 @@ class Config(BaseSettings):
     novelai_save: int = 1  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_save_png: bool = False # 是否保存为PNG格式
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
-    novelai_pure: bool = False  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
-    novelai_limit: bool = True  # 是否开启限速
+    novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
+    novelai_limit: bool = False  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
     novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
@@ -43,16 +43,16 @@ class Config(BaseSettings):
     novelai_on: bool = True  # 是否全局开启
     novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
     novelai_random_ratio: bool = True # 是否开启随机比例
-    novelai_random_sampler: bool = True
-    novelai_random_scale: bool = True
+    novelai_random_sampler: bool = True # 是否开启随机采样器
+    novelai_random_scale: bool = True # 是否开启随机CFG
     novelai_random_ratio_list: list = [("p", 0.35), ("s", 0.10), ("l", 0.35), ("uw", 0.1), ("uwp", 0.1)] # 随机图片比例
     novelai_random_sampler_list = [("Euler a", 0.25), ("Euler", 0.1), ("UniPC", 0.05), ("DDIM", 0.1), ("DPM++ 2S a Karras", 0.15), ("DPM++ SDE", 0.05), ("DPM++ 2S a", 0.1), ("DPM++ SDE Karras", 0.05), ("DPM++ 2M Karras", 0.15)]
     novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
-    novelai_load_balance: bool = False # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
-    novelai_backend_url_dict: dict = {} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    novelai_load_balance: bool = True # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
+    novelai_backend_url_dict: dict = {"默认后端": "127.0.0.1:7860"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     novelai_sampler: str = None # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
     novelai_hr: bool = True # 是否启动高清修复
-    novelai_hr_scale: float = 2
+    novelai_hr_scale: float = 2 # 高清修复放大比例
     novelai_hr_payload: dict = {
         "enable_hr": "true", 
         "denoising_strength": 0.5, # 重绘幅度
@@ -121,7 +121,8 @@ class Config(BaseSettings):
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
-    baidu_translate_key: dict = None
+    baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""}
+    novelai_todaygirl = 1 
 
     # 允许单群设置的设置
     def keys(cls):

@@ -44,8 +44,6 @@ aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
 aidraw_parser.add_argument(
     "-s", "--seed", "-种子", type=int, help="种子", dest="seed")
-aidraw_parser.add_argument("-b", "--batch", "-数量",
-                           type=int, default=1, help="生成数量", dest="batch")
 aidraw_parser.add_argument("-t", "--steps", "-步数",
                            type=int, help="步数", dest="steps")
 aidraw_parser.add_argument("-u", "--ntags", "-排除",
@@ -110,13 +108,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
     # 判断是否禁用，若没禁用，进入处理流程
     if await config.get_value(group_id, "on"):
         message = ""
-        # 判断最大生成数量
-        # if args.batch > config.novelai_max:
-        #     message = message+f",批量生成数量过多，自动修改为{config.novelai_max}"
-        #     args.batch = config.novelai_max
-        # 判断次数限制
         if config.novelai_daylimit and not await SUPERUSER(bot, event):
-            left = DayLimit.count(user_id, args.batch)
+            left = DayLimit.count(user_id, 1)
             if left == -1:
                 await aidraw.finish(f"今天你的次数不够了哦")
             else:
@@ -136,9 +129,6 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             logger.debug(str(e))
             await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         args.ntags = await prepocess_tags(args.ntags)
-        if args.model:
-            await change_model(event, bot, args.model)
-
         emb_msg, lora_msg = "", ""
         if args.lora:
             lora_index, lora_weight = [args.lora], ["0.8"]
@@ -171,9 +161,10 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         args.tags += lora_msg + emb_msg
         if args.no_trans: # 不希望翻译的tags
             args.tags = args.tags + args.no_trans
-        # if args.backend_index:
-        #     args.backend_site = list(config.novelai_backend_url_dict.values())[args.backend_index]
-        fifo = AIDRAW(user_id=user_id, **vars(args), event=event)
+        fifo = AIDRAW(**vars(args), event=event)
+        resp_tuple = await fifo.load_balance_init()
+        if args.model:
+            await change_model(event, bot, args.model)
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""
@@ -186,17 +177,16 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             if hway == 0 and re.search(htags, fifo.tags, re.IGNORECASE):
                 await aidraw.finish(f"H是不行的!")
             elif hway == 1:
-                if re.search(htags, fifo.tags, re.IGNORECASE):
-                    re_list = pattern.findall(fifo.tags)
-                    h_words = ""
-                    if re_list:
-                        for i in re_list:
-                            h_words += f"{i},"
-                            fifo.tags = fifo.tags.replace(i, "")
-                        try:
-                            await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
-                        except ActionFailed:
-                            logger.info("被风控了")
+                re_list = pattern.findall(fifo.tags)
+                h_words = ""
+                if re_list:
+                    for i in re_list:
+                        h_words += f"{i},"
+                        fifo.tags = fifo.tags.replace(i, "")
+                    try:
+                        await bot.send(event=event, message=f"H是不行的!已经排除掉以下单词{h_words}", reply_message=True)
+                    except ActionFailed:
+                        logger.info("被风控了")
 
         if not args.override:
             global pre_tags
@@ -245,7 +235,6 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
 async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     # 纯净模式额外信息
-    await fifo.load_balance_init()
     if await config.get_value(fifo.group_id, "pure"):
         # hr_scale = config.novelai_hr_payload["hr_scale"]
         extra_message_list = [f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, cfg:{fifo.scale}"]
@@ -286,7 +275,7 @@ async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=Non
     f"~(≧▽≦)/~啦啦啦，你的图正在生成，耐心等待哦",
     f"≧ ﹏ ≦ 服务器正在拼命绘图中，请不要催促我",
     f"{nickname}正在全力绘图", 
-    f"我知道你很久, 但你先别急", 
+    f"我知道你很急, 但你先别急", 
 ]
 
     has_wait = f"排队中，你的前面还有{list_len}人"+message
@@ -329,8 +318,9 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
         resp = {}
         id = fifo.user_id if config.novelai_antireport else bot.self_id
         if isinstance(event, PrivateMessageEvent):
-            nickname = "雕雕"
+            nickname = event.sender.nickname
         else:
+            print(fifo.group_id, fifo.user_id)
             resp = await bot.get_group_member_info(group_id=fifo.group_id, user_id=fifo.user_id)
             nickname = resp["card"] or resp["nickname"]
         # 开始生成
@@ -349,7 +339,10 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
         else:
             logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
             pic_message = im[1]
-            res_msg = f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})" if fifo.hiresfix and fifo.img2img is False else f"分辨率:{fifo.width}x{fifo.height}"
+            res_msg = (f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})") if (
+                        fifo.hiresfix and fifo.img2img is False) else (
+                        f"分辨率:{fifo.width}x{fifo.height}"
+                        )
             try:
                 message_data = await bot.send(event=event, 
                                           message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{res_msg}\n{fifo.img_hash}", 

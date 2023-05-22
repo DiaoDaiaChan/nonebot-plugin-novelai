@@ -160,6 +160,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
         ava_url = await chose_backend(state_dict, normal_backend)
 
     logger.info(f"已选择后端{ava_url}")
+    
     tc = int(state_dict[ava_url][task_type]["info"]["tasks_count"])
     tc += 1
     state_dict[ava_url]["status"] = task_type
