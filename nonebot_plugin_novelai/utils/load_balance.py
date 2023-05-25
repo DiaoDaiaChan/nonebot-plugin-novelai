@@ -4,7 +4,7 @@ from ..config import config
 import json
 import time
 import aiofiles
-
+import traceback
 
 # class Generating:
 
@@ -57,7 +57,7 @@ async def get_vram(ava_url):
     return vram_usage
 
 
-async def chose_backend(state_dict, normal_backend):
+async def chose_backend(state_dict, normal_backend, task_type):
     backend_processtime: dict = {}
     ava_url_dict: dict = {}
     # n = -1
@@ -81,7 +81,6 @@ async def chose_backend(state_dict, normal_backend):
     #                 eta_list.sort()
     #                 ava_url = reverse_sta_dict[eta_list[0]]
     for i in normal_backend:
-        task_type = state_dict[i]["status"]
         cur_state_dict = state_dict[i][task_type]
         history_info_list: list = cur_state_dict["info"]
         logger.debug(history_info_list)
@@ -101,17 +100,21 @@ async def chose_backend(state_dict, normal_backend):
     backend_process_time = list(backend_processtime.keys())
     backend_process_time.sort()
     logger.debug(backend_processtime[backend_process_time[0]])
+    logger.error(backend_processtime)
     return backend_processtime[backend_process_time[0]]
 
 
-async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
+async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, state_dict=None):
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
     backend_url_dict = config.novelai_backend_url_dict
-    async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
-        content = await f.read()
-        state_dict = json.loads(content)
+    if state_dict is None:
+        async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
+            content = await f.read()
+            state_dict = json.loads(content)
+    else:
+        pass
     if addtional_site:
         backend_url_dict.update({"群专属后端": f"{addtional_site}"})
     reverse_dict = {value: key for key, value in backend_url_dict.items()}
@@ -159,8 +162,9 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
         try:
             if is_avaiable == 0:
                 logger.debug("进入后端选择")
-                ava_url = await chose_backend(state_dict, normal_backend)
+                ava_url = await chose_backend(state_dict, normal_backend, task_type)
         except:
+            logger.error(traceback.print_exc())
             await asyncio.sleep(10)
         else:
             logger.info(f"已选择后端{ava_url}")
@@ -169,8 +173,9 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None):
             state_dict[ava_url]["status"] = task_type
             state_dict[ava_url]["start_time"] = time.time()
             state_dict[ava_url][task_type]["info"]["tasks_count"] = tc
-            async with aiofiles.open("data/novelai/load_balance.json", "w", encoding="utf-8") as f:
-                f.write(json.dumps(state_dict))
-            ava_url_index = list(backend_url_dict.values()).index(ava_url)
-            ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))
-            return ava_url_index, ava_url_tuple, normal_backend, state_dict
+            break
+    async with aiofiles.open("data/novelai/load_balance.json", "w", encoding="utf-8") as f:
+        await f.write(json.dumps(state_dict))
+    ava_url_index = list(backend_url_dict.values()).index(ava_url)
+    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))
+    return ava_url_index, ava_url_tuple, normal_backend, state_dict

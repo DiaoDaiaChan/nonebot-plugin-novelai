@@ -272,6 +272,8 @@ class AIDRAW_BASE:
                 tmp_history_list.append({self.start_time: spend_time})
                 tc = self.backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
                 tc -= 1
+                logger.error(f"还剩{tc}")
+                self.backend_info[self.backend_site][self.task_type]["info"]["tasks_count"] = tc
                 cur_status = "idel" if tc == 0 else self.task_type
                 self.backend_info["status"] = cur_status
                 self.backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list

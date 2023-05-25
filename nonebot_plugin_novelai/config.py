@@ -123,7 +123,7 @@ class Config(BaseSettings):
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""}
     novelai_todaygirl = 1
-    novelai_tagger_site = None
+    novelai_tagger_site: str = None
 
     # 允许单群设置的设置
     def keys(cls):
