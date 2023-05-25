@@ -78,34 +78,34 @@ class Config(BaseSettings):
     个人使用第一种方法post显卡占用率反复横跳TAT 
     tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
     novelai_ControlNet_payload: list = [{
-        "alwayson_scripts": {
-        "controlnet": {
-        "args": [
-            {
-            "input_image": "",
-            "module": "canny",
-            "model": "control_canny [9d312881]",
-            "weight": 1,
-            "resize_mode": "Scale to Fit (Inner Fit)",
-            "lowvram": "false",
-            "processor_res": novelai_size,
-            "threshold_a": 100,
-            "threshold_b": 250,
+            "alwayson_scripts": {
+            "controlnet": {
+            "args": [
+                {
+                "input_image": "",
+                "module": "scribble_hed",
+                "model": "control_v11p_sd15_scribble [d4ba51ff]",
+                "weight": 1,
+                "lowvram": "false",
+                "processor_res": novelai_size*1.5,
+                "threshold_a": 100,
+                "threshold_b": 250,
+                }
+            ]
+                }
             }
-        ]
-            }
+        }, 
+        {"controlnet_units": 
+                [{"input_image": "", 
+                "module": "scribble_hed", 
+                "model": "control_v11p_sd15_scribble [d4ba51ff]", 
+                "weight": 1, 
+                "lowvram": "false", 
+                "processor_res": novelai_size*1.5, 
+                "threshold_a": 100,
+                "threshold_b": 250}]
         }
-    }, 
-    {"controlnet_units": 
-            [{"input_image": "", 
-            "module": "canny", 
-            "model": "control_canny [9d312881]", 
-            "weight": 1, 
-            "resize_mode": "Scale to Fit (Inner Fit)", 
-            "lowvram": "false", 
-            "processor_res": novelai_size, 
-            "threshold_a": 100,
-            "threshold_b": 250}]}]
+    ]
     
     novelai_cndm: dict = {"controlnet_module": "canny", 
                           "controlnet_processor_res": novelai_size, 
@@ -122,7 +122,8 @@ class Config(BaseSettings):
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""}
-    novelai_todaygirl = 1 
+    novelai_todaygirl = 1
+    novelai_tagger_site = None
 
     # 允许单群设置的设置
     def keys(cls):

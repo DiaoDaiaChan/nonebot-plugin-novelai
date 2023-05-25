@@ -132,7 +132,8 @@ async def super_res_api_func(img_bytes, size: int = 0):
             return bytes_img, msg, resp.status
 
 
-async def sd(site):
+async def sd(backend_site_index):
+    site = list(config.novelai_backend_url_dict.values())[int(backend_site_index)]
     dict_model = {}
     message = []
     message1 = []
@@ -154,9 +155,9 @@ async def sd(site):
     return message_all
 
 
-async def set_config(data):
+async def set_config(data, backend_site):
     payload = {"sd_model_checkpoint": data}
-    url = "http://" + site + "/sdapi/v1/options"
+    url = "http://" + backend_site + "/sdapi/v1/options"
     resp_ = await aiohttp_func("post", url, payload)
     end = time.time()
     return resp_[1], end
@@ -208,10 +209,16 @@ async def get_all_filenames(directory, fileType=None) -> dict:
     return file_path_dict
 
 
-async def change_model(event: MessageEvent, bot: Bot, model_index, site):
+async def change_model(event: MessageEvent, 
+                    bot: Bot,
+                    model_index, 
+                    backend_site_index
+                    ):
+    
+    backend_site = list(config.novelai_backend_url_dict.values())[int(backend_site_index)]
     await func_init(event)
     try:
-        site_ = reverse_dict[site]
+        site_ = reverse_dict[backend_site]
     except:
         site_ = await config(event.group_id, "site") or config.novelai_site
     try:
@@ -222,11 +229,10 @@ async def change_model(event: MessageEvent, bot: Bot, model_index, site):
         content = await f.read()
         models_dict = json.loads(content)
     try:
-        
         data = models_dict[model_index]
         await bot.send(event=event, message=f"收到指令，为后端{site_}更换模型中，后端索引-sd {site_index}，请等待,期间无法出图", at_sender=True)
         start = time.time()
-        code, end = await set_config(data)
+        code, end = await set_config(data, backend_site)
         spend_time = end - start
         spend_time_msg = str(',更换模型共耗时%.3f秒' % spend_time)
         if code in [200, 201]:
@@ -371,7 +377,11 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
             img_base64_list.append(qq_img)
         if len(img_base64_list) == 1:
                 img_mes = MessageSegment.image(img_base64_list[0])
-                await bot.send(event=event, message=img_mes+text_msg, at_sender=True, reply_message=True) 
+                await bot.send(event=event, 
+                               message=img_mes+text_msg, 
+                               at_sender=True, 
+                               reply_message=True
+                               ) 
         else:
             img_list = []
             for i in img_base64_list:
@@ -380,7 +390,8 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
                                    event, 
                                    event.sender.nickname, 
                                    event.user_id, 
-                                   img_list)
+                                   img_list
+                                   )
                                         
     else:
         await super_res.reject("请重新发送图片")
@@ -412,11 +423,6 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
     tags_en = None
     reply= event.reply
     await bot.send(event=event, message=f"control_net以图生图中")
-    if reply:
-        for seg in reply.message['image']:
-            img_url = seg.data["url"]
-        for seg in event.message['image']:
-            img_url = seg.data["url"]
     if msg[0].type == "image":
             img_url = msg[0].data["url"]
     else:
@@ -425,6 +431,11 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
         tags_en = await translate(tag, "en")
     if tags_en is None:
         tags_en = ""
+    if reply:
+        for seg in reply.message['image']:
+            img_url = seg.data["url"]
+        for seg in event.message['image']:
+            img_url = seg.data["url"]
     img = await download_img(img_url)
     img_bytes = base64.b64decode(img[0])
     tags = basetag + tags_en
@@ -432,7 +443,8 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
         fifo = AIDRAW(user_id=str(event.user_id), 
                       tags=tags,
                       ntags=lowQuality,
-                      event=event)
+                      event=event
+                      )
         await fifo.load_balance_init()
         fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
@@ -449,17 +461,30 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
 
 
 @get_models.handle()
-async def get_sd_models(event: MessageEvent, bot: Bot):
-    await func_init(event)
-    final_message = await sd(site)
-    print(final_message)
-    await risk_control(bot, event, final_message, True, True)
+async def get_sd_models(event: MessageEvent, 
+                        bot: Bot, 
+                        msg: Message = CommandArg()
+                    ):  
+    if msg:
+        backend_site_index = msg.extract_plain_text()
+    else:
+        backend_site_index = 0
+    final_message = await sd(backend_site_index)
+    await risk_control(bot, event, final_message, False, True)
 
 
 @change_models.handle()
-async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    index = msg.extract_plain_text()
-    await change_model(event, bot, index)
+async def _(event: MessageEvent, 
+            bot: Bot, 
+            msg: Message = CommandArg()
+):
+    try:
+        user_command = msg.extract_plain_text()
+        backend_index = user_command.split("_")[0]
+        index = user_command.split("_")[1]
+    except:
+        await get_models.finish("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)")
+    await change_model(event, bot, index, backend_index)
 
 
 @get_sampler.handle()
@@ -484,10 +509,15 @@ async def _(event: MessageEvent, bot: Bot):
     backend_list = list(config.novelai_backend_url_dict.keys())
     backend_site = list(config.novelai_backend_url_dict.values())
     message = []
-    all_tuple = await sd_LoadBalance(task_type="txt2img")
+    task_list = []
+    fifo = AIDRAW(event=event)
+    all_tuple = await fifo.load_balance_init()
+    for i in backend_site:
+        task_list.append(fifo.get_webui_config(i))
+    resp_config = await asyncio.gather(*task_list, return_exceptions=True)
     resp_tuple = all_tuple[1][2]
     today = str(datetime.date.today())
-    for i in resp_tuple:
+    for i, m in zip(resp_tuple, resp_config):
         work_history_list = []
         today_task = 0
         n += 1
@@ -495,7 +525,11 @@ async def _(event: MessageEvent, bot: Bot):
             message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         else:
             text_message = ''
-            text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n"
+            try:
+                model = m["sd_model_checkpoint"]
+            except:
+                model = ""
+            text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n模型:{os.path.basename(model)}\n"
             if resp_tuple[n][0]["progress"] in [0, 0.01, 0.0]:
                 text_message += f"后端空闲中\t\n"
             else:

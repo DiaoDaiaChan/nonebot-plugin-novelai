@@ -164,7 +164,12 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         fifo = AIDRAW(**vars(args), event=event)
         resp_tuple = await fifo.load_balance_init()
         if args.model:
-            await change_model(event, bot, args.model)
+            
+            index = fifo.backend_index if (
+                fifo.backend_index is not None and isinstance(fifo.backend_index, int)
+                ) else "0"
+            
+            await change_model(event, bot, args.model, index)
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""

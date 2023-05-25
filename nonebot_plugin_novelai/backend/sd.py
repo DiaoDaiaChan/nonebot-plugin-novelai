@@ -44,22 +44,22 @@ class AIDRAW(AIDRAW_BASE):
         获取post参数
         '''
         global site
-        if config.novelai_load_balance:
-            if self.backend_index is not None and isinstance(self.backend_index, int):
-                site = list(config.novelai_backend_url_dict.values())[self.backend_index]
-                self.backend_site = site
-            else:
-                if self.backend_site:
-                    site = self.backend_site
+        if self.backend_site:
+            site = self.backend_site
+        else:
+            if config.novelai_load_balance:
+                if self.backend_index is not None and isinstance(self.backend_index, int):
+                    site = list(config.novelai_backend_url_dict.values())[self.backend_index]
+                    self.backend_site = site
                 else:
                     await self.load_balance_init()
-                    site = self.backend_site  or defult_site 
-        else:
-            if self.backend_index is not None and isinstance(self.backend_index, int):
-                site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
-                self.backend_site = site
+                    site = self.backend_site or defult_site 
             else:
-                site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
+                if self.backend_index is not None and isinstance(self.backend_index, int):
+                    site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
+                    self.backend_site = site
+                else:
+                    site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
         post_api = f"http://{site}/sdapi/v1/img2img" if self.img2img else f"http://{site}/sdapi/v1/txt2img"
         
         parameters = {
@@ -79,7 +79,8 @@ class AIDRAW(AIDRAW_BASE):
             parameters.update({
                 "init_images": ["data:image/jpeg;base64,"+self.image],
                 "denoising_strength": self.strength,
-            })
+            }
+            )
         else:
             if config.novelai_hr and self.disable_hr is False:
                 parameters.update(self.novelai_hr_payload)
@@ -130,7 +131,10 @@ class AIDRAW(AIDRAW_BASE):
                         self.backend_name = ""
                 resp_list = await asyncio.gather(*[self.get_webui_config(self.backend_site), get_vram(self.backend_site)], return_exceptions=False)
                 resp_json = resp_list[0]
-                self.model = resp_json["sd_model_checkpoint"]
+                try:
+                    self.model = resp_json["sd_model_checkpoint"]
+                except:
+                    self.model = ""
                 self.vram = resp_list[1]
                 break
                 

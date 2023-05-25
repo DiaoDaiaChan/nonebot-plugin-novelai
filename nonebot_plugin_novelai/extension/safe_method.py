@@ -40,13 +40,13 @@ async def markdown_temple(bot: Bot, text):
 
 async def risk_control(bot: Bot, 
                        event: MessageEvent, 
-                       message, 
+                       message: list, 
                        is_forward=False, 
                        md_temple=False, 
-                       width=500, 
+                       width: int=500, 
                        at_sender=True, 
                        reply_message=True
-                       ):
+):
 
     '''
     为防止风控的函数, is_forward True为发送转发消息

@@ -75,18 +75,28 @@ async def check_safe_method(fifo,
                 if htype in [1, 2]:
                     if htype == 1:
                         try:
-                            await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
+                            await bot.send_private_msg(user_id=fifo.user_id, 
+                                                       message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                                                       )
                         except ActionFailed:
-                            await bot.send_group_msg(group_id=fifo.group_id, message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}")
+                            await bot.send_group_msg(group_id=fifo.group_id, 
+                                                     message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
+                                                     )
                     elif htype == 2:
                         try:
-                            await bot.send_group_msg(group_id=fifo.group_id, message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}")
+                            await bot.send_group_msg(group_id=fifo.group_id, 
+                                                     message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
+                                                     )
                         except ActionFailed:
                             try:
-                                await bot.send_private_msg(user_id=fifo.user_id, message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}")
+                                await bot.send_private_msg(user_id=fifo.user_id, 
+                                                           message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                                                           )
                             except ActionFailed:
                                 try:
-                                    await bot.send_group_msg(group_id=fifo.group_id, message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}")
+                                    await bot.send_group_msg(group_id=fifo.group_id, 
+                                                             message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
+                                                             )
                                 except ActionFailed:
                                     await send_qr_code(bot, fifo, img_url)
                 elif htype == 3:

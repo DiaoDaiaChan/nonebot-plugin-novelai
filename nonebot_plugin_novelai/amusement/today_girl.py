@@ -1334,6 +1334,7 @@ async def _(bot: Bot,
     except ActionFailed:
         await bot.send(event=event, 
                         message=f"风控了...不过图图我还是会画给你的...")
+    tags = "" if tags is None else tags
     tags = basetag + tags
     ntags = lowQuality
     fifo = AIDRAW(tags=tags, 
