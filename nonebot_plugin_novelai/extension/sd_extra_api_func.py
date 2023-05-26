@@ -298,7 +298,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     try:
         site_ = reverse_dict[site]
     except:
-        site_ = await config(event.group_id, "site") or config.novelai_site
+        site_ = await config.get_value(event.group_id, "site") or config.novelai_site
     embs_list = [f"这是来自webui:{site_}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
     emb_dict = {}
@@ -326,7 +326,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     try:
         site_ = reverse_dict[site]
     except:
-        site_ = await config(event.group_id, "site") or config.novelai_site
+        site_ = await config.get_value(event.group_id, "site") or config.novelai_site
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
     n = 0
     lora_dict = {}
@@ -521,7 +521,7 @@ async def _(event: MessageEvent, bot: Bot):
         work_history_list = []
         today_task = 0
         n += 1
-        if isinstance(i, asyncio.exceptions.TimeoutError):
+        if isinstance(i, asyncio.exceptions.TimeoutError or Exception):
             message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         else:
             text_message = ''

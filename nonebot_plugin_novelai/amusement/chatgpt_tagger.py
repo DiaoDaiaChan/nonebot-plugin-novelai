@@ -10,6 +10,7 @@ from nonebot.params import CommandArg
 from ..extension.daylimit import DayLimit
 from ..extension.explicit_api import check_safe_method
 from ..extension.safe_method import risk_control
+from ..utils.data import basetag, lowQuality
 
 sys_text = f'''
 You can output a prompt based on the input given by the user,
@@ -87,8 +88,8 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                     True, True, 750
     )
     
-    tags = config.novelai_tags + prompt
-    ntags = config.novelai_ntags
+    tags = config.novelai_tags + basetag + prompt
+    ntags = config.novelai_ntags + lowQuality
 
     fifo = AIDRAW(
                 tags=tags, 
@@ -98,7 +99,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
     await fifo.load_balance_init()
     await fifo.post()
-    img_msg = fifo.result[0]
+    img_msg = MessageSegment.image(fifo.result[0])
     if config.novelai_extra_pic_audit:
         result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_chatgpt")
         if isinstance(result[1], MessageSegment):

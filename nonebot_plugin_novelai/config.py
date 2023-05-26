@@ -25,12 +25,12 @@ class Config(BaseSettings):
     novelai_mode: str = "sd"
     novelai_site: str = ""
     # 后台设置
-    novelai_save: int = 1  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
+    novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_save_png: bool = False # 是否保存为PNG格式
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
     novelai_limit: bool = False  # 是否开启限速
-    novelai_daylimit: int = 0  # 每日次数限制，0为禁用
+    novelai_daylimit: int = 20204  # 每日次数限制，0为禁用
     novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
@@ -52,10 +52,10 @@ class Config(BaseSettings):
     novelai_backend_url_dict: dict = {"默认后端": "127.0.0.1:7860"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     novelai_sampler: str = None # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
     novelai_hr: bool = True # 是否启动高清修复
-    novelai_hr_scale: float = 2 # 高清修复放大比例
+    novelai_hr_scale: float = 1.5 # 高清修复放大比例
     novelai_hr_payload: dict = {
         "enable_hr": "true", 
-        "denoising_strength": 0.5, # 重绘幅度
+        "denoising_strength": 0.55, # 重绘幅度
         "hr_scale": novelai_hr_scale, # 高清修复比例, 1.5为长宽分辨率各X1.5
         "hr_upscaler": "Lanczos", # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
         "hr_second_pass_steps": 7, # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
@@ -121,9 +121,9 @@ class Config(BaseSettings):
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
-    baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""}
-    novelai_todaygirl = 1
-    novelai_tagger_site: str = None
+    baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
+    novelai_todaygirl = 1 # 可选值 1 和 2 两种不同的方式
+    novelai_tagger_site: str = None # 分析功能的地址 例如 127.0.0.1:7860
 
     # 允许单群设置的设置
     def keys(cls):
