@@ -1,7 +1,5 @@
+from .base import AIDRAW_BASE
 from ..config import config
-<<<<<<< HEAD
-from .base import DrawBase
-=======
 import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from nonebot import logger
@@ -13,21 +11,12 @@ header = {
                 "content-type": "application/json",
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
 }
->>>>>>> v0.5.9_diao
 
 
-class Draw(DrawBase):
+class AIDRAW(AIDRAW_BASE):
     """队列中的单个请求"""
-<<<<<<< HEAD
-
-    sampler: str = "k_euler_ancestral"
-    MAX_RESOLUTION: int = 32
-    MAX_STEPS: int = 200
-
-=======
     max_resolution: int = 32
     
->>>>>>> v0.5.9_diao
     async def fromresp(self, resp):
         img: dict = await resp.json()
         return img["images"][0]
@@ -111,42 +100,6 @@ class Draw(DrawBase):
                 parameters["controlnet_units"][0]["input_image"] = self.image           
         return header, post_api, parameters
 
-<<<<<<< HEAD
-    async def run(self):
-        site = config.novelai_site or "127.0.0.1:7860"
-        header = {
-            "content-type": "application/json",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
-        }
-        post_api = (
-            f"http://{site}/sdapi/v1/img2img"
-            if self.img2img
-            else f"http://{site}/sdapi/v1/txt2img"
-        )
-        for i in range(self.batch):
-            parameters = {
-                "prompt": self.tags,
-                "seed": self.seed[i],
-                "steps": self.steps,
-                "cfg_scale": self.scale,
-                "width": self.width,
-                "height": self.height,
-                "negative_prompt": self.ntags,
-                "override_settings": {
-                    "filter_nsfw": True if config.novelai_h else False,
-                    "CLIP_stop_at_last_layers": 2,
-                    "sd_model_checkpoint": "",
-                },
-            }
-            if self.img2img:
-                parameters.update(
-                    {
-                        "init_images": ["data:image/jpeg;base64," + self.image],
-                        "denoising_strength": self.strength,
-                    }
-                )
-            await self.post_(header, post_api, parameters)
-=======
     async def post(self):
         global defult_site
         defult_site = None # 所有后端失效后, 尝试使用默认后端
@@ -189,4 +142,3 @@ class Draw(DrawBase):
                 break
                 
         return self.result
->>>>>>> v0.5.9_diao

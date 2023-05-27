@@ -1,11 +1,11 @@
 from ..config import config
-from .base import DrawBase
+from .base import AIDRAW_BASE
 
-
-class Draw(DrawBase):
+class AIDRAW(AIDRAW_BASE):
     """队列中的单个请求"""
+    model: str = "nai-diffusion" if config.novelai_h else "safe-diffusion"
 
-    async def run(self):
+    async def post(self):
         # 获取请求体
         header = {
             "authorization": "Bearer " + config.novelai_token,
@@ -22,7 +22,7 @@ class Draw(DrawBase):
                 "height": self.height,
                 "qualityToggle": False,
                 "scale": self.scale,
-                "sampler": "k_euler_ancestral",
+                "sampler": self.sampler,
                 "steps": self.steps,
                 "seed": self.seed[i],
                 "n_samples": 1,
@@ -30,16 +30,15 @@ class Draw(DrawBase):
                 "uc": self.ntags,
             }
             if self.img2img:
-                parameters.update(
-                    {
-                        "image": self.image,
-                        "strength": self.strength,
-                        "noise": self.noise,
-                    }
-                )
-            json = {
+                parameters.update({
+                    "image": self.image,
+                    "strength": self.strength,
+                    "noise": self.noise
+                })
+            json= {
                 "input": self.tags,
-                "model": "nai-diffusion" if config.novelai_h else "safe-diffusion",
-                "parameters": parameters,
+                "model": self.model,
+                "parameters": parameters
             }
-            await self.post_(header, post_api, json)
+            await self.post_(header, post_api,json)
+        return self.result
