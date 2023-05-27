@@ -7,67 +7,43 @@ from nonebot import get_driver
 from nonebot.log import logger
 from pydantic import BaseSettings, validator
 from pydantic.fields import ModelField
+import os
 
 driver = get_driver()
 jsonpath = Path("data/novelai/config.json").resolve()
-nickname = (
-    list(driver.config.nickname)[0]
-    if len(driver.config.nickname)
-    else "nonebot-plugin-novelai"
-)
+nickname = list(get_driver().config.nickname)[0] if len(
+    get_driver().config.nickname) else "nonebot-plugin-novelai"
 
 
 class Config(BaseSettings):
-    novelai: dict = {"sd": ""}
-    """你的服务器配置信息"""
-    novelai_webui_config: dict = {}
-    novelai_save: int = 1
-    """是否保存图片至本地,0为不保存，1保存jpg(丢失图片chunk信息)，2保存图片原本png"""
-    novelai_debug: bool = False
-    """是否保存追踪信息，这会在图片旁保存同名txt文件"""
-    novelai_paid: int = 0
-    """0为禁用付费模式，1为点数制，2为严格点数制，3为不限制"""
-    novelai_pure: bool = False
-    """是否启用简洁返回模式（只返回图片，不返回tag等数据）"""
-    novelai_limit: bool = True
-    """是否开启限速模式，开启后，每次调用都会检查上次调用时间，如果小于cd则会被拒绝"""
-    novelai_daylimit: int = 0
-    """每日点数限制，0为禁用限制"""
-    novelai_h: bool = False
-    """是否允许H"""
-    novelai_antireport: bool = True
-    """玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot"""
-    novelai_max: int = 3
-    """每次能够生成的最大数量"""
-
+    # 服务器设置
+    novelai_token: str = ""  # 官网的token
+    # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
+    novelai_mode: str = "novelai"
+    novelai_site: str = ""
+    # 后台设置
+    novelai_save: int = 1  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
+    novelai_paid: int = 0  # 0为禁用付费模式，1为点数制，2为不限制
+    novelai_pure: bool = False  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
+    novelai_limit: bool = True  # 是否开启限速
+    novelai_daylimit: int = 0  # 每日次数限制，0为禁用
+    novelai_h: bool = False  # 是否允许H
+    novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
+    novelai_max: int = 3  # 每次能够生成的最大数量
+    # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
     novelai_size: int = 1024
-    """允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024"""
-
-    novelai_tags: str = ""
-    """内置的tag"""
-    novelai_ntags: str = ""
-    """内置的反tag"""
-    novelai_cd: int = 60
-    """默认的cd"""
-    novelai_on: bool = True
-    """是否全局开启"""
-    novelai_revoke: int = 0
-    """是否自动撤回，该值不为0时，则为撤回时间"""
-
-    bing_key: str = None
-    bing_region: str = None
-    """bing的翻译key和region"""
-    deepl_key: str = None
-    """deepL的翻译key"""
+    # 可运行更改的设置
+    novelai_tags: str = ""  # 内置的tag
+    novelai_ntags: str = ""  # 内置的反tag
+    novelai_cd: int = 60  # 默认的cd
+    novelai_on: bool = True  # 是否全局开启
+    novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
+    # 翻译API设置
+    bing_key: str = None  # bing的翻译key
+    deepl_key: str = None  # deepL的翻译key
 
     def keys(cls):
-        return (
-            "novelai_cd",
-            "novelai_tags",
-            "novelai_on",
-            "novelai_ntags",
-            "novelai_revoke",
-        )
+        return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke")
 
     def __getitem__(cls, item):
         return getattr(cls, item)
@@ -184,3 +160,26 @@ class Config(BaseSettings):
 
 config = Config(**get_driver().config.dict())
 logger.info(f"加载config完成" + str(config))
+novelai_backend_url_dict = config.novelai_backend_url_dict
+state_dict = {}
+std_dict = {"status": "idle",
+            "start_time": None, 
+            "txt2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
+            "img2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
+            "controlnet": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}
+            }
+
+if os.path.isfile(lb_jsonpath):
+    with open(lb_jsonpath, "r", encoding="utf-8") as f:
+        content = f.read()
+        state_dict: dict = json.loads(content)
+        
+for k, v in novelai_backend_url_dict.items():
+    if v not in state_dict.keys():
+        state_dict[v] = std_dict
+        logger.info(f"新添加后端{k}")
+
+with open(lb_jsonpath, "w", encoding="utf-8") as f:
+    f.write(json.dumps(state_dict))
+
+logger.info(f"后端数据加载完成, 共有{len(list(novelai_backend_url_dict.keys()))}个后端被加载")

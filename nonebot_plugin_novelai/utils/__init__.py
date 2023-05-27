@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 基础优化tag
 
 BASE_TAG = "masterpiece, best quality,"
@@ -21,6 +22,14 @@ SHAPE_MAP = {
     "l": [768, 512],
     "宽": [768, 512],
 }
+=======
+from io import BytesIO
+from PIL import Image
+import re
+import aiohttp
+import base64
+import random
+>>>>>>> v0.5.9_diao
 
 
 def aliases(*args):
@@ -46,6 +55,7 @@ async def sendtosuperuser(message):
     superusers = get_driver().config.superusers
     bot = get_bot()
     for superuser in superusers:
+<<<<<<< HEAD
         await bot.call_api(
             "send_msg",
             **{
@@ -53,7 +63,14 @@ async def sendtosuperuser(message):
                 "user_id": superuser,
             },
         )
+=======
+        message_data = await bot.call_api('send_msg', **{
+            'message': message,
+            'user_id': superuser,
+        })
+>>>>>>> v0.5.9_diao
         await asyncio.sleep(5)
+        return message_data
 
 
 from nonebot import CommandGroup
