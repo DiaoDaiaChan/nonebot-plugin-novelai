@@ -126,10 +126,13 @@ async def super_res_api_func(img_bytes, size: int = 0):
     async with aiohttp.ClientSession() as session:
         api_url = "http://" + resp_tuple[1][0] + "/sdapi/v1/extra-single-image"
         async with session.post(url=api_url, json=payload) as resp:
-            resp_json = await resp.json()
-            resp_img = resp_json["image"]
-            bytes_img = base64.b64decode(resp_img)
-            return bytes_img, msg, resp.status
+            if resp.status not in [200, 201]:
+                raise RuntimeError
+            else:
+                resp_json = await resp.json()
+                resp_img = resp_json["image"]
+                bytes_img = base64.b64decode(resp_img)
+                return bytes_img, msg, resp.status
 
 
 async def sd(backend_site_index):

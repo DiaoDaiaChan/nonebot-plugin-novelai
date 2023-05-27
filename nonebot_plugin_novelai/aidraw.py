@@ -239,6 +239,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
 async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     # 纯净模式额外信息
+    await fifo.load_balance_init()
     if await config.get_value(fifo.group_id, "pure"):
         # hr_scale = config.novelai_hr_payload["hr_scale"]
         extra_message_list = [f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, cfg:{fifo.scale}"]
