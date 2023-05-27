@@ -162,7 +162,6 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         if args.no_trans: # 不希望翻译的tags
             args.tags = args.tags + args.no_trans
         fifo = AIDRAW(**vars(args), event=event)
-        resp_tuple = await fifo.load_balance_init()
         if args.model:
             
             index = fifo.backend_index if (

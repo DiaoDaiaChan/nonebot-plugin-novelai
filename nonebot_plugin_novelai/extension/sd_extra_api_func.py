@@ -521,7 +521,7 @@ async def _(event: MessageEvent, bot: Bot):
         work_history_list = []
         today_task = 0
         n += 1
-        if isinstance(i, asyncio.exceptions.TimeoutError or Exception):
+        if isinstance(i, (TypeError or asyncio.exceptions.TimeoutError or Exception)):
             message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         else:
             text_message = ''

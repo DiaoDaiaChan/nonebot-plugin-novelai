@@ -77,7 +77,8 @@ class Config(BaseSettings):
     '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
     个人使用第一种方法post显卡占用率反复横跳TAT 
     tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
-    novelai_ControlNet_payload: list = [{
+    novelai_ControlNet_payload: list = [
+        {
             "alwayson_scripts": {
             "controlnet": {
             "args": [
@@ -262,4 +263,3 @@ with open(lb_jsonpath, "w", encoding="utf-8") as f:
     f.write(json.dumps(state_dict))
 
 logger.info(f"后端数据加载完成, 共有{len(list(novelai_backend_url_dict.keys()))}个后端被加载")
-
