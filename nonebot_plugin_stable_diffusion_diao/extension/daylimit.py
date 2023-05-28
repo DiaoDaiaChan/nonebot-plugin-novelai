@@ -6,23 +6,28 @@ import aiofiles
 
 
 class DayLimit():
+    filename = "data/novelai/day_limit_data.json"
     day: int = time.localtime(time.time()).tm_yday
-    data: dict = {}
+    if os.path.exists(filename):
+        with open(filename, "r") as file:
+            content = file.read()
+            data: dict = json.loads(content)
+    else:
+        data = {}
 
     @classmethod
     async def load_data(cls):
         filename = "data/novelai/day_limit_data.json"
-        if os.path.exists(filename):
-            async with aiofiles.open(filename, "r") as file:
-                content = await file.read()
-                cls.data = json.loads(content)
+        async with aiofiles.open(filename, "r") as file:
+            content = await file.read()
+        return json.loads(content)
 
     @classmethod
     async def save_data(cls):
         filename = "data/novelai/day_limit_data.json"
         async with aiofiles.open(filename, "w") as file:
-            await file.write(json.dumps(cls.data, file))
-            
+            await file.write(json.dumps(cls.data))
+
     @classmethod
     async def count(cls, user: str, num):
         day_ = time.localtime(time.time()).tm_yday

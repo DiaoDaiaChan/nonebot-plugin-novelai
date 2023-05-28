@@ -10,8 +10,9 @@ import os
 
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
+
 nickname = list(get_driver().config.nickname)[0] if len(
-    get_driver().config.nickname) else "nonebot-plugin-novelai"
+    get_driver().config.nickname) else "nonebot-plugin-stable-diffusion"
 
 
 class Config(BaseSettings):
@@ -259,6 +260,8 @@ for k, v in novelai_backend_url_dict.items():
         state_dict[v] = std_dict
         logger.info(f"新添加后端{k}")
 
+if not lb_jsonpath.exists():
+    lb_jsonpath.parent.mkdir(parents=True, exist_ok=True)
 with open(lb_jsonpath, "w", encoding="utf-8") as f:
     f.write(json.dumps(state_dict))
 

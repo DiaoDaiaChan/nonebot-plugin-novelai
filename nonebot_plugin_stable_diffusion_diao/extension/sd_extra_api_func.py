@@ -43,6 +43,7 @@ async def func_init(event):
     else:
         site = await config.get_value(event.group_id, "site") or config.novelai_site
     reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
+    return site, reverse_dict
     
 
 header = {
@@ -298,7 +299,25 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
 @get_emb.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    await func_init(event)
+    index = None
+    text_msg = msg.extract_plain_text().strip()
+    if msg:
+        list_len = len(list(config.novelai_backend_url_dict.values()))
+        try:
+            int(text_msg)
+        except:
+            pass
+        else:
+            index = int(text_msg)
+            if 0 <= index < list_len:
+                pass
+            else:
+                index = None
+    if index is not None and isinstance(index, int):
+        site = list(config.novelai_backend_url_dict.values())[index]
+        msg = None
+    else:
+         site, rev = await func_init(event)
     try:
         site_ = reverse_dict[site]
     except:
@@ -309,7 +328,6 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     get_emb_site = "http://" + site + "/sdapi/v1/embeddings"
     resp_json = await aiohttp_func("get", get_emb_site)
     all_embs = list(resp_json[0]["loaded"].keys())
-    text_msg = msg.extract_plain_text().strip()
     pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
     for i in all_embs:
         n += 1
@@ -326,20 +344,37 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 @get_lora.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    await func_init(event)
+    index = None
+    text_msg = msg.extract_plain_text().strip()
     try:
         site_ = reverse_dict[site]
     except:
         site_ = await config.get_value(event.group_id, "site") or config.novelai_site
+    if msg:
+        list_len = len(list(config.novelai_backend_url_dict.values()))
+        try:
+            int(text_msg)
+        except:
+            pass
+        else:
+            index = int(text_msg)
+            if 0 <= index < list_len:
+                pass
+            else:
+                index = None
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
     n = 0
     lora_dict = {}
-    get_lora_site = "http://" + site + "/sdapi/v1/lora"
+    if index is not None and isinstance(index, int):
+        site = list(config.novelai_backend_url_dict.values())[index]
+        msg = None
+    else:
+         site, rev = await func_init(event)
+    get_lora_site = "http://" + site + "/sdapi/v1/loras"
     resp_json = await aiohttp_func("get", get_lora_site)
-    all_lora = resp_json[0]["Loras"]
-    text_msg = msg.extract_plain_text().strip()
     pattern = re.compile(f".*{text_msg}.*", re.IGNORECASE)
-    for i in all_lora:
+    for item in resp_json[0]:
+        i = item["name"]
         n += 1
         lora_dict[n] = i
         if msg:

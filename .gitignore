@@ -132,7 +132,6 @@ setup.py
 test/
 .pdm.toml
 pdm.lock
-pyproject.toml
 test.*
 # Logs
 logs

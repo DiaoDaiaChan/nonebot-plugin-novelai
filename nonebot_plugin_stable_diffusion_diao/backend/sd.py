@@ -35,8 +35,6 @@ class AIDRAW(AIDRAW_BASE):
         resp_tuple = await sd_LoadBalance(task_type=self.task_type, state_dict=self.backend_info)
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
-        if resp_tuple[1][3] <= 1:
-            self.hiresfix_scale = self.hiresfix_scale * 0.75
         return resp_tuple
 
     async def post_parameters(self):

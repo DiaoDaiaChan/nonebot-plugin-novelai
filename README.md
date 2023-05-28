@@ -258,10 +258,6 @@ novelai_SuperRes_generate_payload: dict = {
 } # 以上为个人推荐值
 novelai_ControlNet_post_method: int = 0
 novelai_size_org: int = 640 # 最大分辨率
-if novelai_hr:
-    novelai_size: int = novelai_size_org
-else:
-    novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
 '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
 个人使用第一种方法post显卡占用率反复横跳TAT 
 tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
