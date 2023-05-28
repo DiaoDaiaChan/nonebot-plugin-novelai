@@ -1267,7 +1267,7 @@ async def _(bot: Bot,
             user_name = get_info["nickname"]
     else:
         user_name = message
-    left = DayLimit.count(str(event.user_id), 1)
+    left = await DayLimit.count(str(event.user_id), 1)
     if left == -1:
         await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     img_url = None
@@ -1310,23 +1310,23 @@ async def _(bot: Bot,
         build_msg_zh = []
         build_msg_en = []
         for i in choice_list:
-            
             zh = random.choice(list(prompt_dict[i].keys()))
             en = prompt_dict[i][zh]
             build_msg_zh.append(zh)
             build_msg_en.append(en)
+
         to_user = f'''
-二次元的{user_name},
-{build_msg_zh[11]},
-是{build_msg_zh[0]},{build_msg_zh[7]},
-{build_msg_zh[1]}色{build_msg_zh[2]},
-穿着{build_msg_zh[3]}和{build_msg_zh[4]},
-有着{build_msg_zh[5]}和{build_msg_zh[6]},
-正在{build_msg_zh[8]},
-画面{build_msg_zh[9]},{build_msg_zh[10]},
-'''.strip()
+        二次元的{user_name},
+        {build_msg_zh[11]},
+        是{build_msg_zh[0]},{build_msg_zh[7]},
+        {build_msg_zh[1]}色{build_msg_zh[2]},
+        穿着{build_msg_zh[3]}和{build_msg_zh[4]},
+        有着{build_msg_zh[5]}和{build_msg_zh[6]},
+        正在{build_msg_zh[8]},
+        画面{build_msg_zh[9]},{build_msg_zh[10]},
+        '''.strip()
+        
         tags =  build_msg_en[0] +","+ f','.join(build_msg_en)
-        print(tags)
     
     try:
         await bot.send(event=event, 

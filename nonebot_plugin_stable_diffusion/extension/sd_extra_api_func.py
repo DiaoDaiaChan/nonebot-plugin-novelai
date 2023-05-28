@@ -29,6 +29,7 @@ from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegme
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
+from nonebot import logger
 from collections import Counter
 
 
@@ -418,7 +419,7 @@ async def __():
 
 @control_net.got("net", "你的图图呢？")
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
-    left = DayLimit.count(str(event.user_id), 2)
+    left = await DayLimit.count(str(event.user_id), 2)
     if left == -1:
         await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     await func_init(event)
@@ -448,13 +449,14 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
                       ntags=lowQuality,
                       event=event
                       )
+        
         await fifo.load_balance_init()
         fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
         processed_pic = fifo.result[0]
         message_ = await check_safe_method(fifo, [processed_pic], [""], None, True, "_controlnet")
     except Exception as e:
-        traceback.print_exc()
+        logger.error(traceback.print_exc())
         await control_net.finish(f"出现错误{e}")
     if isinstance(message_[1], MessageSegment):
         message = MessageSegment.image(processed_pic) + f"\n耗时{fifo.spend_time}\n" + fifo.img_hash

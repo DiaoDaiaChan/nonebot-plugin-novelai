@@ -135,13 +135,13 @@ uw 900x450 2:1横构图
 -s
 # 绘画 miku -s 114514
 ```
-<div style="background-color:rgba(230, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 迭代步数
 -t
 # 绘画 miku -t 20
 ```
-<div style="background-color:rgba(205, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 对输入的服从度, 当前默认值:{config.novelai_scale}
 -c
@@ -150,40 +150,40 @@ uw 900x450 2:1横构图
 <table><tr><td bgcolor=yellow>服从度较低时cd AI 有较大的自由发挥空间，服从度较高时 AI 则更倾向于遵守你的输入。但如果太高的话可能会产生反效果 (比如让画面变得难看)。更高的值也需要更多计算。
 
 有时，越低的 scale 会让画面有更柔和，更有笔触感，反之会越高则会增加画面的细节和锐度。</td></tr></table>
-<div style="background-color:rgba(180, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 强度, 仅在以图生图生效取值范围0-1
 -e
 # 绘画 miku [图片] -e 0.7
 ```
-<div style="background-color:rgba(155, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 噪声, 仅在以图生图生效取值范围0-1
 -n
 # 绘画 miku [图片] -n 0.7
 ```
-<div style="background-color:rgba(130, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 去除默认预设
 -o
 # 绘画 miku -o 
 清除掉主人提前设置好的tags和ntags
 ```
-<div style="background-color:rgba(80, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 使用选择的采样器进行绘图
 -sp
 # 绘画 miku -sp DDIM 
 使用DDIM采样器进行绘图, 可以提前通过 采样器 指令来获取支持的采样器 有空格的采样器记得使用 ""括起来,例如 "Euler a"
 ```
-<div style="background-color:rgba(55, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 使用选择的后端进行绘图
 -sd
 # 绘画 miku -sd 0 
 使用1号后端进行绘图工作(索引从0开始), 可以提前通过 后端 指令来获取后端工作状态
 ```
-<div style="background-color:rgba(20, 0, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 不希望翻译的字符
 -nt
@@ -191,7 +191,7 @@ uw 900x450 2:1横构图
 "芝士雪豹"将不会被翻译
 ```
 ### 最后, 送你一个示例
-<div style="background-color:rgba(0, 120, 0, 0.5);">&nbsp</div>
+<div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ```text
 绘画 plaid_skirt,looking back ，bare shoulders -t 20 -sd 0 -sp UniPC -c 8 -b 3 -u nsfw
 ```

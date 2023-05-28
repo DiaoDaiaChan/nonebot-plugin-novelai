@@ -140,14 +140,12 @@ async def check_safe(img_bytes: BytesIO, fifo):
         from typing import IO
         from io import BytesIO
 
-
         async def process_data(content, SIZE):
             img = tf.io.decode_jpeg(content, channels=3)
             img = tf.image.resize_with_pad(img, SIZE, SIZE, method="nearest")
             img = tf.image.resize(img, (SIZE, SIZE), method="nearest")
             img = img / 255
             return img
-
 
         async def main(file: IO[bytes]):
             SIZE = 224
@@ -164,7 +162,6 @@ async def check_safe(img_bytes: BytesIO, fifo):
             possibilities = {"safe": safe, "questionable": questionable, "explicit": explicit}
             logger.debug(possibilities)
             return possibilities
-        
 
         file_obj = BytesIO(img_bytes)
         possibilities = await main(file_obj)
@@ -198,7 +195,6 @@ async def check_safe(img_bytes: BytesIO, fifo):
                     print(reverse_dict)
         return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100
 
-
     async def get_file_content_as_base64(path, urlencoded=False):
         # 不知道为啥, 不用这个函数处理的话API会报错图片格式不正确, 试过不少方法了,还是不行(
         """
@@ -213,7 +209,6 @@ async def check_safe(img_bytes: BytesIO, fifo):
                 content = urllib.parse.quote_plus(content)
         return content
 
-
     async def get_access_token():
         """
         使用 AK，SK 生成鉴权签名（Access Token）
@@ -227,7 +222,6 @@ async def check_safe(img_bytes: BytesIO, fifo):
             async with session.post(url=url, params=params) as resp:
                 json = await resp.json()
                 return json["access_token"]
-
 
     async with aiofiles.open("image.jpg", "wb") as f:
         await f.write(img_bytes)

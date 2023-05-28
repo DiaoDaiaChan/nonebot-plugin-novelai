@@ -49,7 +49,7 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                         value = list(possibilities.values())
                         value.sort(reverse=True)
                         h_ = f"这张图涩度{value[0] * 100}%"
-                        tags = ",".join(list(tags.keys()))
+                        tags = ", ".join(list(tags.keys()))
 
         else:
             async with aiohttp.ClientSession() as session:

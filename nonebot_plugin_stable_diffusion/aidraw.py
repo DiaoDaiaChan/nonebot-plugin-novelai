@@ -109,7 +109,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
     if await config.get_value(group_id, "on"):
         message = ""
         if config.novelai_daylimit and not await SUPERUSER(bot, event):
-            left = DayLimit.count(user_id, 1)
+            left = await DayLimit.count(user_id, 1)
             if left == -1:
                 await aidraw.finish(f"今天你的次数不够了哦")
             else:
