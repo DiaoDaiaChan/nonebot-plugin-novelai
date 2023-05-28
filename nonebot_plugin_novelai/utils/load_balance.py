@@ -117,12 +117,13 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
     # 获取api队列状态
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
     for resp_tuple in all_resp:
-        e += 1
+        e += 1 
         if isinstance(resp_tuple, 
-                      (asyncio.exceptions.TimeoutError or 
-                      aiohttp.ClientTimeout or 
-                      Exception)
-                      ):
+                      (aiohttp.ContentTypeError, 
+                       asyncio.exceptions.TimeoutError, 
+                       aiohttp.ClientTimeout, 
+                       Exception)
+                       ):
             logger.info(f"后端{list(config.novelai_backend_url_dict.keys())[e+1]}掉线")
         else:
             try:
@@ -132,8 +133,9 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
                     normal_backend = (list(status_dict.keys()))
                 else:
                     raise RuntimeError
-            except TypeError or RuntimeError:
-                pass
+            except RuntimeError or TypeError:
+                logger.error(f"后端{list(config.novelai_backend_url_dict.keys())[e+1]}出错")
+                continue
             else:
                 # 更改判断逻辑
                 if resp_tuple[0]["progress"] in [0, 0.01, 0.0]:
