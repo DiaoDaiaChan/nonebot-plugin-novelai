@@ -269,4 +269,4 @@ node_modules
 
 setup.bat
 test*
-.VSCodeCounter
+.VSCodeCounter.pdm-python
