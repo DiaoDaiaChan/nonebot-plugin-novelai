@@ -266,3 +266,9 @@ with open(lb_jsonpath, "w", encoding="utf-8") as f:
     f.write(json.dumps(state_dict))
 
 logger.info(f"后端数据加载完成, 共有{len(list(novelai_backend_url_dict.keys()))}个后端被加载")
+
+try:
+    import tensorflow
+except ImportError:
+    logger.error("未能成功导入tensorflow")
+    logger.error("novelai_picaudit为2时本地图片审核不可用")
