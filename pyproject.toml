@@ -5,7 +5,7 @@ description = "主要面对stable-diffusion-webui-api的nonebot2插件"
 authors = ["DiaoDaiaChan <diaodaiachan@qq.com>"]
 license = "MIT License"
 readme = "README.md"
-packages = [{include = "nonebot_plugin_stable_diffusion"}]
+packages = [{include = "nonebot_plugin_stable_diffusion_diao"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
