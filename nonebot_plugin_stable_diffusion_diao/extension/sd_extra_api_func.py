@@ -22,13 +22,14 @@ from ..backend import AIDRAW
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance
 from .safe_method import send_forward_msg, risk_control
-from ..extension.daylimit import DayLimit
+from ..extension.daylimit import count
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
+from nonebot.permission import SUPERUSER
 from nonebot import logger
 from collections import Counter
 
@@ -454,9 +455,10 @@ async def __():
 
 @control_net.got("net", "你的图图呢？")
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
-    left = await DayLimit.count(str(event.user_id), 2)
-    if left == -1:
-        await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
+    if config.novelai_daylimit and not await SUPERUSER(bot, event):
+        left = await count(str(event.user_id), 2)
+        if left == -1:
+            await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     await func_init(event)
     start = time.time()
     tags_en = None

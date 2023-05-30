@@ -24,7 +24,7 @@ from .config import config, nickname
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_check, anlas_set
-from .extension.daylimit import DayLimit
+from .extension.daylimit import count
 from .extension.explicit_api import check_safe_method
 from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
@@ -109,7 +109,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
     if await config.get_value(group_id, "on"):
         message = ""
         if config.novelai_daylimit and not await SUPERUSER(bot, event):
-            left = await DayLimit.count(user_id, 1)
+            left = await count(user_id, 1)
             if left == -1:
                 await aidraw.finish(f"今天你的次数不够了哦")
             else:

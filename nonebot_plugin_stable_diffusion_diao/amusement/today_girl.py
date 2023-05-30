@@ -1,10 +1,11 @@
 from nonebot import on_command, logger
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, Message
 from nonebot.params import CommandArg
+from nonebot.permission import SUPERUSER
 
 from ..backend import AIDRAW
 from ..extension.translation import translate_deepl, translate
-from ..extension.daylimit import DayLimit
+from ..extension.daylimit import count
 from ..config import config
 from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
@@ -1267,9 +1268,10 @@ async def _(bot: Bot,
             user_name = get_info["nickname"]
     else:
         user_name = message
-    left = await DayLimit.count(str(event.user_id), 1)
-    if left == -1:
-        await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
+    if config.novelai_daylimit and not await SUPERUSER(bot, event):
+        left = await count(str(event.user_id), 1)
+        if left == -1:
+            await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     img_url = None
     random_int_str = str(random.randint(0, 65535))
 

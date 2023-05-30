@@ -31,7 +31,7 @@ class Config(BaseSettings):
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
     novelai_limit: bool = False  # 是否开启限速
-    novelai_daylimit: int = 20204  # 每日次数限制，0为禁用
+    novelai_daylimit: int = 0  # 每日次数限制，0为禁用
     novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
