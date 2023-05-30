@@ -97,8 +97,8 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
     '''
     backend_url_dict = config.novelai_backend_url_dict
     if state_dict is None:
-        async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
-            content = await f.read()
+        with open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
+            content = f.read()
             state_dict = json.loads(content)
     else:
         pass
@@ -124,7 +124,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
                        aiohttp.ClientTimeout, 
                        Exception)
                        ):
-            logger.info(f"后端{list(config.novelai_backend_url_dict.keys())[e+1]}掉线")
+            logger.info(f"后端{list(config.novelai_backend_url_dict.keys())[e]}掉线")
         else:
             try:
                 if resp_tuple[3] in [200, 201]:
@@ -134,7 +134,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
                 else:
                     raise RuntimeError
             except RuntimeError or TypeError:
-                logger.error(f"后端{list(config.novelai_backend_url_dict.keys())[e+1]}出错")
+                logger.error(f"后端{list(config.novelai_backend_url_dict.keys())[e]}出错")
                 continue
             else:
                 # 更改判断逻辑
@@ -165,8 +165,8 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
     state_dict[ava_url]["status"] = task_type
     state_dict[ava_url]["start_time"] = time.time()
     state_dict[ava_url][task_type]["info"]["tasks_count"] = tc
-    async with aiofiles.open("data/novelai/load_balance.json", "w", encoding="utf-8") as f:
-        await f.write(json.dumps(state_dict))
+    with open("data/novelai/load_balance.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(state_dict))
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
     ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))
     return ava_url_index, ava_url_tuple, normal_backend, state_dict

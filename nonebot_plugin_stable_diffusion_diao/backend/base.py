@@ -274,8 +274,8 @@ class AIDRAW_BASE:
                 cur_status = "idel" if tc == 0 else self.task_type
                 self.backend_info["status"] = cur_status
                 self.backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
-                async with aiofiles.open("data/novelai/load_balance.json", "w") as f:
-                    await f.write(json.dumps(self.backend_info))
+                with open("data/novelai/load_balance.json", "w") as f:
+                    f.write(json.dumps(self.backend_info))
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
                 # 将图片转化为jpg

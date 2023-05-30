@@ -561,25 +561,28 @@ async def _(event: MessageEvent, bot: Bot):
         work_history_list = []
         today_task = 0
         n += 1
-        if isinstance(i, (aiohttp.ContentTypeError or 
-                          TypeError or 
-                          asyncio.exceptions.TimeoutError or 
+        if isinstance(i, (aiohttp.ContentTypeError, 
+                          TypeError,
+                          asyncio.exceptions.TimeoutError,
                           Exception)
                           ):
             message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         else:
-            text_message = ''
-            try:
-                model = m["sd_model_checkpoint"]
-            except:
-                model = ""
-            text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n模型:{os.path.basename(model)}\n"
-            if resp_tuple[n][0]["progress"] in [0, 0.01, 0.0]:
-                text_message += f"后端空闲中\t\n"
+            if i[3] in [200, 201]:
+                text_message = ''
+                try:
+                    model = m["sd_model_checkpoint"]
+                except:
+                    model = ""
+                text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n模型:{os.path.basename(model)}\n"
+                if i[0]["progress"] in [0, 0.01, 0.0]:
+                    text_message += f"后端空闲中\t\n"
+                else:
+                    eta = i[0]["eta_relative"]
+                    text_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
+                message.append(text_message)
             else:
-                eta = resp_tuple[n][0]["eta_relative"]
-                text_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
-            message.append(text_message)
+                message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
         for t in backend_info_task_type:
             history_list: list[dict] = backend_info[backend_site[n]][t]["info"]["history"]
             for task in history_list:

@@ -17,6 +17,7 @@
 aiohttp,aiofiles
 
 # 简要说明
+## 由于雕雕比较菜，所以请时常检查更新(
 ## 本插件只需要配置一个后端就能工作，当然，不配置插件也能正常启动，但是画不了图  
 ## 你需要启动了API的stable-diffusion-webui才能画图，**！文档的最后有.env文件配置模板！**
 ### 雕主要是为stable-diffusion-webui更新了功能，novalai官方，naifu没动过，理论上也能工作，不过推荐使用本插件只使用sdwebui(
@@ -40,7 +41,8 @@ novelai模式需要token才能运行，所以你需要首先购买novelai的25�
 .tagget [图片]
 - 获取图片的TAG
 - 如果你不想用.tagget，可以用 **鉴赏** 或 **查书** 代替。
-
+## 其他花里胡哨的功能
+VITS(https://github.com/Artrajz/vits-simple-api) # 正在编写
 ## 相比于原本的nonebot-plugin-novelai更新了甚么？
 删除批量生成功能  
 添加了sd负载均衡功能
@@ -137,7 +139,10 @@ lora
 ![更换模型](./docs/main/images/help/model3.png)   
 可以使用webui的tagger功能了（需要安装tagger插件）设置 config.novelai_tagger_site  
 (tagger的CPU推理速度也不慢，你也可以使用CPU，这样就不会占用显存辣)  
-
+## 5.30
+私聊画的图片不在审核
+VITS功能
+修复每日次数不会清零的错误
 
 ## FEATURE
 - NAIFU

@@ -101,8 +101,8 @@ class AIDRAW(AIDRAW_BASE):
     async def post(self):
         global defult_site
         defult_site = None # 所有后端失效后, 尝试使用默认后端
-        async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
-            content = await f.read()
+        with open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
+            content = f.read()
             self.backend_info = json.loads(content)
         # 失效自动重试 
         for retry_times in range(config.novelai_retry):

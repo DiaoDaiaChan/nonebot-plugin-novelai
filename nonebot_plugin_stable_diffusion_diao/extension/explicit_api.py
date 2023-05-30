@@ -9,7 +9,7 @@ import os
 import urllib
 import re
 from PIL import Image
-from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed
+from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed, PrivateMessageEvent
 from nonebot.log import logger
 from ..config import config 
 import qrcode
@@ -45,6 +45,18 @@ async def check_safe_method(fifo,
     nsfw_count = 0
     for i in img_bytes:
         # try:
+        if isinstance(fifo.event, PrivateMessageEvent):
+            if config.novelai_SuperRes_generate:
+                try:
+                    from ..extension.sd_extra_api_func import super_res_api_func
+                    resp_tuple = await super_res_api_func(i, 3)
+                    i = resp_tuple[0]
+                except:
+                    logger.debug("超分API失效")
+            if save_img_:
+                await save_img(fifo, i, fifo.group_id)
+            message.append(MessageSegment.image(i))
+            return message
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
             try:
                 label, h_value = await check_safe(i, fifo)

@@ -126,6 +126,7 @@ class Config(BaseSettings):
     baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
     novelai_todaygirl = 1 # 可选值 1 和 2 两种不同的方式
     novelai_tagger_site: str = None # 分析功能的地址 例如 127.0.0.1:7860
+    vits_site: str = None
 
     # 允许单群设置的设置
     def keys(cls):
