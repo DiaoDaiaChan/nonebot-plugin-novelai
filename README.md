@@ -48,6 +48,11 @@ VITS(https://github.com/Artrajz/vits-simple-api) # 正在编写
 添加了sd负载均衡功能
 ![添加了sd负载均衡功能](./docs/main/images/help/load_balance.png)
 ## 添加了以下命令
+VITS  
+vits 你好  
+vits -get # 获取支持的音色  
+vits 你好 -s 202 使用202号音色  
+![emb](./docs/main/images/help/VITS.png)  
 二次元的我  
 帮我画 # chatgpt prompt 生成功能 后面跟上你想画的东西  
 绘画帮助  
@@ -194,7 +199,7 @@ novelai_backend_url_dict = {"1号": "127.0.0.1:7860", "2号后端": "127.0.0.1:7
 ### 常用配置项
 ```python
 novelai_command_start = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"} # 插件响应你的这些命令  
-novelai_daylimit = 20204 # 每个人每天能画多少图，这个必须配置捏
+novelai_daylimit = 20204 # 每个人每天能画多少图
 novelai_h = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
 novelai_htype = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
 novelai_cd = 60  # 默认的cd

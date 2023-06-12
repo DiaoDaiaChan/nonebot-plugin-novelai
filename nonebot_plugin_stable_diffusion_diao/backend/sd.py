@@ -42,22 +42,17 @@ class AIDRAW(AIDRAW_BASE):
         获取post参数
         '''
         global site
+        if self.backend_index is not None and isinstance(self.backend_index, int):
+            self.backend_site = list(config.novelai_backend_url_dict.values())[self.backend_index]
         if self.backend_site:
             site = self.backend_site
         else:
             if config.novelai_load_balance:
-                if self.backend_index is not None and isinstance(self.backend_index, int):
-                    site = list(config.novelai_backend_url_dict.values())[self.backend_index]
-                    self.backend_site = site
-                else:
-                    await self.load_balance_init()
-                    site = self.backend_site or defult_site 
+                await self.load_balance_init()
+                site = self.backend_site or defult_site 
             else:
-                if self.backend_index is not None and isinstance(self.backend_index, int):
-                    site = defult_site or list(config.novelai_backend_url_dict.values())[self.backend_index]
-                    self.backend_site = site
-                else:
-                    site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
+                site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
+
         post_api = f"http://{site}/sdapi/v1/img2img" if self.img2img else f"http://{site}/sdapi/v1/txt2img"
         
         parameters = {

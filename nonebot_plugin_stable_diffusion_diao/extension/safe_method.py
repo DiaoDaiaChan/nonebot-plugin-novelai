@@ -63,7 +63,7 @@ async def risk_control(bot: Bot,
             new_list.append(message)
     if md_temple:
         for img in new_list:
-            msg_list = "".join(img)
+            msg_list = "".join(str(img))
             markdown = await markdown_temple(bot, msg_list)
             img = await md_to_pic(md=markdown, width=width)
             await bot.send(event=event, message=MessageSegment.image(img))
