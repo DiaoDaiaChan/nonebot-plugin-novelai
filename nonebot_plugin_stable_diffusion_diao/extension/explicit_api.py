@@ -8,12 +8,13 @@ import nonebot
 import os
 import urllib
 import re
+import qrcode
+import time
+import asyncio
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed, PrivateMessageEvent
 from nonebot.log import logger
 from ..config import config 
-import qrcode
-import time
 
 
 async def send_qr_code(bot, fifo, img_url):
@@ -132,7 +133,7 @@ async def check_safe_method(fifo,
     return message
 
 
-async def check_safe(img_bytes: BytesIO, fifo):
+async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
 
     headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -152,34 +153,36 @@ async def check_safe(img_bytes: BytesIO, fifo):
         from typing import IO
         from io import BytesIO
 
-        async def process_data(content, SIZE):
+        def process_data(content, SIZE):
             img = tf.io.decode_jpeg(content, channels=3)
             img = tf.image.resize_with_pad(img, SIZE, SIZE, method="nearest")
             img = tf.image.resize(img, (SIZE, SIZE), method="nearest")
             img = img / 255
             return img
 
-        async def main(file: IO[bytes]):
+        def main(file: IO[bytes]):
             SIZE = 224
             inter = tf.lite.Interpreter("rainchan-image-porn-detection/lite_model.tflite", num_threads=12)
             inter.allocate_tensors()
             in_tensor, *_ = inter.get_input_details()
             out_tensor, *_ = inter.get_output_details()
-            data = await process_data(file.read(), SIZE)
+            data = process_data(file.read(), SIZE)
             data = tf.expand_dims(data, 0)
             inter.set_tensor(in_tensor["index"], data)
             inter.invoke()
             result, *_ = inter.get_tensor(out_tensor["index"])
             safe, questionable, explicit = map(float, result)
             possibilities = {"safe": safe, "questionable": questionable, "explicit": explicit}
-            logger.debug(possibilities)
+            logger.info(f"审核结果:{possibilities}")
             return possibilities
 
         file_obj = BytesIO(img_bytes)
-        possibilities = await main(file_obj)
+        possibilities = await asyncio.get_event_loop().run_in_executor(None, main, file_obj)
         value = list(possibilities.values())
         value.sort(reverse=True)
         reverse_dict = {value: key for key, value in possibilities.items()}
+        if is_check:
+            return possibilities
         return reverse_dict[value[0]], value[0] * 100
     
     elif picaudit == 4 or config.novelai_picaudit == 4:
@@ -188,7 +191,7 @@ async def check_safe(img_bytes: BytesIO, fifo):
         payload = {"image": img_base64, "model": "wd14-vit-v2-git", "threshold": 0.35 }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url=f"http://{fifo.backend_site}/tagger/v1/interrogate", json=payload) as resp:
+            async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:
                 if resp.status not in [200, 201]:
                     resp_text = await resp.text()
                     logger.error(f"API失败，错误信息:{resp.status, resp_text}")
@@ -202,9 +205,10 @@ async def check_safe(img_bytes: BytesIO, fifo):
                         possibilities[i]=tags[i]
                     value = list(possibilities.values())
                     value.sort(reverse=True)
-                    print(value)
                     reverse_dict = {value: key for key, value in possibilities.items()}
-                    print(reverse_dict)
+                    logger.info(f"审核结果:{reverse_dict}")
+        if is_check:
+            return possibilities
         return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100
 
     async def get_file_content_as_base64(path, urlencoded=False):
@@ -244,7 +248,9 @@ async def check_safe(img_bytes: BytesIO, fifo):
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.post(baidu_api, data=payload) as resp:
             result = await resp.json()
-            logger.debug(result)
+            logger.info(f"审核结果:{result}")
+            if is_check:
+                return result
             if result['conclusionType'] == 1:
                 return "safe", result['data'][0]['probability'] * 100
             else:

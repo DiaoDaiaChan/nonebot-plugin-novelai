@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-stable-diffusion-diao"
-version = "0.2.2"
+version = "0.2.3"
 description = "主要面对stable-diffusion-webui-api的nonebot2插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
@@ -12,7 +12,8 @@ dependencies = [
     "nonebot2>=2.0.0b4",
     "nonebot-plugin-htmlrender==0.2.0.3",
     "Pillow>=9.5.0",
-    "qrcode>=7.4.2"
+    "qrcode>=7.4.2",
+    "tqdm"
 ]
 
 [tool.pdm.dependencies]

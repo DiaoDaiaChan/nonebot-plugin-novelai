@@ -8,6 +8,7 @@ from pydantic import BaseSettings, validator
 from pydantic.fields import ModelField
 import os
 
+
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
 
@@ -18,13 +19,14 @@ nickname = list(get_driver().config.nickname)[0] if len(
 class Config(BaseSettings):
     # 服务器设置
     lb_jsonpath
+    novelai_steps: int = None # 默认步数
     novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
     novelai_scale: int = 7 # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_retry: int = 3 # post失败后重试的次数
     novelai_token: str = ""  # 官网的token
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
     novelai_mode: str = "sd"
-    novelai_site: str = "127.0.0.1:7860"
+    novelai_site: str = "la.iamdiao.lol:5938"
     # 后台设置
     novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_save_png: bool = False # 是否保存为PNG格式
@@ -32,8 +34,8 @@ class Config(BaseSettings):
     novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
     novelai_limit: bool = False  # 是否开启限速
     novelai_daylimit: int = 0  # 每日次数限制，0为禁用
-    novelai_h: int = 1  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_htype: int = 2 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
+    novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+    novelai_htype: int = 3 # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
     novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
     novelai_max: int = 3  # 每次能够生成的最大数量
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
@@ -44,13 +46,13 @@ class Config(BaseSettings):
     novelai_on: bool = True  # 是否全局开启
     novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
     novelai_random_ratio: bool = True # 是否开启随机比例
-    novelai_random_sampler: bool = True # 是否开启随机采样器
+    novelai_random_sampler: bool = False # 是否开启随机采样器
     novelai_random_scale: bool = True # 是否开启随机CFG
     novelai_random_ratio_list: list = [("p", 0.35), ("s", 0.10), ("l", 0.35), ("uw", 0.1), ("uwp", 0.1)] # 随机图片比例
     novelai_random_sampler_list = [("Euler a", 0.25), ("Euler", 0.1), ("UniPC", 0.05), ("DDIM", 0.1), ("DPM++ 2S a Karras", 0.15), ("DPM++ SDE", 0.05), ("DPM++ 2S a", 0.1), ("DPM++ SDE Karras", 0.05), ("DPM++ 2M Karras", 0.15)]
     novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
     novelai_load_balance: bool = True # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
-    novelai_backend_url_dict: dict = {"默认后端": "127.0.0.1:7860"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     novelai_sampler: str = None # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
     novelai_hr: bool = True # 是否启动高清修复
     novelai_hr_scale: float = 1.5 # 高清修复放大比例
@@ -114,19 +116,20 @@ class Config(BaseSettings):
                           "controlnet_threshold_a": 100, 
                           "controlnet_threshold_b": 250}
     
-    novelai_picaudit: int = 3 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api
+    novelai_picaudit: int = 4 # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""} # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
     novelai_auto_icon: bool = True # 机器人自动换头像(没写呢！)
-    novelai_extra_pic_audit = False # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
+    novelai_extra_pic_audit = True # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
     # 翻译API设置
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
     novelai_todaygirl = 1 # 可选值 1 和 2 两种不同的方式
-    novelai_tagger_site: str = None # 分析功能的地址 例如 127.0.0.1:7860
-    vits_site: str = None
+    novelai_tagger_site: str = "la.iamdiao.lol:25" # 分析功能的地址 例如 127.0.0.1:7860
+    vits_site: str = "la.iamdiao.lol:587"
+    run_screenshot = False # 获取服务器的屏幕截图
 
     # 允许单群设置的设置
     def keys(cls):
@@ -250,7 +253,6 @@ std_dict = {"status": "idle",
             "img2img": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}, 
             "controlnet": {"info": {"history": [{None: None}], "history_avage_time": None, "eta_time": 30, "tasks_count": 0}}
             }
-
 if os.path.isfile(lb_jsonpath):
     with open(lb_jsonpath, "r", encoding="utf-8") as f:
         content = f.read()
@@ -273,3 +275,11 @@ try:
 except ImportError:
     logger.error("未能成功导入tensorflow")
     logger.error("novelai_picaudit为2时本地图片审核不可用")
+redis_client = None
+# try:
+#     import redis
+# except ImportError:
+#     logger.error("未找到redis")
+# else:
+#     redis_client = redis.Redis(host='localhost', port=6379, db=4)
+

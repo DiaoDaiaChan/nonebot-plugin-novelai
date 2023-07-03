@@ -2,6 +2,7 @@ from typing import Tuple
 from PIL import Image
 from io import BytesIO
 from argparse import Namespace
+from PIL import ImageGrab
 import json, aiohttp, time, base64
 import base64
 import time
@@ -14,9 +15,9 @@ import os
 import traceback
 import random
 
-from ..config import config
+from ..config import config, redis_client
 from ..extension.translation import translate
-from ..extension.explicit_api import check_safe_method
+from ..extension.explicit_api import check_safe_method, check_safe
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils.data import lowQuality, basetag
@@ -44,8 +45,8 @@ async def func_init(event):
     else:
         site = await config.get_value(event.group_id, "site") or config.novelai_site
     reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
-    return site, reverse_dict
-    
+    return site, reverse_dict    
+
 
 header = {
     "content-type": "application/json",
@@ -72,6 +73,9 @@ hr_fix = on_command("高清修复") # 欸，还没写呢，就是玩
 random_tags = on_command("随机tag")
 find_pic = on_command("找图片")
 word_frequency_count = on_command("词频统计", aliases={"tag统计"})
+run_screen_shot = on_command("运行截图", aliases={"状态"}, block=False, priority=2)
+audit = on_command("审核")
+genera_aging = on_command("再来一张")
 
 more_func_parser = ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -169,11 +173,11 @@ async def set_config(data, backend_site):
     return resp_[1], end
 
 
-async def extract_tags_from_file(file_path, get_full_content=True) -> str:
+def extract_tags_from_file(file_path, get_full_content=True) -> str:
     separators = ['，', '。', ","]
     separator_pattern = '|'.join(map(re.escape, separators))
-    async with aiofiles.open(file_path, 'r', encoding="utf-8") as file:
-        content = await file.read()
+    with open(file_path, 'r', encoding="utf-8") as file:
+        content = file.read()
         if get_full_content:
             return content
     lines = content.split('\n')  # 将内容按行分割成列表
@@ -187,11 +191,11 @@ async def extract_tags_from_file(file_path, get_full_content=True) -> str:
     return words
 
 
-async def get_tags_list(is_uni=True):
-    filenames = await get_all_filenames("data/novelai/output", ".txt")
+def get_tags_list(is_uni=True):
+    filenames = get_all_filenames("data/novelai/output", ".txt")
     all_tags_list = []
     for path in list(filenames.values()):
-        tags_list = await extract_tags_from_file(path, False)
+        tags_list = extract_tags_from_file(path, False)
         for tags in tags_list:
             all_tags_list.append(tags)
     if is_uni:
@@ -204,7 +208,7 @@ async def get_tags_list(is_uni=True):
         return all_tags_list
 
 
-async def get_all_filenames(directory, fileType=None) -> dict:
+def get_all_filenames(directory, fileType=None) -> dict:
     file_path_dict = {}
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -300,7 +304,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
 @get_emb.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    index = None
+    index = 0
     text_msg = msg.extract_plain_text().strip()
     if msg:
         list_len = len(list(config.novelai_backend_url_dict.values()))
@@ -313,7 +317,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
             if 0 <= index < list_len:
                 pass
             else:
-                index = None
+                index = 0
     if index is not None and isinstance(index, int):
         site = list(config.novelai_backend_url_dict.values())[index]
         msg = None
@@ -345,7 +349,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 @get_lora.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    index = None
+    index = 0
     text_msg = msg.extract_plain_text().strip()
     try:
         site_ = reverse_dict[site]
@@ -362,7 +366,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
             if 0 <= index < list_len:
                 pass
             else:
-                index = None
+                index = 0
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
     n = 0
     lora_dict = {}
@@ -512,7 +516,7 @@ async def get_sd_models(event: MessageEvent,
     else:
         backend_site_index = 0
     final_message = await sd(backend_site_index)
-    await risk_control(bot, event, final_message, False, True)
+    await risk_control(bot, event, final_message, True, False)
 
 
 @change_models.handle()
@@ -643,7 +647,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 @random_tags.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    all_tags_list = await get_tags_list()
+    all_tags_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list)
     chose_tags_list = random.sample(all_tags_list, 12)
     chose_tags = ', '.join(chose_tags_list)
 
@@ -676,10 +680,10 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     hash_id = msg.extract_plain_text()
     directory_path = "data/novelai/output"  # 指定目录路径
-    filenames = await get_all_filenames(directory_path)
+    filenames = await asyncio.get_event_loop().run_in_executor(None, get_all_filenames, directory_path)
     txt_file_name, img_file_name = f"{hash_id}.txt", f"{hash_id}.jpg"
     if txt_file_name in list(filenames.keys()):
-        txt_content = await extract_tags_from_file(filenames[txt_file_name])
+        txt_content = await asyncio.get_event_loop().run_in_executor(None, extract_tags_from_file, filenames[txt_file_name])
         img_file_path = filenames[img_file_name]
         img_file_path = img_file_path if os.path.exists(img_file_path) else filenames[f"{hash_id}.png"]
         async with aiofiles.open(img_file_path, "rb") as f:
@@ -709,20 +713,60 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 @word_frequency_count.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    
     msg_list = []
 
-    async def count_word_frequency(word_list):
+    def count_word_frequency(word_list):
         word_frequency = Counter(word_list)
         return word_frequency
 
-    async def sort_word_frequency(word_frequency):
+    def sort_word_frequency(word_frequency):
         sorted_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
         return sorted_frequency
 
-    word_list = await get_tags_list(False)
-    word_frequency = await count_word_frequency(word_list)
-    sorted_frequency = await sort_word_frequency(word_frequency)
+    word_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list, False)
+    word_frequency = count_word_frequency(word_list)
+    sorted_frequency = sort_word_frequency(word_frequency)
     for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
         msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
     await risk_control(bot, event, msg_list, True)
         
+
+@run_screen_shot.handle()
+async def _(event: MessageEvent, bot: Bot):
+    if config.run_screenshot:
+        time_ = str(time.time())
+        file_name = f"screenshot_{time_}.png"
+        screenshot = ImageGrab.grab()
+        screenshot.save(file_name)
+        with open(file_name, "rb") as f:
+            pic_content = f.read()
+            bytes_img = io.BytesIO(pic_content)
+        await bot.send(event=event, message=MessageSegment.image(bytes_img))
+        os.remove(file_name)
+    else:
+        await run_screen_shot.finish("未启动屏幕截图")
+        
+        
+@audit.handle()
+async def _(event: MessageEvent, bot: Bot):
+    url = ""
+    reply = event.reply
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
+    for seg in event.message['image']:
+        url = seg.data["url"]
+    if url:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                bytes = await resp.read()
+        str_img = str(base64.b64encode(bytes), "utf-8")
+    # 应对不同的后端审核
+    
+    
+@genera_aging.handle()
+async def _(event: MessageEvent, bot: Bot):
+    pass
+    # 读取redis数据
+    redis_client

@@ -13,7 +13,7 @@ from nonebot.log import logger
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
 
-from ..config import config
+from ..config import config, redis_client
 from ..utils import png2jpg
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
@@ -84,14 +84,18 @@ class AIDRAW_BASE:
         self.time = time.strftime("%Y-%m-%d %H:%M:%S")
         self.user_id: str = "" if event is None else (str(event.get_user_id()))
         self.tags: str = tags
-        self.seed: list[int] = random.randint(0, 4294967295)
-        self.group_id: str =  "" if event is None else (f"{event.get_user_id()}_private" if isinstance(event, PrivateMessageEvent) else str(event.group_id))
+        self.seed: list[int] = seed or random.randint(0, 4294967295)
+        self.group_id = "" if event is None else (
+            f"{event.get_user_id()}_private" if isinstance(event, PrivateMessageEvent)
+            else str(event.group_id)
+        )
+
         if config.novelai_random_scale:
             self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
         else:
             self.scale = int(scale or config.novelai_scale)
         self.strength: float = strength or 0.7
-        self.steps: int = steps or 28
+        self.steps: int = steps or config.novelai_steps or 12
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
         self.img2img: bool = False
@@ -114,15 +118,17 @@ class AIDRAW_BASE:
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix: bool = True if config.novelai_hr else False
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
-        self.control_net = {"control_net": False, 
+        self.control_net = {"control_net": False,
                            "controlnet_module": "",
-                           "controlnet_model": ""}
+                           "controlnet_model": ""
+                           }
         self.backend_info: dict = None
         self.task_type: str = None
         self.img_hash = None
+        self.redis_client = redis_client
         
         # 数值合法检查
-        if self.steps <= 0 or self.steps > (50 if config.novelai_paid else 28):
+        if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
             self.steps = 28
         if self.strength < 0 or self.strength > 1:
             self.strength = 0.7
@@ -206,7 +212,7 @@ class AIDRAW_BASE:
         width, height = image_.size
         self.width, self.height = self.shape_set(width, height, config.novelai_size_org)
         self.image = str(base64.b64encode(image), "utf-8")
-        self.steps = 28
+        self.steps = 20
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
         self.update_cost()

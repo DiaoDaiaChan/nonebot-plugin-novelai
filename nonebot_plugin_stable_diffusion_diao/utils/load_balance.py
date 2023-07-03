@@ -5,6 +5,7 @@ import json
 import time
 import aiofiles
 import traceback
+from tqdm import tqdm
 
 
 async def calc_avage_time(state_dict_: list):
@@ -124,7 +125,7 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
                        aiohttp.ClientTimeout, 
                        Exception)
                        ):
-            logger.info(f"后端{list(config.novelai_backend_url_dict.keys())[e]}掉线")
+            print(f"后端{list(config.novelai_backend_url_dict.keys())[e]}掉线")
         else:
             try:
                 if resp_tuple[3] in [200, 201]:
@@ -134,32 +135,37 @@ async def sd_LoadBalance(addtional_site=None, task_counts=None, task_type=None, 
                 else:
                     raise RuntimeError
             except RuntimeError or TypeError:
-                logger.error(f"后端{list(config.novelai_backend_url_dict.keys())[e]}出错")
+                print(f"后端{list(config.novelai_backend_url_dict.keys())[e]}出错")
                 continue
             else:
                 # 更改判断逻辑
                 if resp_tuple[0]["progress"] in [0, 0.01, 0.0]:
-                        logger.info("后端空闲")
                         is_avaiable += 1
                         ava_url = normal_backend[n]
                 else:
+                    pass
                     # if state_dict[resp_tuple[2]]["status"] == "idle":
                     #     logger.info("后端空闲")
                     #     is_avaiable += 1
                     #     ava_url = normal_backend[n]
                     #     break
-                    logger.info("后端忙")
+            total = 100
+            progress = int(resp_tuple[0]["progress"]*100)
+            show_str = f"{list(backend_url_dict.keys())[e]}"
+            show_str = show_str.ljust(22, "-")
+            with tqdm(total=total, desc=show_str + "-->", bar_format="{l_bar}{bar}|") as pbar:
+                pbar.update(progress)
+                time.sleep(0.1)
     if normal_backend is None:
         normal_backend_name = config.novelai_site or "127.0.0.1:7860"
         normal_backend = [config.novelai_site, "127.0.0.1:7860"]
     else:
         normal_backend_name = [i for i in normal_backend]
-    logger.info(f"正常后端:{normal_backend_name}")
     if is_avaiable == 0:
         logger.debug("进入后端选择")
         ava_url = await chose_backend(state_dict, normal_backend, task_type)
 
-    logger.info(f"已选择后端{ava_url}")
+    logger.info(f"已选择后端{reverse_dict[ava_url]}")
     tc = int(state_dict[ava_url][task_type]["info"]["tasks_count"])
     tc += 1
     state_dict[ava_url]["status"] = task_type
