@@ -1,6 +1,6 @@
 from ..config import config, nickname
 from ..utils.save import save_img
-from ..utils import sendtosuperuser
+from ..utils import sendtosuperuser, pic_audit_standalone
 from io import BytesIO
 import base64
 import aiohttp, aiofiles
@@ -60,7 +60,7 @@ async def check_safe_method(fifo,
             return message
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
             try:
-                label, h_value = await check_safe(i, fifo)
+                label, h_value, fifo.audit_info = await check_safe(i, fifo)
             except RuntimeError as e:
                 logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
                 label = "unknown"
@@ -77,14 +77,14 @@ async def check_safe_method(fifo,
                 message.append(MessageSegment.image(i))
             else:
                 label = "_explicit"
-                message.append(f"\n太涩了,让我先看, 这张图涩度{h_value}%")
+                message.append(f"\n太涩了,让我先看, 这张图涩度{h_value:.1f}%")
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
                 message_id = message_data["message_id"]
                 message_all = await bot.get_msg(message_id=message_id)
                 url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-                img_url = re.findall(url_regex, message_all["message"])
+                img_url = re.findall(url_regex, str(message_all["message"]))
                 if htype in [1, 2]:
                     if htype == 1:
                         try:
@@ -183,33 +183,18 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
         reverse_dict = {value: key for key, value in possibilities.items()}
         if is_check:
             return possibilities
-        return reverse_dict[value[0]], value[0] * 100
+        return reverse_dict[value[0]], value[0] * 100, ""
     
     elif picaudit == 4 or config.novelai_picaudit == 4:
         img_base64 = base64.b64encode(img_bytes).decode()
-
-        payload = {"image": img_base64, "model": "wd14-vit-v2-git", "threshold": 0.35 }
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:
-                if resp.status not in [200, 201]:
-                    resp_text = await resp.text()
-                    logger.error(f"API失败，错误信息:{resp.status, resp_text}")
-                    return "unknown", 0
-                else:
-                    resp_dict = await resp.json()
-                    tags = resp_dict["caption"]
-                    replace_list =  ["general", "sensitive", "questionable", "explicit"]
-                    possibilities = {}
-                    for i in replace_list:
-                        possibilities[i]=tags[i]
-                    value = list(possibilities.values())
-                    value.sort(reverse=True)
-                    reverse_dict = {value: key for key, value in possibilities.items()}
-                    logger.info(f"审核结果:{reverse_dict}")
+        possibilities, message = await pic_audit_standalone(img_base64, False, True)
+        value = list(possibilities.values())
+        value.sort(reverse=True)
+        reverse_dict = {value: key for key, value in possibilities.items()}
+        logger.info(message)
         if is_check:
             return possibilities
-        return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100
+        return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100, message
 
     async def get_file_content_as_base64(path, urlencoded=False):
         # 不知道为啥, 不用这个函数处理的话API会报错图片格式不正确, 试过不少方法了,还是不行(
@@ -252,7 +237,7 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
             if is_check:
                 return result
             if result['conclusionType'] == 1:
-                return "safe", result['data'][0]['probability'] * 100
+                return "safe", result['data'][0]['probability'] * 100, ""
             else:
                 return "", result['data'][0]['probability'] * 100
             

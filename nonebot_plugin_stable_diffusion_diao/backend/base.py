@@ -14,7 +14,7 @@ from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
 
 from ..config import config, redis_client
-from ..utils import png2jpg
+from ..utils import png2jpg, unload_and_reload
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
 history_list = []
@@ -125,7 +125,8 @@ class AIDRAW_BASE:
         self.backend_info: dict = None
         self.task_type: str = None
         self.img_hash = None
-        self.redis_client = redis_client
+        self.extra_info = ""
+        self.audit_info = ""
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -261,27 +262,9 @@ class AIDRAW_BASE:
                     logger.error(resp_dict)
                     if resp_dict["error"] == "OutOfMemoryError":
                         logger.info("检测到爆显存，执行自动模型释放并加载")
-                        async with aiohttp.ClientSession() as session:
-                            async with session.post(url=f"http://{self.backend_site}/sdapi/v1/unload-checkpoint") as resp:
-                                if resp.status not in [200, 201]:
-                                    logger.error(f"释放模型失败，可能是webui版本太旧，未支持此API，错误:{await resp.text()}")
-                        async with aiohttp.ClientSession() as session:
-                            async with session.post(url=f"http://{self.backend_site}/sdapi/v1/reload-checkpoint") as resp:
-                                if resp.status not in [200, 201]:
-                                    logger.error(f"重载模型失败，错误:{await resp.text()}")
-                                logger.info("重载模型成功")
+                        await unload_and_reload(backend_site=self.backend_site)
                 spend_time = time.time() - self.start_time
                 self.spend_time = f"{spend_time:.2f}秒"
-                tmp_history_list = self.backend_info[self.backend_site][self.task_type]["info"]["history"]
-                tmp_history_list.append({self.start_time: spend_time})
-                tc = self.backend_info[self.backend_site][self.task_type]["info"]["tasks_count"]
-                tc -= 1
-                self.backend_info[self.backend_site][self.task_type]["info"]["tasks_count"] = tc
-                cur_status = "idel" if tc == 0 else self.task_type
-                self.backend_info["status"] = cur_status
-                self.backend_info[self.backend_site][self.task_type]["info"]["history"] = tmp_history_list
-                with open("data/novelai/load_balance.json", "w") as f:
-                    f.write(json.dumps(self.backend_info))
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
                 # 将图片转化为jpg
@@ -325,7 +308,9 @@ class AIDRAW_BASE:
             "spend_time",
             "vram",
             "backend_name",
-            "img_hash"
+            "img_hash",
+            "tags",
+            "ntags"
         )
 
     def __getitem__(self, item):
