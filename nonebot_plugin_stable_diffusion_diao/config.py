@@ -4,6 +4,8 @@ import aiohttp
 import ast
 import asyncio
 import traceback
+from tqdm import tqdm
+from datetime import datetime
 
 import aiofiles
 from nonebot import get_driver
@@ -76,7 +78,7 @@ class Config(BaseSettings):
         "upscaling_resize": 1.2,  # 超分倍率, 为长宽分辨率各X1.2
         "upscaler_1": "Lanczos",  # 第一次超分使用的方法
         "upscaler_2": "R-ESRGAN 4x+ Anime6B",  # 第二次超分使用的方法
-        "extras_upscaler_2_visibility": 0.7  # 第二层upscaler力度
+        "extras_upscaler_2_visibility": 0.6  # 第二层upscaler力度
     } # 以上为个人推荐值
     novelai_ControlNet_post_method: int = 0
     novelai_size_org: int = 640  # 最大分辨率
@@ -94,8 +96,8 @@ class Config(BaseSettings):
             "args": [
                 {
                 "input_image": "",
-                "module": "scribble_hed",
-                "model": "control_v11p_sd15_scribble [d4ba51ff]",
+                "module": "lineart_anime",
+                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]",
                 "weight": 1,
                 "lowvram": "false",
                 "processor_res": novelai_size*1.5,
@@ -108,8 +110,8 @@ class Config(BaseSettings):
         }, 
         {"controlnet_units": 
                 [{"input_image": "", 
-                "module": "scribble_hed", 
-                "model": "control_v11p_sd15_scribble [d4ba51ff]", 
+                "module": "lineart_anime", 
+                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]", 
                 "weight": 1, 
                 "lowvram": "false", 
                 "processor_res": novelai_size*1.5, 
@@ -299,8 +301,29 @@ if config.is_redis_enable:
             try:
                 if resp:
                     logger.info("redis连接成功")
+                    current_date = datetime.now().date()
+                    day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+                    if r3.exists(day):
+                        is_changed = False
+                        today_dict = r3.get(day)
+                        today_dict = ast.literal_eval(today_dict.decode('utf-8'))
+                        today_gpu_dict: dict = today_dict["gpu"]
+                        backend_name_list = list(today_gpu_dict.keys())
+                        logger.info("开始匹配redis中的后端数据")
+                        if len(backend_name_list) != len(config.backend_name_list):
+                            is_changed = True
+                        for backend_name in config.backend_name_list:
+                            if backend_name not in backend_name_list:
+                                is_changed = True
+                        if is_changed:
+                            today_gpu_dict = {}
+                            for backend_name in config.backend_name_list:
+                                today_gpu_dict[backend_name] = 0
+                            logger.info("更新redis中的后端数据...")
+                            logger.warning("请注意,本日后端的工作数量会被清零")
+                            today_dict["gpu"] = today_gpu_dict
+                            r3.set(day, str(today_dict))
                     logger.info("开始读取webui的预设")
-                    
                     all_style_list, all_emb_list, all_lora_list = [], [], []
                     backend_emb, backend_lora = {}, {}
                     all_resp_style = await this_is_a_func(0)

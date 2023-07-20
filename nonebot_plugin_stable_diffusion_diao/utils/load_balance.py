@@ -5,7 +5,6 @@ from nonebot import logger
 from ..config import config, redis_client
 import time
 from tqdm import tqdm
-from datetime import datetime
 
 import ast
 import traceback
@@ -45,8 +44,6 @@ async def sd_LoadBalance():
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
-    current_date = datetime.now().date()
-    day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
     backend_url_dict = config.novelai_backend_url_dict
     reverse_dict = {value: key for key, value in backend_url_dict.items()}
     tasks = []
@@ -146,38 +143,6 @@ async def sd_LoadBalance():
             print(list_tuple)
             fifo = AIDRAW()
             ava_url = fifo.weighted_choice(list_tuple)
-    if redis_client:
-        try:
-            r = redis_client[2]
-            if r.exists(day):
-                backend_info = r.get(day)
-                backend_info = backend_info.decode("utf-8")
-                backend_info = ast.literal_eval(backend_info)
-                if backend_info.get("gpu"):
-                    backend_dict = backend_info.get("gpu")
-                    backend_dict[reverse_dict[ava_url]] = backend_dict[reverse_dict[ava_url]] + 1
-                    backend_info["gpu"] = backend_dict
-                else:
-                    backend_dict = {}
-                    backend_info["gpu"] = {}
-                    for i in list(config.novelai_backend_url_dict.keys()):
-                        backend_dict[i] = 1
-                        backend_info["gpu"] = backend_dict
-                r.set(day, str(backend_info))
-        except Exception:
-            logger.warning("redis出错惹!不过问题不大")
-            logger.info(traceback.print_exc())
-    else:
-        filename = "data/novelai/day_limit_data.json"
-        if os.path.exists(filename):
-            async with aiofiles.open(filename, "r") as f:
-                json_ = await f.read()
-                json_ = json.loads(json_)
-            json_[day]["gpu"][reverse_dict[ava_url]] = json_[day]["gpu"][reverse_dict[ava_url]] + 1
-            async with aiofiles.open(filename, "w") as f:
-                await f.write(json.dumps(json_))
-        else:
-            pass
     logger.info(f"已选择后端{reverse_dict[ava_url]}")
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
     ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))

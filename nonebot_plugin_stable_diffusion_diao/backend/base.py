@@ -6,18 +6,21 @@ from io import BytesIO
 import aiofiles
 import json
 import hashlib
+import traceback
+import os
+import ast
 
 import aiohttp
 from nonebot import get_driver
 from nonebot.log import logger
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
-
+from nonebot import logger
+from datetime import datetime
 from ..config import config, redis_client
-from ..utils import png2jpg, unload_and_reload
+from ..utils import png2jpg, unload_and_reload, get_generate_info
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
-history_list = []
 
 
 class AIDRAW_BASE:
@@ -41,6 +44,7 @@ class AIDRAW_BASE:
         disable_hr: bool = False if config.novelai_hr else True,
         hiresfix_scale: float = None,
         event: MessageEvent = None,
+        sr: bool = False,
         **kwargs,
     ):
         """
@@ -127,6 +131,7 @@ class AIDRAW_BASE:
         self.img_hash = None
         self.extra_info = ""
         self.audit_info = ""
+        self.sr = sr or config.novelai_SuperRes_generate
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -252,10 +257,12 @@ class AIDRAW_BASE:
         :post_api: 请求地址
         :json: 请求体
         """
-        # 请求交互      
+        # 请求交互
+        generate_info = get_generate_info(self, "开始生成")
+        logger.info(
+            f"{generate_info}")
         async with aiohttp.ClientSession(headers=header, timeout=aiohttp.ClientTimeout(total=1800)) as session:
             # 向服务器发送请求
-            global history_list
             async with session.post(post_api, json=payload) as resp:
                 if resp.status not in [200, 201]:
                     resp_dict = json.loads(await resp.text())
@@ -273,6 +280,40 @@ class AIDRAW_BASE:
                 else:
                     image_new = base64.b64decode(img)
                 self.img_hash = f"图片id:{hashlib.md5(image_new).hexdigest()}"
+        current_date = datetime.now().date()
+        day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+        try:
+            if redis_client:
+                r = redis_client[2]
+                if r.exists(day):
+                    backend_info = r.get(day)
+                    backend_info = backend_info.decode("utf-8")
+                    backend_info = ast.literal_eval(backend_info)
+                    if backend_info.get("gpu"):
+                        backend_dict = backend_info.get("gpu")
+                        backend_dict[self.backend_name] = backend_dict[self.backend_name] + 1
+                        backend_info["gpu"] = backend_dict
+                    else:
+                        backend_dict = {}
+                        backend_info["gpu"] = {}
+                        for i in list(config.novelai_backend_url_dict.keys()):
+                            backend_dict[i] = 1
+                            backend_info["gpu"] = backend_dict
+                    r.set(day, str(backend_info))
+            else:
+                filename = "data/novelai/day_limit_data.json"
+                if os.path.exists(filename):
+                    async with aiofiles.open(filename, "r") as f:
+                        json_ = await f.read()
+                        json_ = json.loads(json_)
+                    json_[day]["gpu"][self.backend_name] = json_[day]["gpu"][self.backend_name] + 1
+                    async with aiofiles.open(filename, "w") as f:
+                        await f.write(json.dumps(json_))
+                else:
+                    pass
+        except Exception:
+            logger.warning("记录后端工作数量出错")
+            logger.warning(str(traceback.print_exc()))
         self.result.append(image_new)
         return image_new
 

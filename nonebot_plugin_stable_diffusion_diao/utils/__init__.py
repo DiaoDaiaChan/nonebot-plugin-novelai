@@ -108,3 +108,11 @@ def tags_to_list(tags: str) -> list:
     tag_list = [tag.strip() for tag in tag_list if tag.strip()]
     tag_list = list(filter(None, tag_list))
     return tag_list
+
+
+def get_generate_info(fifo, info):
+    generate_info = f"{info}\n"
+    fifo_dict = dict(fifo)
+    for key, value in zip(list(fifo_dict.keys()), list(fifo_dict.values())):
+        generate_info += f"[{key}]: {value}\n"
+    return generate_info

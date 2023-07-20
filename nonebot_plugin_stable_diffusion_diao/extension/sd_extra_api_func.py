@@ -78,13 +78,15 @@ get_sampler = on_command("采样器", aliases={"获取采样器"})
 translate_ = on_command("翻译")
 hr_fix = on_command("高清修复") # 欸，还没写呢，就是玩
 random_tags = on_command("随机tag")
-find_pic = on_command("找图片", aliases={"图片"})
+find_pic = on_command("找图片")
 word_frequency_count = on_command("词频统计", aliases={"tag统计"})
 run_screen_shot = on_command("运行截图", aliases={"状态"}, block=False, priority=2)
 audit = on_command("审核")
 genera_aging = on_command("再来一张")
 reload_ = on_command("卸载模型", aliases={"释放显存"})
 style_ = on_command("预设")
+rembg = on_command("去背景", aliases={"rembg", "抠图"})
+read_png_info = on_command("读图", aliases={"读png", "读PNG"})
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -110,6 +112,26 @@ style_ = on_shell_command(
 )
 
 
+async def get_random_tags(sample_num=12):
+    if redis_client:
+        r = redis_client[0]
+        all_tags_list = []
+        all_tags_list_str = [] 
+        byte_tags_list = r.lrange("prompts", 0, -1)
+        for byte_tag in byte_tags_list:
+            all_tags_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
+        for list_ in all_tags_list:
+            all_tags_list_str += list_
+        unique_strings = []
+        for string in all_tags_list_str:
+            if string not in unique_strings and string != "":
+                unique_strings.append(string)
+        all_tags_list = unique_strings
+    else:
+        all_tags_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list)
+    chose_tags_list = random.sample(all_tags_list, sample_num)
+    return chose_tags_list
+
 async def get_and_process_lora(site, site_, text_msg=None):
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
     n = 0
@@ -133,7 +155,7 @@ async def get_and_process_lora(site, site_, text_msg=None):
             lora_dict_org = ast.literal_eval(lora_dict_org.decode("utf-8"))
             lora_dict = lora_dict_org[site_]
             lora_dict_org[site_] = lora_dict
-            r2.set("lora", json.dumps(lora_dict_org))
+            r2.set("lora", str(lora_dict_org))
     else:
         async with aiofiles.open("data/novelai/loras.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(lora_dict))
@@ -162,7 +184,7 @@ async def get_and_process_emb(site, site_, text_msg=None):
         emb_dict_org = ast.literal_eval(emb_dict_org.decode("utf-8"))
         emb_dict = emb_dict_org[site_]
         emb_dict_org[site_] = emb_dict
-        r2.set("emb", json.dumps(emb_dict_org))
+        r2.set("emb", str(emb_dict_org))
     else:
         async with aiofiles.open("data/novelai/embs.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(emb_dict))
@@ -208,7 +230,7 @@ async def super_res_api_func(img_bytes, size: int = 0):
     payload.update(config.novelai_SuperRes_generate_payload)
     if upsale:
         payload["upscaling_resize"] = upsale
-    resp_tuple = await sd_LoadBalance(task_type="txt2img")
+    resp_tuple = await sd_LoadBalance()
     async with aiohttp.ClientSession() as session:
         api_url = "http://" + resp_tuple[1][0] + "/sdapi/v1/extra-single-image"
         async with session.post(url=api_url, json=payload) as resp:
@@ -425,7 +447,7 @@ async def pic_fix(state: T_State, super_res: Message = CommandArg()):
 @super_res.got("super_res", "请发送你要修复的图片")
 async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
     img_url_list = []
-    img_base64_list = []
+    img_byte_list = []
 
     if msg[0].type == "image":
         if len(msg) > 1:
@@ -441,9 +463,9 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
             qq_img, text_msg, status_code = await super_res_api_func(qq_img[1], upsale)
             if status_code not in [200, 201]:
                 await super_res.finish(f"出错了,错误代码{status_code},请检查服务器")
-            img_base64_list.append(qq_img)
-        if len(img_base64_list) == 1:
-                img_mes = MessageSegment.image(img_base64_list[0])
+            img_byte_list.append(qq_img)
+        if len(img_byte_list) == 1:
+                img_mes = MessageSegment.image(img_byte_list[0])
                 await bot.send(event=event, 
                                message=img_mes+text_msg, 
                                at_sender=True, 
@@ -451,7 +473,7 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
                                ) 
         else:
             img_list = []
-            for i in img_base64_list:
+            for i in img_byte_list:
                 img_list.append(f"{MessageSegment.image(i)}\n{text_msg}")
             await send_forward_msg(bot, 
                                    event, 
@@ -679,16 +701,8 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 @random_tags.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    if redis_client:
-        r = redis_client[0]
-        all_tags_list_str = [] 
-        all_tags_list = r.lrange("prompt", 0, -1)
-        for byte_tag in all_tags_list:
-            all_tags_list_str.append(ast.literal_eval(byte_tag.decode("utf-8")))
-        all_tags_list = all_tags_list_str
-    else:
-        all_tags_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list)
-    chose_tags_list = random.sample(all_tags_list, 12)
+
+    chose_tags_list = await get_random_tags()
     chose_tags = ', '.join(chose_tags_list)
 
     fifo = AIDRAW(user_id=event.user_id, 
@@ -760,11 +774,14 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     msg_list = []
     if redis_client:
         r = redis_client[0]
-        if r.exists("prompt"):
+        if r.exists("prompts"):
             word_list_str = []
-            word_list = r.lrange("prompt", 0, -1)
-            for byte_word in word_list:
-                word_list_str.append(ast.literal_eval(byte_word.decode("utf-8")))
+            word_list = []
+            byte_word_list = r.lrange("prompts", 0, -1)
+            for byte_tag in byte_word_list:
+                word_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
+            for list_ in word_list:
+                word_list_str += list_
             word_list = word_list_str
         else:
             await word_frequency_count.finish("画几张图图再来统计吧!")
@@ -806,11 +823,11 @@ async def _(event: MessageEvent, bot: Bot):
 async def _(event: MessageEvent, bot: Bot):
     url = ""
     reply = event.reply
+    for seg in event.message['image']:
+        url = seg.data["url"]
     if reply:
         for seg in reply.message['image']:
             url = seg.data["url"]
-    for seg in event.message['image']:
-        url = seg.data["url"]
     if url:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -856,9 +873,10 @@ async def _(event: MessageEvent, bot: Bot):
 async def _(msg: Message = CommandArg()):
     if not msg:
         await reload_.finish("你要释放哪个后端的显存捏?")
-    text_msg = int(msg.extract_plain_text())
+    text_msg = msg.extract_plain_text()
     if not text_msg.isdigit():
         await reload_.finish("笨蛋!后端编号是数字啦!!")
+    text_msg = int(text_msg)
     try:
         await unload_and_reload(text_msg)
     except Exception:
@@ -881,7 +899,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 user_style_list = [ast.literal_eval(style.decode("utf-8")) for style in user_style_list]
                 style_list += user_style_list
     else:
-        await style.finish("需要redis以使用此功能")
+        await style_.finish("需要redis以使用此功能")
     if args.delete:
         delete_name = args.delete[0] if isinstance(args.delete, list) else args.delete
         find_style = False
@@ -910,8 +928,8 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     if len(args.tags) != 0:
         args.ntags = ""
         if args.tags and args.style_name:
-            tags = await prepocess_tags(args.tags)
-            ntags = await prepocess_tags(args.ntags)
+            tags = await prepocess_tags(args.tags, False)
+            ntags = await prepocess_tags(args.ntags, False)
             style_dict["name"] = args.style_name
             style_dict["prompt"] = tags
             style_dict["negative_prompt"] = ntags
@@ -924,4 +942,95 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
             name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
             message_list.append(f"预设名称: {name}\n正面提示词: {tags}\n负面提示词: {ntags}\n")
         await risk_control(bot, event, message_list, True)
+    
+
+@rembg.handle()
+async def rm_bg(state: T_State, rmbg: Message = CommandArg()):
+    if rmbg:
+        state['rmbg'] = rmbg
+    pass    
+
+
+@rembg.got("rmbg", "请发送你要去背景的图片")
+async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
+    img_url_list = []
+    img_byte_list = []
+
+    if msg[0].type == "image":
+        if len(msg) > 1:
+            for i in msg:
+                img_url_list.append(i.data["url"])
+        else:
+            img_url_list.append(msg[0].data["url"])
+        
+        for i in img_url_list:
+            qq_img = await download_img(i)
+            fifo = AIDRAW()
+            await fifo.load_balance_init()
+            payload = {
+            "input_image": qq_img[0],
+            "model": "isnet-anime",
+            "alpha_matting": "true",
+            "alpha_matting_foreground_threshold": 255,
+            "alpha_matting_background_threshold": 50,
+            "alpha_matting_erode_size": 20
+            }
+            resp_data, status_code = await aiohttp_func("post", f"http://{fifo.backend_site}/rembg", payload)
+            if status_code not in [200, 201]:
+                await rembg.finish(f"出错了,错误代码{status_code},请检查服务器")
+            img_byte_list.append(base64.b64decode(resp_data["image"]))
+        if len(img_byte_list) == 1:
+                img_mes = MessageSegment.image(img_byte_list[0])
+                await bot.send(event=event, 
+                               message=img_mes,
+                               at_sender=True, 
+                               reply_message=True
+                               ) 
+        else:
+            img_list = []
+            for i in img_byte_list:
+                img_list.append(f"{MessageSegment.image(i)}")
+            await send_forward_msg(bot, 
+                                   event, 
+                                   event.sender.nickname, 
+                                   event.user_id, 
+                                   img_list
+                                   )
+            
+    else:
+        await rembg.reject("请重新发送图片")
+        
+
+@read_png_info.handle()
+async def __(state: T_State, png: Message = CommandArg()):
+    if png:
+        state['png'] = png
+    pass    
+
+@read_png_info.got("png", "请发送你要读取的图片,请注意,请发送原图")
+async def __(event: MessageEvent, bot: Bot):
+    reply = event.reply
+    for seg in event.message['image']:
+        url = seg.data["url"]
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
+    if url:
+        fifo = AIDRAW()
+        await fifo.load_balance_init()
+        img, _ = await download_img(url)
+        payload = {
+            "image": img
+        }
+        resp_data, status_code = await aiohttp_func("post", f"http://{fifo.backend_site}/sdapi/v1/png-info", payload)
+        if status_code not in [200, 201]:
+            await read_png_info.finish(f"出错了,错误代码{status_code},请检查服务器")
+        info = resp_data["info"]
+        if info == "":
+            await read_png_info.finish("图片里面没有元数据信息欸\n是不是没有发送原图")
+        else:
+            parameters = resp_data["items"]["parameters"]
+            await risk_control(bot, event, [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"], True)
+    else:
+        await read_png_info.reject("请重新发送图片")
     

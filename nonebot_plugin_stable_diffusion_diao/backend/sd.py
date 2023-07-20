@@ -2,6 +2,7 @@ from .base import AIDRAW_BASE
 from ..config import config
 import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
+from ..utils import get_generate_info
 from nonebot import logger
 import json, aiofiles
 import asyncio
@@ -44,6 +45,7 @@ class AIDRAW(AIDRAW_BASE):
         global site
         if self.backend_index is not None and isinstance(self.backend_index, int):
             self.backend_site = list(config.novelai_backend_url_dict.values())[self.backend_index]
+            self.backend_name = config.backend_name_list[self.backend_index]
         if self.backend_site:
             site = self.backend_site
         else:
@@ -79,7 +81,7 @@ class AIDRAW(AIDRAW_BASE):
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
-        if self.control_net["control_net"] == True:
+        if self.control_net["control_net"] == True and config.novelai_hr:
             org_scale = parameters["hr_scale"]
             parameters.update({"hr_scale": org_scale * 0.75}) # control较吃显存, 高清修复倍率恢复为1.5
             del parameters["init_images"]
@@ -131,4 +133,7 @@ class AIDRAW(AIDRAW_BASE):
                 self.vram = resp_list[1]
                 break
                 
+        generate_info = get_generate_info(self, "生成完毕")
+        logger.info(
+            f"{generate_info}")
         return self.result

@@ -47,7 +47,7 @@ async def check_safe_method(fifo,
     for i in img_bytes:
         # try:
         if isinstance(fifo.event, PrivateMessageEvent):
-            if config.novelai_SuperRes_generate:
+            if fifo.sr:
                 try:
                     from ..extension.sd_extra_api_func import super_res_api_func
                     resp_tuple = await super_res_api_func(i, 3)
@@ -66,7 +66,7 @@ async def check_safe_method(fifo,
                 label = "unknown"
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
-                if config.novelai_SuperRes_generate:
+                if fifo.sr:
                     try:
                         from ..extension.sd_extra_api_func import super_res_api_func
                         resp_tuple = await super_res_api_func(i, 3)
@@ -80,7 +80,7 @@ async def check_safe_method(fifo,
                 message.append(f"\n太涩了,让我先看, 这张图涩度{h_value:.1f}%")
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
-                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}, 来自群{fifo.group_id}")
+                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n图片id{fifo.img_hash}")
                 message_id = message_data["message_id"]
                 message_all = await bot.get_msg(message_id=message_id)
                 url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
@@ -115,7 +115,7 @@ async def check_safe_method(fifo,
                 elif htype == 3:
                     await send_qr_code(bot, fifo, img_url)
         else:
-            if config.novelai_SuperRes_generate:
+            if fifo.sr:
                 try:
                     from ..extension.sd_extra_api_func import super_res_api_func
                     resp_tuple = await super_res_api_func(i, 3)

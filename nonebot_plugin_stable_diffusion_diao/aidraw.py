@@ -32,7 +32,7 @@ from .utils.prepocess import prepocess_tags
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
-from .extension.sd_extra_api_func import change_model
+from .extension.sd_extra_api_func import change_model, get_random_tags
 cd = {}
 gennerating = False
 wait_list = deque([])
@@ -75,6 +75,8 @@ aidraw_parser.add_argument("-m",
                            type=str, help="更换模型", dest="model")
 aidraw_parser.add_argument("-match_off","-match-off",
                            action="store_true", help="关闭自动匹配", dest="match")
+aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
+                           action="store_true", help="图片生产后再次超分", dest="sr")
 
 
 async def get_message_at(data: str) -> int:
@@ -109,6 +111,8 @@ aidraw = on_shell_command(
 
 @aidraw.handle()
 async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellCommandArgs()):
+    info_style = None
+    random_tags = ""
     style_tag, style_ntag = "", ""
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
@@ -142,13 +146,30 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         else:
             cd[user_id] = nowtime
         # 初始化参数
-        
+        if isinstance(args.tags, list) and len(args.tags) == 0:
+            args.disable_hr = True
+            try:
+                random_tags = await get_random_tags(6)
+                random_tags = ", ".join(random_tags)
+                message_data = await bot.send(event=event, message=f"你想要画什么呢?不知道的话发送  绘画帮助  看看吧\n雕雕帮你随机了一些tags{random_tags}")
+            except ActionFailed:
+                logger.info("被风控了")
+            else:
+                message_id = message_data["message_id"]
+                loop = get_running_loop()
+                loop.call_later(
+                    random.randint(30, 60),
+                    lambda: loop.create_task(
+                        bot.delete_msg(message_id=message_id)),
+                )
         if redis_client:
             if not args.match or config.auto_match:
                 r = redis_client[1]
                 if r.exists("style"):
                     info_style = None
                     style_list: list[bytes] = r.lrange("style", 0, -1)
+                    style_list_: list[bytes] = r.lrange("user_style", 0, -1)
+                    style_list += style_list_
                     for style in style_list:
                         style = ast.literal_eval(style.decode("utf-8"))
                         if style["name"] in args.tags:
@@ -168,7 +189,10 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         args.tags = "".join(convert_list) + ", " + "".join(org_str)
         fifo = AIDRAW(**vars(args), event=event)
         fifo.extra_info += info_style if info_style else ""
-        await fifo.load_balance_init()
+        if fifo.backend_index:
+            fifo.backend_name = config.backend_name_list[fifo.backend_index]
+        else:
+            await fifo.load_balance_init()
         if args.model:
             
             index = fifo.backend_index if (
@@ -187,44 +211,62 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             pass
         elif redis_client:
             r2 = redis_client[1]
-            if r2.exists("lora"):
-                check_ = r2.get("lora")
-                check_ = ast.literal_eval(check_.decode("utf-8"))
-                if fifo.backend_name in check_:
+            try:
+                tag = ""
+                if r2.exists("lora"):
+                    model_info = ""
                     all_lora_dict = r2.get("lora")
-                    cur_backend_lora_list = ast.literal_eval(all_lora_dict.decode("utf-8"))[fifo.backend_name]
                     all_emb_dict = r2.get("emb")
-                    cur_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))[fifo.backend_name]
-                else:
-                    logger.info("此后端没有lora数据,尝试重新载入")
-                    cur_backend_lora_list, _ = await get_and_process_lora(fifo.backend_site, fifo.backend_name)
-                    cur_backend_emb_list, _ = await get_and_process_emb(fifo.backend_site, fifo.backend_name)
-                tag_index = -1
-                for tag in org_tag_list:
-                    tag_index += 1
-                    index = -1
-                    for lora in list(cur_backend_lora_list.values()):
-                        index += 1
-                        if re.search(tag, lora, re.IGNORECASE):
-                            info_ = f"自动找到的lora模型: {lora}"
-                            fifo.extra_info += f"{info_}\n"
-                            logger.info(info_)
-                            new_tags_list.append(f"<lora:{lora}:0.9>, ")
-                            tags_list.pop(org_tag_list.index(tag))
-                            break
-                tag_index = -1
-                for tag in org_tag_list:
-                    tag_index += 1
-                    index = -1
-                    for emb in list(cur_backend_emb_list.values()):
-                        index += 1
-                        if re.search(tag, emb, re.IGNORECASE):
-                            new_tags_list.append(emb)
-                            info_ = f"自动找到的嵌入式模型: {emb}, "
-                            fifo.extra_info += f"{info_}\n"
-                            logger.info(info_)
-                            tags_list.pop(org_tag_list.index(tag))
-                            break
+                    all_backend_lora_list = ast.literal_eval(all_lora_dict.decode("utf-8"))
+                    all_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))
+                    cur_backend_lora_list = all_backend_lora_list[fifo.backend_name]
+                    cur_backend_emb_list = all_backend_emb_list[fifo.backend_name]
+                    if fifo.backend_name in all_backend_lora_list and all_backend_lora_list[fifo.backend_name] is None:
+                        logger.info("此后端没有lora数据,尝试重新载入")
+                        cur_backend_lora_list, _ = await get_and_process_lora(fifo.backend_site, fifo.backend_name)
+                        cur_backend_emb_list, _ = await get_and_process_emb(fifo.backend_site, fifo.backend_name)
+                        pipe_ = r2.pipeline()
+                        all_backend_lora_list[fifo.backend_name] = cur_backend_lora_list
+                        all_backend_emb_list[fifo.backend_name] = cur_backend_emb_list
+                        pipe_.set("lora", str(all_backend_lora_list))
+                        pipe_.set("emb", str(all_backend_emb_list))
+                        pipe_.execute()
+                    tag_index = -1
+                    for tag in org_tag_list:
+                        tag_index += 1
+                        index = -1
+                        for lora in list(cur_backend_lora_list.values()):
+                            index += 1
+                            if re.search(tag, lora, re.IGNORECASE):
+                                model_info_ = f"自动找到的lora模型: {lora}\n"
+                                model_info += model_info_
+                                logger.info(model_info_)
+                                new_tags_list.append(f"<lora:{lora}:0.9>, ")
+                                tags_list.pop(org_tag_list.index(tag))
+                                break
+                    tag_index = -1
+                    for tag in org_tag_list:
+                        tag_index += 1
+                        index = -1
+                        for emb in list(cur_backend_emb_list.values()):
+                            index += 1
+                            if re.search(tag, emb, re.IGNORECASE):
+                                new_tags_list.append(emb)
+                                model_info_ += f"自动找到的嵌入式模型: {emb}, \n"
+                                model_info += model_info_
+                                logger.info(model_info_)
+                                tags_list.pop(org_tag_list.index(tag))
+                                break
+                    if len(new_tags_list) >2:
+                        new_tags_list = []
+                        tags_list = org_tag_list
+                        fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
+                        model_info = ""
+                        raise RuntimeError("匹配到很多lora")
+                    fifo.extra_info += f"{model_info}\n"
+            except Exception as e:
+                logger.warning(str(traceback.print_exc()))
+                logger.warning(f"tag自动匹配失效,出现问题的: {tag}\n或者是prompt里自动匹配到的模型过多")
         # 检测是否有18+词条
         try:  # 检查翻译API是否失效
             tags_list: str = await prepocess_tags(tags_list)
@@ -264,7 +306,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             else:
                 async with aiofiles.open("data/novelai/loras.json", "r", encoding="utf-8") as f:
                     content = await f.read()
-                    lora_dict = json.loads(content)
+                    lora_dict = json.loads(content)[fifo.backend_name]
             if "_" in args.lora:
                 lora_ = args.lora.split(",")
                 lora_index, lora_weight = zip(*(i.split("_") for i in lora_))
@@ -272,7 +314,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                 lora_index = args.lora.split(",")
                 lora_weight = ["0.8"] * len(lora_index)
             for i, w in zip(lora_index, lora_weight):
-                lora_msg += f"<lora:{lora_dict[i]}:{w}>"
+                lora_msg += f"<lora:{lora_dict[int(i)]}:{w}>"
             logger.info(f"使用的lora:{lora_msg}")
         if args.emb:
             emb_index, emb_weight = [args.emb], ["0.8"]
@@ -284,7 +326,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             else:
                 async with aiofiles.open("data/novelai/embs.json", "r", encoding="utf-8") as f:
                     content = await f.read()
-                    emb_dict = json.loads(content)
+                    emb_dict = json.loads(content)[fifo.backend_name]
             if "_" in args.emb:
                 emb_ = args.emb.split(",")
                 emb_index, emb_weight = zip(*(i.split("_") for i in emb_))
@@ -292,7 +334,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                 emb_index = args.emb.split(",")
                 emb_weight = ["0.8"] * len(emb_index)
             for i, w in zip(emb_index, emb_weight):
-                emb_msg += f"({emb_dict[i]:{w}})"
+                emb_msg += f"({emb_dict[int(i)]:{w}})"
             logger.info(f"使用的emb:{emb_msg}")
         tags_list += lora_msg + emb_msg
         if args.no_trans:  # 不希望翻译的tags
@@ -300,9 +342,12 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         if not args.override:
             global pre_tags
             pre_tags = basetag + await config.get_value(group_id, "tags")
-            pre_ntags = lowQuality
-            fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + style_tag
-            fifo.ntags = pre_ntags + fifo.ntags + style_ntag
+            pre_ntags = lowQuality + await config.get_value(group_id, "ntags")
+        else:
+            pre_tags = ""
+            pre_ntags = ""
+        fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + style_tag + random_tags
+        fifo.ntags = pre_ntags + fifo.ntags + style_ntag
         if redis_client:
             tags_list_ = tags_to_list(tags_list)
             r1 = redis_client[0]
@@ -448,8 +493,6 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             resp = await bot.get_group_member_info(group_id=fifo.group_id, user_id=fifo.user_id)
             nickname = resp["card"] or resp["nickname"]
         # 开始生成
-        logger.info(
-            f"队列剩余{wait_len()}人 | 开始生成：{fifo}")
         try:
             im = await _run_gennerate(fifo)
         except Exception as e:
@@ -461,19 +504,21 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                            message=message,
             )
         else:
-            logger.info(f"队列剩余{wait_len()}人 | 生成完毕：{fifo}")
             pic_message = im[1]
-            res_msg = (f"分辨率:({fifo.width}x{fifo.hiresfix_scale})x({fifo.height}x{fifo.hiresfix_scale})") if (
+            res_msg = (f"分辨率:{fifo.width}x{fifo.hiresfix_scale}x{fifo.height}x{fifo.hiresfix_scale}") if (
                         fifo.hiresfix and fifo.img2img is False) else (
                         f"分辨率:{fifo.width}x{fifo.height}"
                         )
+            if fifo.sr:
+                sr_scale = config.novelai_SuperRes_generate_payload["upscaling_resize"]
+                res_msg = (f"分辨率:({fifo.width}x{fifo.hiresfix_scale}x{fifo.height}x{fifo.hiresfix_scale})x{sr_scale}")
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
                 message_data = await bot.send(event=event, 
-                                          message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{fifo.img_hash}", 
+                                          message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{fifo.img_hash}",
+                                          reply_message=True, 
                                           at_sender=True, 
-                                          reply_message=True
             ) if (
                     await config.get_value(fifo.group_id, "pure")) or (
                     await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
@@ -482,9 +527,9 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
 
             except ActionFailed:
                 message_data = await bot.send(event=event, 
-                                             message=pic_message, 
+                                             message=pic_message,
+                                             reply_message=True, 
                                              at_sender=True, 
-                                             reply_message=True
                                 )
 
             revoke = await config.get_value(fifo.group_id, "revoke")

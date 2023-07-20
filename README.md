@@ -76,7 +76,9 @@ lora
 -emb 使用的emb，数字索引，索引从1开始 -emb 1  
 -lora 使用的lora，数字索引 -lora 1    
 -m 1 指定模型  
--hr 2.5 or -hr 2 手动指定高清修复倍率  
+-hr 2.5 or -hr 2 手动指定高清修复倍率 
+-sr 参数可以手动打开图片生成后超分功能
+-match_off 关闭prompt自动匹配功能 
 
 二次元的我at人会以他的头像生成图片  
 绘画@人也能生成那个人的头像的图片  
@@ -85,6 +87,10 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 7.20 0.3.9.4
+### 当你仅发送绘画(指令)的时候会返回随机tag
+### 帮助菜单更新
+### 修复一些BUG
 ## 7.10 0.3.0更新!
 ### 本次更新之后大部分功能需要redis, 不用的话也能正常启动
 顺带一提百度云审核功能暂时用不了了,先别用它  
@@ -216,6 +222,19 @@ VITS功能
 绘画[哈希值]
 联想
 群内更改设置, 转到redis
+
+## 已经修复的BUG
+### 7.16 version: "0.3.9.3
+```
+添加了 抠图 读图
+两个命令
+```
+### 7.12 version: 0.3.3  
+```
+修复了手动选择后端的时候emb等不能正确匹配的问题
+修复了后端掉线后无法自动重新加载emb, lora的问题
+```
+
 
 ## .env配置模板 如果.env配置麻烦，直接更改config.py文件也是可以的
 ## 喂喂 按需复制啊，不要一股脑复制到.env文件啊啊啊啊啊
@@ -364,8 +383,6 @@ novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
 novelai_tagger_site: str = "la.iamdiao.lol:25"  # 分析功能的地址 例如 127.0.0.1:7860
 vits_site: str = "la.iamdiao.lol:587"
 run_screenshot = False  # 获取服务器的屏幕截图
-backend_name_list = list(novelai_backend_url_dict.keys())
-bakcend_site_list = list(novelai_backend_url_dict.values())
 is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
 auto_match = True  # 是否自动匹配
 ```

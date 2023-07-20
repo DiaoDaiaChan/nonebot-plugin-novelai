@@ -16,11 +16,11 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
     h_ = None
     url = ""
     reply = event.reply
+    for seg in event.message['image']:
+        url = seg.data["url"]
     if reply:
         for seg in reply.message['image']:
             url = seg.data["url"]
-    for seg in event.message['image']:
-        url = seg.data["url"]
     if url:
         async with aiohttp.ClientSession() as session:
             logger.info(f"正在获取图片")
