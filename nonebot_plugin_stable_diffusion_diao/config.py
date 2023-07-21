@@ -6,6 +6,7 @@ import asyncio
 import traceback
 from tqdm import tqdm
 from datetime import datetime
+import redis
 
 import aiofiles
 from nonebot import get_driver
@@ -125,7 +126,7 @@ class Config(BaseSettings):
                           "controlnet_threshold_a": 100, 
                           "controlnet_threshold_b": 250}
     
-    novelai_picaudit: int = 4  # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    novelai_picaudit: int = 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""}  # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
@@ -136,7 +137,7 @@ class Config(BaseSettings):
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
     novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
-    novelai_tagger_site: str = "la.iamdiao.lol:25"  # 分析功能的地址 例如 127.0.0.1:7860
+    novelai_tagger_site: str = "la.iamdiao.lol:6884"  # 分析功能的地址 例如 127.0.0.1:7860
     vits_site: str = "la.iamdiao.lol:587"
     run_screenshot = False  # 获取服务器的屏幕截图
     is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
@@ -287,97 +288,94 @@ except ImportError:
     logger.warning("novelai_picaudit为2时本地图片审核不可用")
 if config.is_redis_enable:
     try:
-        import redis
-    except ImportError:
-        logger.error("未找到redis库, 请先pip install redis")
-    else:
+        
         async def main():
             redis_client = []
             r1 = redis.Redis(host='localhost', port=6379, db=7)
             r2 = redis.Redis(host='localhost', port=6379, db=8)
             r3 = redis.Redis(host='localhost', port=6379, db=9)
             redis_client = [r1, r2, r3]
-            resp = r1.ping()
-            try:
-                if resp:
-                    logger.info("redis连接成功")
-                    current_date = datetime.now().date()
-                    day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
-                    if r3.exists(day):
-                        is_changed = False
-                        today_dict = r3.get(day)
-                        today_dict = ast.literal_eval(today_dict.decode('utf-8'))
-                        today_gpu_dict: dict = today_dict["gpu"]
-                        backend_name_list = list(today_gpu_dict.keys())
-                        logger.info("开始匹配redis中的后端数据")
-                        if len(backend_name_list) != len(config.backend_name_list):
-                            is_changed = True
-                        for backend_name in config.backend_name_list:
-                            if backend_name not in backend_name_list:
-                                is_changed = True
-                        if is_changed:
-                            today_gpu_dict = {}
-                            for backend_name in config.backend_name_list:
-                                today_gpu_dict[backend_name] = 0
-                            logger.info("更新redis中的后端数据...")
-                            logger.warning("请注意,本日后端的工作数量会被清零")
-                            today_dict["gpu"] = today_gpu_dict
-                            r3.set(day, str(today_dict))
-                    logger.info("开始读取webui的预设")
-                    all_style_list, all_emb_list, all_lora_list = [], [], []
-                    backend_emb, backend_lora = {}, {}
-                    all_resp_style = await this_is_a_func(0)
-                    for backend_style in all_resp_style:
-                        if backend_style is not None:
-                            for style in backend_style:
-                                all_style_list.append(json.dumps(style))
-                    logger.info("读取webui的预设完成")
-                    logger.info("开始读取webui的embs")
-                    normal_backend_index = -1
-                    all_emb_list = await this_is_a_func(1)
-                    for back_emb in all_emb_list:
-                        normal_backend_index += 1
-                        if back_emb is not None:
-                            emb_dict = {}
-                            n = 0
-                            for emb in list(back_emb["loaded"].keys()):
-                                n += 1
-                                emb_dict[n] = emb
-                            backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict
-                        else:
-                            backend_emb[config.backend_name_list[normal_backend_index]] = None
-                    logger.info("开始读取webui的loras")
-                    all_lora_list = await this_is_a_func(2)
-                    normal_backend_index = -1
-                    for back_lora in all_lora_list:
-                        normal_backend_index += 1
-                        if back_lora is not None:
-                            lora_dict = {}
-                            n = 0
-                            for lora in back_lora:
-                                lora_name = lora["name"]
-                                n += 1
-                                lora_dict[n] = lora_name
-                            backend_lora[config.backend_name_list[normal_backend_index]] = lora_dict
-                        else:
-                            backend_lora[config.backend_name_list[normal_backend_index]] = None
-                    logger.info("存入数据库...")
-                    if r2.exists("emb"):
-                        r2.delete(*["style", "emb", "lora"])
-                    pipe = r2.pipeline()
-                    pipe.rpush("style", *all_style_list)
-                    pipe.set("emb", str(backend_emb))
-                    pipe.set("lora", str(backend_lora))
-                    pipe.execute()
+            logger.info("redis连接成功")
+            current_date = datetime.now().date()
+            day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+            
+            if r3.exists(day):
+                is_changed = False
+                today_dict = r3.get(day)
+                today_dict = ast.literal_eval(today_dict.decode('utf-8'))
+                today_gpu_dict: dict = today_dict["gpu"]
+                backend_name_list = list(today_gpu_dict.keys())
+                logger.info("开始匹配redis中的后端数据")
+                if len(backend_name_list) != len(config.backend_name_list):
+                    is_changed = True
+                for backend_name in config.backend_name_list:
+                    if backend_name not in backend_name_list:
+                        is_changed = True
+                if is_changed:
+                    today_gpu_dict = {}
+                    for backend_name in config.backend_name_list:
+                        today_gpu_dict[backend_name] = 0
+                    logger.info("更新redis中的后端数据...")
+                    logger.warning("请注意,本日后端的工作数量会被清零")
+                    today_dict["gpu"] = today_gpu_dict
+                    r3.set(day, str(today_dict))
+            logger.info("开始读取webui的预设")
+            all_style_list, all_emb_list, all_lora_list = [], [], []
+            backend_emb, backend_lora = {}, {}
+            all_resp_style = await this_is_a_func(0)
+            
+            for backend_style in all_resp_style:
+                if backend_style is not None:
+                    for style in backend_style:
+                        all_style_list.append(json.dumps(style))
+            logger.info("读取webui的预设完成")
+            logger.info("开始读取webui的embs")
+            normal_backend_index = -1
+            all_emb_list = await this_is_a_func(1)
+            
+            for back_emb in all_emb_list:
+                normal_backend_index += 1
+                if back_emb is not None:
+                    emb_dict = {}
+                    n = 0
+                    for emb in list(back_emb["loaded"].keys()):
+                        n += 1
+                        emb_dict[n] = emb
+                    backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict
                 else:
-                    logger.error("redis连接失败")
-                    redis_client = None
-            except Exception:
-                logger.error(traceback.print_exc())
-                logger.error("出现了意外错误, 已经暂停redis使用")
-                redis_client = None
+                    backend_emb[config.backend_name_list[normal_backend_index]] = None
+            logger.info("开始读取webui的loras")
+            all_lora_list = await this_is_a_func(2)
+            normal_backend_index = -1
+            
+            for back_lora in all_lora_list:
+                normal_backend_index += 1
+                if back_lora is not None:
+                    lora_dict = {}
+                    n = 0
+                    for lora in back_lora:
+                        lora_name = lora["name"]
+                        n += 1
+                        lora_dict[n] = lora_name
+                    backend_lora[config.backend_name_list[normal_backend_index]] = lora_dict
+                else:
+                    backend_lora[config.backend_name_list[normal_backend_index]] = None
+            logger.info("存入数据库...")
+            
+            if r2.exists("emb"):
+                r2.delete(*["style", "emb", "lora"])
+            pipe = r2.pipeline()
+            pipe.rpush("style", *all_style_list)
+            pipe.set("emb", str(backend_emb))
+            pipe.set("lora", str(backend_lora))
+            pipe.execute()
+            
             return redis_client
+        
         redis_client = asyncio.run(main())
+    except Exception:
+        redis_client = None
+        logger.warning("redis初始化失败, 已经禁用redis")
 
 logger.info(f"加载config完成" + str(config))
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")

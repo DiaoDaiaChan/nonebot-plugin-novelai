@@ -163,7 +163,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                         bot.delete_msg(message_id=message_id)),
                 )
         if redis_client:
-            if not args.match or config.auto_match:
+            if config.auto_match and args.match is False:
                 r = redis_client[1]
                 if r.exists("style"):
                     info_style = None
@@ -172,13 +172,15 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                     style_list += style_list_
                     for style in style_list:
                         style = ast.literal_eval(style.decode("utf-8"))
-                        if style["name"] in args.tags:
-                            style_ = style["name"]
-                            info_style = f"自动找到的预设: {style_}\n"
-                            logger.info(info_style)
-                            style_tag = style["prompt"]
-                            style_ntag = style["negative_prompt"]
-                            break
+                        if isinstance(args.tags, list) and len(args.tags) > 0:
+                            for tag in args.tags:
+                                if style["name"] in tag:
+                                    style_ = style["name"]
+                                    info_style = f"自动找到的预设: {style_}\n"
+                                    logger.info(info_style)
+                                    style_tag = style["prompt"]
+                                    style_ntag = style["negative_prompt"]
+                                    break
         org_str = []
         convert_list = []
         for tag in args.tags:
