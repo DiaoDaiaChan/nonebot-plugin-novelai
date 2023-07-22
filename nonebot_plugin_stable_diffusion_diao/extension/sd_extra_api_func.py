@@ -95,7 +95,7 @@ more_func_parser.add_argument("-s", "--search", type=str, help="搜索设置名"
 style_parser.add_argument("tags", type=str, nargs="*", help="正面提示词")
 style_parser.add_argument("-f", "--find", type=str, help="寻找预设", dest="find_style_name")
 style_parser.add_argument("-n", "--name", type=str, help="预设名", dest="style_name")
-style_parser.add_argument("-u", type=str, help="负面提示词", dest="style_ntags")
+style_parser.add_argument("-u", type=str, help="负面提示词", dest="ntags")
 style_parser.add_argument("-d", type=str, help="删除指定预设", dest="delete")
 
 set_sd_config = on_shell_command(
@@ -926,10 +926,9 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         if not find_style:
             await style_.finish(f"没有找到预设{args.find_style_name}")
     if len(args.tags) != 0:
-        args.ntags = ""
         if args.tags and args.style_name:
             tags = await prepocess_tags(args.tags, False)
-            ntags = await prepocess_tags(args.ntags, False)
+            ntags = args.ntags
             style_dict["name"] = args.style_name
             style_dict["prompt"] = tags
             style_dict["negative_prompt"] = ntags

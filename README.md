@@ -91,6 +91,13 @@ lora
 ### 当你仅发送绘画(指令)的时候会返回随机tag
 ### 帮助菜单更新
 ### 修复一些BUG
+### 新的设置项
+### 顺带一提tagger插件请使用 https://github.com/toriato/stable-diffusion-webui-wd14-tagger
+新版的有bug
+```
+openai_proxy_site = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
+tagger_model = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
+```
 ## 7.10 0.3.0更新!
 ### 本次更新之后大部分功能需要redis, 不用的话也能正常启动
 顺带一提百度云审核功能暂时用不了了,先别用它  

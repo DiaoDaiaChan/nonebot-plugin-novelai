@@ -68,7 +68,7 @@ async def unload_and_reload(backend_index: int=None, backend_site=None):
             
 async def pic_audit_standalone(img_base64, is_return_tags=False, audit=False):
     
-    payload = {"image": img_base64, "model": "wd14-vit-v2-git", "threshold": 0.35 }
+    payload = {"image": img_base64, "model": f"{config.tagger_model}", "threshold": 0.35 }
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:

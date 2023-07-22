@@ -61,7 +61,6 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                                message_list
                                )  
         except ActionFailed:
-            message_list = message_list.pop(0)
-            await risk_control(bot, event, message_list, False, True)
+            await risk_control(bot, event, [tags, tags_ch], False, True)
     else:
         await deepdanbooru.finish(f"未找到图片")

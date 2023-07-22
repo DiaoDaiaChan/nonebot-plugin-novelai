@@ -188,9 +188,11 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                 org_str.append(tag)
             else:
                 convert_list.append(tag)
-        args.tags = "".join(convert_list) + ", " + "".join(org_str)
+        args.tags = convert_list + org_str
+        args.tags = await prepocess_tags(args.tags, False)
         fifo = AIDRAW(**vars(args), event=event)
         fifo.extra_info += info_style if info_style else ""
+        
         if fifo.backend_index:
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
         else:
@@ -367,11 +369,11 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         if at_id:
             img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
             args.control_net = True
+        for seg in event.message['image']:
+            img_url = seg.data["url"]
         if reply:
             for seg in reply.message['image']:
                 img_url = seg.data["url"]
-        for seg in event.message['image']:
-            img_url = seg.data["url"]
         if img_url:
             if config.novelai_paid:
                 async with aiohttp.ClientSession() as session:

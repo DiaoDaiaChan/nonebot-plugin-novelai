@@ -130,6 +130,7 @@ class Config(BaseSettings):
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
                                        "API_KEY": ""}  # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
+    openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
     novelai_auto_icon: bool = True  # 机器人自动换头像(没写呢！)
     novelai_extra_pic_audit = True  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
     # 翻译API设置
@@ -138,6 +139,7 @@ class Config(BaseSettings):
     baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
     novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
     novelai_tagger_site: str = "la.iamdiao.lol:6884"  # 分析功能的地址 例如 127.0.0.1:7860
+    tagger_model: str = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
     vits_site: str = "la.iamdiao.lol:587"
     run_screenshot = False  # 获取服务器的屏幕截图
     is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
