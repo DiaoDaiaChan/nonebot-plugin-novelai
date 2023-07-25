@@ -48,7 +48,6 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 tags = ""
                 for label in data['confidences']:
                     tags = tags+label["label"]+","
-        
         tags_ch = await translate(tags.replace("_", " "), "zh")
         message_list = [MessageSegment.image(bytes), tags, f"\n机翻结果:" + tags_ch]
         if h_:

@@ -56,7 +56,7 @@ class Config(BaseSettings):
     novelai_random_ratio: bool = True  # 是否开启随机比例
     novelai_random_sampler: bool = False  # 是否开启随机采样器
     novelai_random_scale: bool = False  # 是否开启随机CFG
-    novelai_random_ratio_list: list = [("p", 0.35), ("s", 0.10), ("l", 0.35), ("uw", 0.1), ("uwp", 0.1)] # 随机图片比例
+    novelai_random_ratio_list: list =  [("p", 0.55), ("s", 0.1), ("l", 0.2), ("uw", 0.05), ("uwp", 0.1)] # 随机图片比例
     novelai_random_sampler_list = [("Euler a", 0.35), ("DDIM", 0.3), ("DPM++ 2S a Karras", 0.05), ("DPM++ 2M Karras", 0.3)]
     novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
     novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
@@ -144,8 +144,10 @@ class Config(BaseSettings):
     run_screenshot = False  # 获取服务器的屏幕截图
     is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
     auto_match = True  # 是否自动匹配
+    hr_off_when_cn = True  # 使用controlnet功能的时候关闭高清修复
     backend_name_list = []
     backend_site_list = []
+    only_super_user = True  # 只有超级用户才能永久更换模型, 雕雕没有小号来测试了, 悲
     # 允许单群设置的设置
     def keys(cls):
         return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")
@@ -346,6 +348,7 @@ if config.is_redis_enable:
                     backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict
                 else:
                     backend_emb[config.backend_name_list[normal_backend_index]] = None
+                    
             logger.info("开始读取webui的loras")
             all_lora_list = await this_is_a_func(2)
             normal_backend_index = -1
@@ -362,8 +365,8 @@ if config.is_redis_enable:
                     backend_lora[config.backend_name_list[normal_backend_index]] = lora_dict
                 else:
                     backend_lora[config.backend_name_list[normal_backend_index]] = None
+                    
             logger.info("存入数据库...")
-            
             if r2.exists("emb"):
                 r2.delete(*["style", "emb", "lora"])
             pipe = r2.pipeline()

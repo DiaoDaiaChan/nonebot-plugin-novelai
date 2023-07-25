@@ -26,6 +26,7 @@ vits_ = on_shell_command(
     priority=5
 )
 
+
 class VITS:
 
     def __init__(self, 
@@ -93,14 +94,20 @@ async def _(event: MessageEvent,
     
     vits_instance = VITS(**vars(args), event=event)
     if args.get_list:
+        to_user_list = ["-s参数指定音色, 例如 -s 10\n"]
         resp_ = await vits_instance.http_req()
         async with aiofiles.open(vits_file_path, "w") as f:
             await f.write(json.dumps(resp_))
         # await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), resp_["VITS"])
-        await risk_control(bot, event, resp_["VITS"], True, True)
-        
-    vits_instance.get_params()
-    audio_resp = await vits_instance.http_req(end_point="/voice", params=vits_instance.params, read=True)
-    await bot.send(event, message=MessageSegment.record(audio_resp))
+        for speaker in resp_["VITS"]:
+            speaker_id = speaker["id"]
+            speaker_name = speaker["name"]
+            support_lang = speaker["lang"]
+            to_user_list.append(f"音色名称: {speaker_name}, 音色id: {speaker_id}, 支持的语言: {support_lang}\n")
+        await risk_control(bot, event, to_user_list, True)
+    else:
+        vits_instance.get_params()
+        audio_resp = await vits_instance.http_req(end_point="/voice", params=vits_instance.params, read=True)
+        await bot.send(event, message=MessageSegment.record(audio_resp))
         # await vits_.finish(f"出错了，{audio_resp.status}, {await audio_resp.text()}")
     

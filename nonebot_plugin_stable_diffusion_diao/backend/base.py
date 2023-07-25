@@ -38,13 +38,14 @@ class AIDRAW_BASE:
         noise: float = None,
         shape: str = None,
         man_shape: str = None,
-        model: str = "",
+        model: str = None,
         sampler: None or str = None,
         backend_index: str = None,
         disable_hr: bool = False if config.novelai_hr else True,
         hiresfix_scale: float = None,
         event: MessageEvent = None,
         sr: bool = False,
+        model_index: int = None,
         **kwargs,
     ):
         """
@@ -104,7 +105,7 @@ class AIDRAW_BASE:
         self.ntags: str = ntags
         self.img2img: bool = False
         self.image: str = None
-        self.model: str = ""
+        self.model: str = None
         if config.novelai_random_sampler:
             self.sampler: str = (sampler if sampler else 
                                 self.weighted_choice(config.novelai_random_sampler_list) or 
@@ -132,6 +133,8 @@ class AIDRAW_BASE:
         self.extra_info = ""
         self.audit_info = ""
         self.sr = sr or config.novelai_SuperRes_generate
+        self.model_index = model_index
+        self.is_random_model = False
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):

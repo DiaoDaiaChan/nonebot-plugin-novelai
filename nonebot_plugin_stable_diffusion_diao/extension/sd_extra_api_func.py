@@ -66,8 +66,8 @@ get_models = on_command(
     priority=5,
     block=True
 )
-
-change_models = on_command("更换模型", priority=1, block=True)
+superusr = SUPERUSER if config.only_super_user else None
+change_models = on_command("更换模型", priority=1, block=True, permission=superusr)
 control_net = on_command("以图绘图", aliases={"以图生图"})
 control_net_list = on_command("controlnet", aliases={"控制网"})
 super_res = on_command("图片修复", aliases={"图片超分", "超分"})
@@ -87,6 +87,7 @@ reload_ = on_command("卸载模型", aliases={"释放显存"})
 style_ = on_command("预设")
 rembg = on_command("去背景", aliases={"rembg", "抠图"})
 read_png_info = on_command("读图", aliases={"读png", "读PNG"})
+random_pic = on_command("随机出图", aliases={"随机模型", "随机画图"})
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -113,24 +114,29 @@ style_ = on_shell_command(
 
 
 async def get_random_tags(sample_num=12):
-    if redis_client:
-        r = redis_client[0]
-        all_tags_list = []
-        all_tags_list_str = [] 
-        byte_tags_list = r.lrange("prompts", 0, -1)
-        for byte_tag in byte_tags_list:
-            all_tags_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
-        for list_ in all_tags_list:
-            all_tags_list_str += list_
-        unique_strings = []
-        for string in all_tags_list_str:
-            if string not in unique_strings and string != "":
-                unique_strings.append(string)
-        all_tags_list = unique_strings
-    else:
-        all_tags_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list)
-    chose_tags_list = random.sample(all_tags_list, sample_num)
-    return chose_tags_list
+    try:
+        if redis_client:
+            r = redis_client[0]
+            all_tags_list = []
+            all_tags_list_str = [] 
+            byte_tags_list = r.lrange("prompts", 0, -1)
+            for byte_tag in byte_tags_list:
+                all_tags_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
+            for list_ in all_tags_list:
+                if list_ is not None:
+                    all_tags_list_str += list_
+            unique_strings = []
+            for string in all_tags_list_str:
+                if string not in unique_strings and string != "":
+                    unique_strings.append(string)
+            all_tags_list = unique_strings
+        else:
+            all_tags_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list)
+        chose_tags_list = random.sample(all_tags_list, sample_num)
+        return chose_tags_list
+    except:
+        logger.error(traceback.print_exc())
+        return None
 
 async def get_and_process_lora(site, site_, text_msg=None):
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
@@ -336,6 +342,7 @@ async def change_model(event: MessageEvent,
         site_index = list(config.novelai_backend_url_dict.keys()).index(site_)
     except KeyError:
         site_index = ""
+    await sd(backend_site_index)
     async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
         content = await f.read()
         models_dict = json.loads(content)
@@ -646,7 +653,7 @@ async def _(event: MessageEvent, bot: Bot):
                 today_task = today["gpu"][backend_list[n]]
         else:
             filename = "data/novelai/day_limit_data.json"
-            if os.path.exists():
+            if os.path.exists(filename):
                 async with aiofiles.open(filename, "r") as f:
                     json_ = await f.read()
                     json_ = json.loads(json_)
@@ -1032,4 +1039,50 @@ async def __(event: MessageEvent, bot: Bot):
             await risk_control(bot, event, [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"], True)
     else:
         await read_png_info.reject("请重新发送图片")
+
+
+@random_pic.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    init_dict = {}
+    if msg:
+        tags = msg.extract_plain_text()
+    else:
+        tags = await get_random_tags(6)
+        tags = ", ".join(tags)
+        if not tags:
+            tags = "miku"
+    init_dict["tags"] = tags
+    _, __, normal_backend = await sd_LoadBalance()
+    random_site = random.choice(normal_backend)
+    index = config.backend_site_list.index(random_site)
+    init_dict["backend_index"] = index
+    fifo = AIDRAW(**init_dict)
+    fifo.backend_site = random_site
+    fifo.is_random_model = True
+    fifo.model_index = 20204 
+    fifo.ntags = lowQuality
+    fifo.disable_hr = True
+    fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
+    await bot.send(event=event, message=f"{nickname}祈祷中...让我们看看随机了什么好模型\nprompts: {fifo.tags}")
     
+    try:
+        await fifo.post()
+    except Exception as e:
+        await random_pic.finish(f"服务端出错辣,{e.args},是不是后端设置被锁死了...")
+    else:
+        img_msg = MessageSegment.image(fifo.result[0])
+        to_user = f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n"+img_msg+f"\n{fifo.img_hash}"+f"\n后端索引是{fifo.backend_index}"
+        if config.novelai_extra_pic_audit:
+            result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_model")
+            if isinstance(result[1], MessageSegment):
+                await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
+        else:
+            try:
+                await bot.send(event=event, 
+                            message=to_user, 
+                            at_sender=True, reply_message=True)
+            except ActionFailed:
+                await bot.send(event=event, 
+                            message=img_msg+f"\n{fifo.img_hash}", 
+                            at_sender=True, reply_message=True)
+    await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model")

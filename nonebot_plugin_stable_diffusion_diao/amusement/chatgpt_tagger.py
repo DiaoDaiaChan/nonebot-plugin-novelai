@@ -88,7 +88,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                     bot, 
                     event, 
                     "这是chatgpt为你生成的prompt"+prompt, 
-                    True, True, 750
+                    True
     )
     
     tags = config.novelai_tags + basetag + prompt

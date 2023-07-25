@@ -133,7 +133,7 @@ async def sd_LoadBalance():
         else:
             from ..backend import AIDRAW
             if weight_list_len != normal_backend_len:
-                multi = weight_list_len / (weight_list_len - normal_backend_len)
+                multi = backend_url_list_len / normal_backend_len
                 for weight, backend_site in zip(weight_list, backend_url_list):
                     if backend_site in normal_backend:
                         list_tuple.append((backend_site, weight*multi))

@@ -87,12 +87,30 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 7.25 0.3.9.7
+### 请注意! 如果后端开启了冻结设置选项, 更改任何设置均会失效, 下面的两个功能就可能用不了了
+```
+新的命令:
+随机模型/随机出图   (随机挑选随机后端的随机模型生成使用随机prompt的图, 主打就是一个随机)
+随机模型nahiida (随机挑选随机后端的随机模型生成使用nahiida prompt)
+```
+```
+现在更换模型有两种模式
+1. 使用  绘画 -sd 1 -m 2 来指定 (-sd为后端索引, 从0开始, -m 为模型序号) 此命令为仅本张图片使用此模型绘图
+2. 更换模型1_2 为后端永久更换模型
+```
+```
+vits -get 修复
+添加了设置项, 是否只有超级用户才能更换模型
+```
 ## 7.20 0.3.9.4
 ### 当你仅发送绘画(指令)的时候会返回随机tag
-### 帮助菜单更新
-### 修复一些BUG
-### 新的设置项
-### 顺带一提tagger插件请使用 https://github.com/toriato/stable-diffusion-webui-wd14-tagger
+```
+帮助菜单更新
+修复一些BUG
+新的设置项
+```
+#### 顺带一提tagger插件请使用 https://github.com/toriato/stable-diffusion-webui-wd14-tagger
 新版的有bug
 ```
 openai_proxy_site = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
@@ -276,120 +294,126 @@ novelai_size_org = 640 # 最大分辨率 8G显存这个分辨率差不多辣
 novelai_steps: int = None 改为
 novelai_steps = None
 ```python
-novelai_steps: int = None  # 默认步数
-novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
-novelai_scale: int = 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
-novelai_retry: int = 4  # post失败后重试的次数
-novelai_token: str = ""  # 官网的token
-# novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
-novelai_mode: str = "sd"
-novelai_site: str = "la.iamdiao.lol:5938"
-# 后台设置
-novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
-novelai_save_png: bool = False  # 是否保存为PNG格式
-novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
-novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
-novelai_limit: bool = False  # 是否开启限速
-novelai_daylimit: int = 24  # 每日次数限制，0为禁用
-novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
-novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
-novelai_max: int = 3  # 每次能够生成的最大数量
-# 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
-# 可运行更改的设置
-novelai_tags: str = ""  # 内置的tag
-novelai_ntags: str = ""  # 内置的反tag
-novelai_cd: int = 60  # 默认的cd
-novelai_group_cd: int = 3  # 默认的群共享cd
-novelai_on: bool = True  # 是否全局开启
-novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
-novelai_random_ratio: bool = True  # 是否开启随机比例
-novelai_random_sampler: bool = False  # 是否开启随机采样器
-novelai_random_scale: bool = False  # 是否开启随机CFG
-novelai_random_ratio_list: list = [("p", 0.35), ("s", 0.10), ("l", 0.35), ("uw", 0.1), ("uwp", 0.1)] # 随机图片比例
-novelai_random_sampler_list = [("Euler a", 0.35), ("DDIM", 0.3), ("DPM++ 2S a Karras", 0.05), ("DPM++ 2M Karras", 0.3)]
-novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
-novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
-novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
-novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
-novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
-novelai_sampler: str = None  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
-novelai_hr: bool = True  # 是否启动高清修复
-novelai_hr_scale: float = 1.5  # 高清修复放大比例
-novelai_hr_payload: dict = {
-    "enable_hr": "true", 
-    "denoising_strength": 0.55,  # 重绘幅度
-    "hr_scale": novelai_hr_scale,  # 高清修复比例, 1.5为长宽分辨率各X1.5
-    "hr_upscaler": "Lanczos",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
-    "hr_second_pass_steps": 7,  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
-} # 以上为个人推荐值
-novelai_SuperRes_MaxPixels: int = 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
-novelai_SuperRes_generate: bool = False  # 图片生成后是否再次进行一次超分
-novelai_SuperRes_generate_payload: dict = {
-    "upscaling_resize": 1.2,  # 超分倍率, 为长宽分辨率各X1.2
-    "upscaler_1": "Lanczos",  # 第一次超分使用的方法
-    "upscaler_2": "R-ESRGAN 4x+ Anime6B",  # 第二次超分使用的方法
-    "extras_upscaler_2_visibility": 0.7  # 第二层upscaler力度
-} # 以上为个人推荐值
-novelai_ControlNet_post_method: int = 0
-novelai_size_org: int = 640  # 最大分辨率
-if novelai_hr:
-    novelai_size: int = novelai_size_org
-else:
-    novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
-'''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
-个人使用第一种方法post显卡占用率反复横跳TAT 
-tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
-novelai_ControlNet_payload: list = [
-    {
-        "alwayson_scripts": {
-        "controlnet": {
-        "args": [
-            {
-            "input_image": "",
-            "module": "scribble_hed",
-            "model": "control_v11p_sd15_scribble [d4ba51ff]",
-            "weight": 1,
-            "lowvram": "false",
-            "processor_res": novelai_size*1.5,
-            "threshold_a": 100,
-            "threshold_b": 250,
+    novelai_steps: int = None  # 默认步数
+    novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
+    novelai_scale: int = 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
+    novelai_retry: int = 4  # post失败后重试的次数
+    novelai_token: str = ""  # 官网的token
+    # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
+    novelai_mode: str = "sd"
+    novelai_site: str = "la.iamdiao.lol:5938"
+    # 后台设置
+    novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
+    novelai_save_png: bool = False  # 是否保存为PNG格式
+    novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
+    novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
+    novelai_limit: bool = False  # 是否开启限速
+    novelai_daylimit: int = 24  # 每日次数限制，0为禁用
+    novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+    novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
+    novelai_antireport: bool = True  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
+    novelai_max: int = 3  # 每次能够生成的最大数量
+    # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
+    # 可运行更改的设置
+    novelai_tags: str = ""  # 内置的tag
+    novelai_ntags: str = ""  # 内置的反tag
+    novelai_cd: int = 60  # 默认的cd
+    novelai_group_cd: int = 3  # 默认的群共享cd
+    novelai_on: bool = True  # 是否全局开启
+    novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
+    novelai_random_ratio: bool = True  # 是否开启随机比例
+    novelai_random_sampler: bool = False  # 是否开启随机采样器
+    novelai_random_scale: bool = False  # 是否开启随机CFG
+    novelai_random_ratio_list: list =  [("p", 0.55), ("s", 0.1), ("l", 0.2), ("uw", 0.05), ("uwp", 0.1)] # 随机图片比例
+    novelai_random_sampler_list = [("Euler a", 0.35), ("DDIM", 0.3), ("DPM++ 2S a Karras", 0.05), ("DPM++ 2M Karras", 0.3)]
+    novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
+    novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
+    novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
+    novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
+    novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    novelai_sampler: str = None  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
+    novelai_hr: bool = True  # 是否启动高清修复
+    novelai_hr_scale: float = 1.5  # 高清修复放大比例
+    novelai_hr_payload: dict = {
+        "enable_hr": "true", 
+        "denoising_strength": 0.55,  # 重绘幅度
+        "hr_scale": novelai_hr_scale,  # 高清修复比例, 1.5为长宽分辨率各X1.5
+        "hr_upscaler": "Lanczos",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
+        "hr_second_pass_steps": 7,  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
+    } # 以上为个人推荐值
+    novelai_SuperRes_MaxPixels: int = 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
+    novelai_SuperRes_generate: bool = False  # 图片生成后是否再次进行一次超分
+    novelai_SuperRes_generate_payload: dict = {
+        "upscaling_resize": 1.2,  # 超分倍率, 为长宽分辨率各X1.2
+        "upscaler_1": "Lanczos",  # 第一次超分使用的方法
+        "upscaler_2": "R-ESRGAN 4x+ Anime6B",  # 第二次超分使用的方法
+        "extras_upscaler_2_visibility": 0.6  # 第二层upscaler力度
+    } # 以上为个人推荐值
+    novelai_ControlNet_post_method: int = 0
+    novelai_size_org: int = 640  # 最大分辨率
+    if novelai_hr:
+        novelai_size: int = novelai_size_org
+    else:
+        novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
+    '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
+    个人使用第一种方法post显卡占用率反复横跳TAT 
+    tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
+    novelai_ControlNet_payload: list = [
+        {
+            "alwayson_scripts": {
+            "controlnet": {
+            "args": [
+                {
+                "input_image": "",
+                "module": "lineart_anime",
+                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]",
+                "weight": 1,
+                "lowvram": "false",
+                "processor_res": novelai_size*1.5,
+                "threshold_a": 100,
+                "threshold_b": 250,
+                }
+            ]
+                }
             }
-        ]
-            }
+        }, 
+        {"controlnet_units": 
+                [{"input_image": "", 
+                "module": "lineart_anime", 
+                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]", 
+                "weight": 1, 
+                "lowvram": "false", 
+                "processor_res": novelai_size*1.5, 
+                "threshold_a": 100,
+                "threshold_b": 250}]
         }
-    }, 
-    {"controlnet_units": 
-            [{"input_image": "", 
-            "module": "scribble_hed", 
-            "model": "control_v11p_sd15_scribble [d4ba51ff]", 
-            "weight": 1, 
-            "lowvram": "false", 
-            "processor_res": novelai_size*1.5, 
-            "threshold_a": 100,
-            "threshold_b": 250}]
-    }
-]
-
-novelai_cndm: dict = {"controlnet_module": "canny", 
-                        "controlnet_processor_res": novelai_size, 
-                        "controlnet_threshold_a": 100, 
-                        "controlnet_threshold_b": 250}
-
-novelai_picaudit: int = 4  # 1为百度云图片审核, 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
-novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
-                                    "API_KEY": ""}  # 你的百度云API Key
-openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
-novelai_auto_icon: bool = True  # 机器人自动换头像(没写呢！)
-novelai_extra_pic_audit = True  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
-# 翻译API设置
-bing_key: str = None  # bing的翻译key
-deepl_key: str = None  # deepL的翻译key
-baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
-novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
-novelai_tagger_site: str = "la.iamdiao.lol:25"  # 分析功能的地址 例如 127.0.0.1:7860
-vits_site: str = "la.iamdiao.lol:587"
-run_screenshot = False  # 获取服务器的屏幕截图
-is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
-auto_match = True  # 是否自动匹配
+    ]
+    
+    novelai_cndm: dict = {"controlnet_module": "canny", 
+                          "controlnet_processor_res": novelai_size, 
+                          "controlnet_threshold_a": 100, 
+                          "controlnet_threshold_b": 250}
+    
+    novelai_picaudit: int = 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
+                                       "API_KEY": ""}  # 你的百度云API Key
+    openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
+    openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
+    novelai_auto_icon: bool = True  # 机器人自动换头像(没写呢！)
+    novelai_extra_pic_audit = True  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
+    # 翻译API设置
+    bing_key: str = None  # bing的翻译key
+    deepl_key: str = None  # deepL的翻译key
+    baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
+    novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
+    novelai_tagger_site: str = "la.iamdiao.lol:6884"  # 分析功能的地址 例如 127.0.0.1:7860
+    tagger_model: str = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
+    vits_site: str = "la.iamdiao.lol:587"
+    run_screenshot = False  # 获取服务器的屏幕截图
+    is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
+    auto_match = True  # 是否自动匹配
+    hr_off_when_cn = True  # 使用controlnet功能的时候关闭高清修复
+    backend_name_list = []
+    backend_site_list = []
+    only_super_user = True  # 只有超级用户才能永久更换模型, 雕雕没有小号来测试了, 悲
 ```

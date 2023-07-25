@@ -7,6 +7,7 @@ from nonebot import logger
 import json, aiofiles
 import asyncio
 import traceback
+import random
 
 header = {
                 "content-type": "application/json",
@@ -67,6 +68,19 @@ class AIDRAW(AIDRAW_BASE):
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
         }
+        
+        if self.model_index:
+            from ..extension.sd_extra_api_func import sd
+            await sd(self.backend_index or config.backend_site_list.index(self.backend_site))
+            async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
+                content = await f.read()
+                model_dict = json.loads(content)
+            if self.is_random_model:
+                self.model_index = random.randint(1, len(list(model_dict.keys())))
+            self.model = model_dict[str(self.model_index)]
+            parameters.update({"override_settings": {"sd_model_checkpoint": self.model}, 
+                               "override_settings_restore_afterwards": "true"}
+                            )
 
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
@@ -82,8 +96,11 @@ class AIDRAW(AIDRAW_BASE):
             else:
                 self.hiresfix = False
         if self.control_net["control_net"] == True and config.novelai_hr:
-            org_scale = parameters["hr_scale"]
-            parameters.update({"hr_scale": org_scale * 0.75}) # control较吃显存, 高清修复倍率恢复为1.5
+            if config.hr_off_when_cn:
+                parameters.update({"enable_hr": "false"})
+            else:
+                org_scale = parameters["hr_scale"]
+                parameters.update({"hr_scale": org_scale * 0.75}) # control较吃显存, 高清修复倍率恢复为1.5
             del parameters["init_images"]
             if config.novelai_ControlNet_post_method == 0:
                 post_api = f"http://{site}/sdapi/v1/txt2img"
@@ -127,7 +144,8 @@ class AIDRAW(AIDRAW_BASE):
                 resp_list = await asyncio.gather(*[self.get_webui_config(self.backend_site), get_vram(self.backend_site)], return_exceptions=False)
                 resp_json = resp_list[0]
                 try:
-                    self.model = resp_json["sd_model_checkpoint"]
+                    if self.model is None:
+                        self.model = resp_json["sd_model_checkpoint"]
                 except Exception:
                     self.model = ""
                 self.vram = resp_list[1]

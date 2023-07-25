@@ -72,7 +72,7 @@ aidraw_parser.add_argument("-lora",
 aidraw_parser.add_argument("-hr",
                            type=float, help="高清修复倍率", dest="hiresfix_scale")
 aidraw_parser.add_argument("-m",
-                           type=str, help="更换模型", dest="model")
+                           type=str, help="更换模型", dest="model_index")
 aidraw_parser.add_argument("-match_off","-match-off",
                            action="store_true", help="关闭自动匹配", dest="match")
 aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
@@ -193,17 +193,10 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         fifo = AIDRAW(**vars(args), event=event)
         fifo.extra_info += info_style if info_style else ""
         
-        if fifo.backend_index:
+        if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
         else:
             await fifo.load_balance_init()
-        if args.model:
-            
-            index = fifo.backend_index if (
-                fifo.backend_index is not None and isinstance(fifo.backend_index, int)
-                ) else "0"
-            
-            await change_model(event, bot, args.model, index)
         tags = fifo.tags
         if isinstance(tags, str):
             tags_list = tags_to_list(tags)
