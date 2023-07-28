@@ -935,7 +935,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     if len(args.tags) != 0:
         if args.tags and args.style_name:
             tags = await prepocess_tags(args.tags, False)
-            ntags = args.ntags
+            ntags = "" if args.ntags is None else args.ntags
             style_dict["name"] = args.style_name
             style_dict["prompt"] = tags
             style_dict["negative_prompt"] = ntags

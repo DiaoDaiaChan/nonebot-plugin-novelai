@@ -343,8 +343,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         else:
             pre_tags = ""
             pre_ntags = ""
-        fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + style_tag + random_tags
-        fifo.ntags = pre_ntags + fifo.ntags + style_ntag
+        fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
+        fifo.ntags = pre_ntags + fifo.ntags + str(style_ntag)
         if redis_client:
             tags_list_ = tags_to_list(tags_list)
             r1 = redis_client[0]

@@ -87,8 +87,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     await risk_control(
                     bot, 
                     event, 
-                    "这是chatgpt为你生成的prompt"+prompt, 
-                    True
+                    "这是chatgpt为你生成的prompt"+prompt 
     )
     
     tags = config.novelai_tags + basetag + prompt
