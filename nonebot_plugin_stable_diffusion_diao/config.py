@@ -68,9 +68,9 @@ class Config(BaseSettings):
     novelai_hr_scale: float = 1.5  # 高清修复放大比例
     novelai_hr_payload: dict = {
         "enable_hr": "true", 
-        "denoising_strength": 0.55,  # 重绘幅度
+        "denoising_strength": 0.4,  # 重绘幅度
         "hr_scale": novelai_hr_scale,  # 高清修复比例, 1.5为长宽分辨率各X1.5
-        "hr_upscaler": "Lanczos",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
+        "hr_upscaler": "R-ESRGAN 4x+ Anime6B",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
         "hr_second_pass_steps": 7,  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
@@ -82,14 +82,22 @@ class Config(BaseSettings):
         "extras_upscaler_2_visibility": 0.6  # 第二层upscaler力度
     } # 以上为个人推荐值
     novelai_ControlNet_post_method: int = 0
+    '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
+    个人使用第一种方法post显卡占用率反复横跳TAT 
+    tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
     novelai_size_org: int = 640  # 最大分辨率
     if novelai_hr:
         novelai_size: int = novelai_size_org
     else:
         novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
-    '''post方法有 0: /sdapi/v1/txt2img 和 1: /controlnet/txt2img 
-    个人使用第一种方法post显卡占用率反复横跳TAT 
-    tips:使用/controlnet/txt2img会提示warning: consider using the '/sdapi/v1/txt2img' route with the 'alwayson_scripts' json property instead''' 
+    custom_scripts = {  # 自定义脚本此功能就可以使用webui上才能调用的插件, 需要自己去抓包
+    "Tiled Diffusion": {
+        "args": [True, "MultiDiffusion", False, True, 1024, 1024, 96, 96, 48, 1, "None", 2, False, 10, 1, []]
+    },
+    "Tiled VAE": {
+        "args": [True, 1536, 96, False, True, True]
+    }
+    }
     novelai_ControlNet_payload: list = [
         {
             "alwayson_scripts": {
@@ -148,6 +156,8 @@ class Config(BaseSettings):
     backend_name_list = []
     backend_site_list = []
     only_super_user = True  # 只有超级用户才能永久更换模型, 雕雕没有小号来测试了, 悲
+    tiled_diffusion = False  # 使用tiled-diffusion来生成图片
+    enable_scripts = False  # 是否启动custom_scripts中设置的自定义脚本
     # 允许单群设置的设置
     def keys(cls):
         return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")
@@ -271,11 +281,11 @@ async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
                     return None
     except Exception:
         return None
-
+    
 
 async def this_is_a_func(end_point_index):
     task_list = []
-    end_point_list = ["/sdapi/v1/prompt-styles", "/sdapi/v1/embeddings", "/sdapi/v1/loras"]
+    end_point_list = ["/sdapi/v1/prompt-styles", "/sdapi/v1/embeddings", "/sdapi/v1/loras", "/sdapi/v1/interrupt"]
     for site in config.backend_site_list:
         task_list.append(get_(site, end_point_list[end_point_index]))
     all_resp = await asyncio.gather(*task_list, return_exceptions=False)
@@ -370,7 +380,8 @@ if config.is_redis_enable:
             if r2.exists("emb"):
                 r2.delete(*["style", "emb", "lora"])
             pipe = r2.pipeline()
-            pipe.rpush("style", *all_style_list)
+            if len(all_style_list) != 0:
+                pipe.rpush("style", *all_style_list)
             pipe.set("emb", str(backend_emb))
             pipe.set("lora", str(backend_lora))
             pipe.execute()
@@ -380,6 +391,7 @@ if config.is_redis_enable:
         redis_client = asyncio.run(main())
     except Exception:
         redis_client = None
+        logger.warning(traceback.print_exc())
         logger.warning("redis初始化失败, 已经禁用redis")
 
 logger.info(f"加载config完成" + str(config))

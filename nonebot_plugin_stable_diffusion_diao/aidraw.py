@@ -34,6 +34,7 @@ from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
 from .extension.sd_extra_api_func import change_model, get_random_tags
 cd = {}
+user_models_dict = {}
 gennerating = False
 wait_list = deque([])
 
@@ -77,6 +78,8 @@ aidraw_parser.add_argument("-match_off","-match-off",
                            action="store_true", help="关闭自动匹配", dest="match")
 aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
                            action="store_true", help="图片生产后再次超分", dest="sr")
+aidraw_parser.add_argument("-td", "--tiled-diffusion",
+                           action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
 
 
 async def get_message_at(data: str) -> int:

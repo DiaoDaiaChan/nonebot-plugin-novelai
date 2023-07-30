@@ -4,10 +4,12 @@ import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils import get_generate_info
 from nonebot import logger
+from copy import deepcopy
 import json, aiofiles
 import asyncio
 import traceback
 import random
+
 
 header = {
                 "content-type": "application/json",
@@ -70,14 +72,11 @@ class AIDRAW(AIDRAW_BASE):
         }
         
         if self.model_index:
-            from ..extension.sd_extra_api_func import sd
-            await sd(self.backend_index or config.backend_site_list.index(self.backend_site))
-            async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
-                content = await f.read()
-                model_dict = json.loads(content)
             if self.is_random_model:
-                self.model_index = random.randint(1, len(list(model_dict.keys())))
-            self.model = model_dict[str(self.model_index)]
+                from ..extension.sd_extra_api_func import sd
+                self.model_dict = await sd(self.backend_index or config.backend_site_list.index(self.backend_site), True)
+                self.model_index = random.randint(1, len(list(self.model_dict.keys())))
+            self.model = self.model_dict[int(self.model_index)]
             parameters.update({"override_settings": {"sd_model_checkpoint": self.model}, 
                                "override_settings_restore_afterwards": "true"}
                             )
@@ -95,6 +94,8 @@ class AIDRAW(AIDRAW_BASE):
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
+        if self.td or config.tiled_diffusion:
+            parameters.update({"alwayson_scripts": config.custom_scripts})
         if self.control_net["control_net"] == True and config.novelai_hr:
             if config.hr_off_when_cn:
                 parameters.update({"enable_hr": "false"})
@@ -109,10 +110,15 @@ class AIDRAW(AIDRAW_BASE):
             else:
                 post_api = f"http://{site}/controlnet/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[1])
-                parameters["controlnet_units"][0]["input_image"] = self.image           
+                parameters["controlnet_units"][0]["input_image"] = self.image
+        logger.debug(str(parameters))         
         return header, post_api, parameters
 
     async def post(self):
+        if self.model_index:
+            self.model_index = self.model_index if self.model_index.isdigit() else await self.get_model_index(self.model_index)
+            from ..extension.sd_extra_api_func import sd
+            self.model_dict = await sd(self.backend_index, True)
         global defult_site
         defult_site = None # 所有后端失效后, 尝试使用默认后端
         # 失效自动重试 

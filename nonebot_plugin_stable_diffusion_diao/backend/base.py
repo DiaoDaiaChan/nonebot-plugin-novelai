@@ -45,7 +45,8 @@ class AIDRAW_BASE:
         hiresfix_scale: float = None,
         event: MessageEvent = None,
         sr: bool = False,
-        model_index: int = None,
+        model_index: str = None,
+        td: bool = False,
         **kwargs,
     ):
         """
@@ -114,7 +115,7 @@ class AIDRAW_BASE:
             self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
         self.spend_time: float = None
-        self.backend_site: str = None
+        self.backend_site: str = config.backend_site_list[backend_index] if backend_index else None
         self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
@@ -135,6 +136,8 @@ class AIDRAW_BASE:
         self.sr = sr or config.novelai_SuperRes_generate
         self.model_index = model_index
         self.is_random_model = False
+        self.model_dict = None
+        self.td = td
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -401,5 +404,12 @@ class AIDRAW_BASE:
                         return webui_config
         except:
             return ""
+        
+    async def get_model_index(self, model_name):
+        reverse_dict = {value: key for key, value in self.models_dict.items()}
+        for model in list(self.models_dict.values()):
+            if model_name in model:
+                model_index = reverse_dict[model]
+                return model_index
 
 

@@ -88,6 +88,8 @@ style_ = on_command("预设")
 rembg = on_command("去背景", aliases={"rembg", "抠图"})
 read_png_info = on_command("读图", aliases={"读png", "读PNG"})
 random_pic = on_command("随机出图", aliases={"随机模型", "随机画图"})
+refresh_models = on_command("刷新模型")
+stop_all_mission = on_command("终止生成")
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -249,9 +251,10 @@ async def super_res_api_func(img_bytes, size: int = 0):
                 return bytes_img, msg, resp.status
 
 
-async def sd(backend_site_index):
+async def sd(backend_site_index, return_models=False):
     site = list(config.novelai_backend_url_dict.values())[int(backend_site_index)]
     dict_model = {}
+    all_models_list = []
     message = []
     message1 = []
     n = 1
@@ -261,12 +264,15 @@ async def sd(backend_site_index):
     models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
     for x in models_info_dict[0]:
         models_info_dict = x['title']
+        all_models_list.append(models_info_dict)
         dict_model[n] = models_info_dict
         num = str(n) + ". "
         message.append(num + models_info_dict + ",\t\n")
         n = n + 1
     message.append("总计%d个模型" % int(n - 1))
     message_all = message1 + message
+    if return_models:
+        return dict_model
     with open("data/novelai/models.json", "w", encoding='utf-8') as f:
         f.write(json.dumps(dict_model, indent=4))
     return message_all
@@ -361,17 +367,20 @@ async def change_model(event: MessageEvent,
         await get_models.finish("输入错误,索引错误")
 
 
-async def aiohttp_func(way, url, payload=""):
-    if way == "post":
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url=url, json=payload) as resp:
-                resp_data = await resp.json()
-                return resp_data, resp.status
-    else:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url=url) as resp:
-                resp_data = await resp.json()
-                return resp_data, resp.status
+async def aiohttp_func(way, url, payload={}):
+    try:
+        if way == "post":
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url=url, json=payload) as resp:
+                    resp_data = await resp.json()
+                    return resp_data, resp.status
+        else:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url=url) as resp:
+                    resp_data = await resp.json()
+                    return resp_data, resp.status
+    except Exception:
+        return None
 
 
 @set_sd_config.handle()
@@ -1059,7 +1068,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     fifo = AIDRAW(**init_dict)
     fifo.backend_site = random_site
     fifo.is_random_model = True
-    fifo.model_index = 20204 
+    fifo.model_index = "20204" 
     fifo.ntags = lowQuality
     fifo.disable_hr = True
     fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
@@ -1086,3 +1095,37 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                             message=img_msg+f"\n{fifo.img_hash}", 
                             at_sender=True, reply_message=True)
     await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model")
+    
+    
+@refresh_models.handle()
+async def _():
+    post_end_point_list = ["/sdapi/v1/refresh-loras", "/sdapi/v1/refresh-checkpoints"]
+    task_list = []
+    for backend in config.backend_site_list:
+        for end_point in post_end_point_list:
+            backend_url = f"http://{backend}{end_point}"
+            task_list.append(aiohttp_func("post", backend_url, {}))
+    _ = await asyncio.gather(*task_list, return_exceptions=False)
+    await refresh_models.finish("为所有后端刷新模型成功...")
+        
+    
+@stop_all_mission.handle()
+async def _(msg: Message = CommandArg()):
+    task_list = []
+    extra_msg = ""
+    if msg is not None:
+        text_msg = msg.extract_plain_text()
+        if text_msg.isdigit():
+            backend = config.backend_site_list[int(text_msg)]
+            backend_url = f"http://{backend}/sdapi/v1/interrupt"
+            task_list.append(aiohttp_func("post", backend_url))
+            extra_msg = f"{text_msg}号后端"
+        else:
+            await stop_all_mission.finish("笨蛋!后端编号是数字啦!!")
+    else:
+        extra_msg = "所有"
+        for backend in config.backend_site_list:
+            backend_url = f"http://{backend}/sdapi/v1/interrupt" 
+            task_list.append(aiohttp_func("post", backend_url))
+    _ = await asyncio.gather(*task_list, return_exceptions=False)
+    await stop_all_mission.finish(f"终止{extra_msg}任务成功")
