@@ -3,13 +3,13 @@ from ..extension.translation import translate
 
 
 async def prepocess_tags(tags: list[str], translation=True):
-    tags: str = "".join([i+", " for i in tags if isinstance(i,str)])
+    tags: str = "".join([i+"," for i in tags if isinstance(i,str)])
     # 去除CQ码
     tags = re.sub("\[CQ[^\s]*?]", "", tags)
     # 检测中文
     taglist = tags.split(",")
     if not translation:
-        return ', '.join(taglist)
+        return ','.join(taglist)
     tagzh = ""
     tags_ = ""
     for i in taglist:

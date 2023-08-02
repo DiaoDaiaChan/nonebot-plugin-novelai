@@ -100,7 +100,7 @@ class AIDRAW_BASE:
             self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
         else:
             self.scale = int(scale or config.novelai_scale)
-        self.strength: float = strength or 0.7
+        self.strength: float = strength or config.novelai_hr_payload["denoising_strength"]
         self.steps: int = steps or config.novelai_steps or 12
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
@@ -136,7 +136,6 @@ class AIDRAW_BASE:
         self.sr = sr or config.novelai_SuperRes_generate
         self.model_index = model_index
         self.is_random_model = False
-        self.model_dict = None
         self.td = td
         
         # 数值合法检查
@@ -405,11 +404,5 @@ class AIDRAW_BASE:
         except:
             return ""
         
-    async def get_model_index(self, model_name):
-        reverse_dict = {value: key for key, value in self.models_dict.items()}
-        for model in list(self.models_dict.values()):
-            if model_name in model:
-                model_index = reverse_dict[model]
-                return model_index
 
 

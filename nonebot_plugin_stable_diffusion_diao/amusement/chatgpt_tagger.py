@@ -90,8 +90,8 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                     "这是chatgpt为你生成的prompt"+prompt 
     )
     
-    tags = config.novelai_tags + basetag + prompt
-    ntags = config.novelai_ntags + lowQuality
+    tags = basetag + prompt
+    ntags =  lowQuality
 
     fifo = AIDRAW(
                 tags=tags, 

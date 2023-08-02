@@ -80,6 +80,10 @@ aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
                            action="store_true", help="图片生产后再次超分", dest="sr")
 aidraw_parser.add_argument("-td", "--tiled-diffusion",
                            action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
+# aidraw_parser.add_argument("-hr_e",
+#                            action=float, help="重绘幅度", dest="hr_strength")
+aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
+                           action="store_true", help="启动自定义脚本生图", dest="custom_scripts")
 
 
 async def get_message_at(data: str) -> int:
@@ -114,8 +118,10 @@ aidraw = on_shell_command(
 
 @aidraw.handle()
 async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellCommandArgs()):
-    info_style = None
+    tags_list = []
+    model_info_ = ""
     random_tags = ""
+    info_style = ""
     style_tag, style_ntag = "", ""
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
@@ -154,7 +160,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             try:
                 random_tags = await get_random_tags(6)
                 random_tags = ", ".join(random_tags)
-                message_data = await bot.send(event=event, message=f"你想要画什么呢?不知道的话发送  绘画帮助  看看吧\n雕雕帮你随机了一些tags{random_tags}")
+                message_data = await bot.send(event=event, message=f"你想要画什么呢?不知道的话发送  绘画帮助  看看吧\n雕雕帮你随机了一些tags?: {random_tags}")
             except ActionFailed:
                 logger.info("被风控了")
             else:
@@ -165,28 +171,34 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                     lambda: loop.create_task(
                         bot.delete_msg(message_id=message_id)),
                 )
+        tags_list = tags_to_list(args.tags[0])
         if redis_client:
             if config.auto_match and args.match is False:
                 r = redis_client[1]
                 if r.exists("style"):
-                    info_style = None
+                    info_style = ""
                     style_list: list[bytes] = r.lrange("style", 0, -1)
                     style_list_: list[bytes] = r.lrange("user_style", 0, -1)
                     style_list += style_list_
-                    for style in style_list:
-                        style = ast.literal_eval(style.decode("utf-8"))
-                        if isinstance(args.tags, list) and len(args.tags) > 0:
-                            for tag in args.tags:
+                    pop_index = -1
+                    if isinstance(args.tags, list) and len(args.tags) > 0:
+                        org_tag_list = tags_list
+                        for style in style_list:
+                            style = ast.literal_eval(style.decode("utf-8"))
+                            for tag in tags_list:
+                                pop_index += 1
                                 if style["name"] in tag:
                                     style_ = style["name"]
-                                    info_style = f"自动找到的预设: {style_}\n"
+                                    info_style += f"自动找到的预设: {style_}\n"
+                                    style_tag += style["prompt"]  + ","
+                                    style_ntag += style["negative_prompt"] + ","
+                                    tags_list.pop(org_tag_list.index(tag))
                                     logger.info(info_style)
-                                    style_tag = style["prompt"]
-                                    style_ntag = style["negative_prompt"]
                                     break
+                                 
         org_str = []
         convert_list = []
-        for tag in args.tags:
+        for tag in tags_list:
             if "_" in tag:
                 org_str.append(tag)
             else:
@@ -194,7 +206,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         args.tags = convert_list + org_str
         args.tags = await prepocess_tags(args.tags, False)
         fifo = AIDRAW(**vars(args), event=event)
-        fifo.extra_info += info_style if info_style else ""
+        fifo.extra_info += info_style
         
         if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
@@ -238,7 +250,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                         for lora in list(cur_backend_lora_list.values()):
                             index += 1
                             if re.search(tag, lora, re.IGNORECASE):
-                                model_info_ = f"自动找到的lora模型: {lora}\n"
+                                model_info_ += f"自动找到的lora模型: {lora}\n"
                                 model_info += model_info_
                                 logger.info(model_info_)
                                 new_tags_list.append(f"<lora:{lora}:0.9>, ")
@@ -349,7 +361,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
         fifo.ntags = pre_ntags + fifo.ntags + str(style_ntag)
         if redis_client:
-            tags_list_ = tags_to_list(tags_list)
+            tags_list_ = tags_to_list(fifo.tags)
             r1 = redis_client[0]
             pipe = r1.pipeline()
             pipe.rpush("prompts", str(tags_list_))
@@ -364,7 +376,6 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         at_id = await get_message_at(event.json())
         if at_id:
             img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
-            args.control_net = True
         for seg in event.message['image']:
             img_url = seg.data["url"]
         if reply:

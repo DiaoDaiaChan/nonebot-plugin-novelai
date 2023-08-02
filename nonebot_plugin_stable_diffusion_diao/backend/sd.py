@@ -21,6 +21,13 @@ class AIDRAW(AIDRAW_BASE):
     """队列中的单个请求"""
     max_resolution: int = 32
     
+    async def get_model_index(self, model_name, models_dict):
+        reverse_dict = {value: key for key, value in models_dict.items()}
+        for model in list(models_dict.values()):
+            if model_name in model:
+                model_index = reverse_dict[model]
+                return model_index
+    
     async def fromresp(self, resp):
         img: dict = await resp.json()
         return img["images"][0]
@@ -69,14 +76,17 @@ class AIDRAW(AIDRAW_BASE):
             "height": self.height,
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
+            "denoising_strength": self.strength
         }
         
         if self.model_index:
+            from ..extension.sd_extra_api_func import sd
+            model_dict = await sd(self.backend_index or config.backend_site_list.index(self.backend_site), True)
+            self.model_index = self.model_index if self.model_index.isdigit() else await self.get_model_index(self.model_index, model_dict)
             if self.is_random_model:
                 from ..extension.sd_extra_api_func import sd
-                self.model_dict = await sd(self.backend_index or config.backend_site_list.index(self.backend_site), True)
-                self.model_index = random.randint(1, len(list(self.model_dict.keys())))
-            self.model = self.model_dict[int(self.model_index)]
+                self.model_index = random.randint(1, len(list(model_dict.keys())))
+            self.model = model_dict[int(self.model_index)]
             parameters.update({"override_settings": {"sd_model_checkpoint": self.model}, 
                                "override_settings_restore_afterwards": "true"}
                             )
@@ -115,10 +125,6 @@ class AIDRAW(AIDRAW_BASE):
         return header, post_api, parameters
 
     async def post(self):
-        if self.model_index:
-            self.model_index = self.model_index if self.model_index.isdigit() else await self.get_model_index(self.model_index)
-            from ..extension.sd_extra_api_func import sd
-            self.model_dict = await sd(self.backend_index, True)
         global defult_site
         defult_site = None # 所有后端失效后, 尝试使用默认后端
         # 失效自动重试 

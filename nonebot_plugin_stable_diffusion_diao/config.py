@@ -280,6 +280,7 @@ async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
                 else:
                     return None
     except Exception:
+        logger.warning(traceback.print_exc())
         return None
     
 

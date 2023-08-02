@@ -252,7 +252,7 @@ async def super_res_api_func(img_bytes, size: int = 0):
 
 
 async def sd(backend_site_index, return_models=False):
-    site = list(config.novelai_backend_url_dict.values())[int(backend_site_index)]
+    site = config.backend_site_list[int(backend_site_index)]
     dict_model = {}
     all_models_list = []
     message = []
@@ -705,7 +705,8 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         await control_net_list.finish("获取control模块失败, 可能是controlnet版本太老, 不支持获取模块列表捏")
     model_list = resp_1[0]["model_list"]
     module_list = resp_2[0]["module_list"]
-    await risk_control(bot, event, model_list+module_list, True)
+    module_list = "\n".join(module_list)
+    await risk_control(bot, event, model_list+[module_list], True)
 
 
 @translate_.handle()
