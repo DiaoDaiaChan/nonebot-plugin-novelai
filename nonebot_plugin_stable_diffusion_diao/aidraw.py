@@ -6,6 +6,7 @@ import os
 import ast
 
 from collections import deque
+from copy import deepcopy
 import aiohttp
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
@@ -80,10 +81,13 @@ aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
                            action="store_true", help="图片生产后再次超分", dest="sr")
 aidraw_parser.add_argument("-td", "--tiled-diffusion",
                            action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
-# aidraw_parser.add_argument("-hr_e",
-#                            action=float, help="重绘幅度", dest="hr_strength")
 aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
-                           action="store_true", help="启动自定义脚本生图", dest="custom_scripts")
+                           type=int, help="启动自定义脚本生图", dest="custom_scripts")
+aidraw_parser.add_argument("-xyz", type=str, help="xyz生图", dest="xyz_plot")
+aidraw_parser.add_argument("-sc", "--script", "--scripts",
+                           type=int, help="脚本生图", dest="scripts")
+# aidraw_parser.add_argument("-ef", "--eye_fix",
+#                            action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
 
 
 async def get_message_at(data: str) -> int:
@@ -118,6 +122,7 @@ aidraw = on_shell_command(
 
 @aidraw.handle()
 async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellCommandArgs()):
+    logger.debug(args.tags)
     tags_list = []
     model_info_ = ""
     random_tags = ""
@@ -135,10 +140,14 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         message = ""
         if config.novelai_daylimit and not await SUPERUSER(bot, event):
             left = await count(user_id, 1)
-            if left == -1:
+            if left < 0:
                 await aidraw.finish(f"今天你的次数不够了哦")
             else:
-                message = message + f"，今天你还能够生成{left}张"
+                if config.novelai_daylimit_type == 2:
+                    message_ = f"今天你还能画{left}秒"
+                else:
+                    message_ = f"，今天你还能够生成{left}张"
+                message += message_
         # 判断cd
         nowtime = time.time()
         if isinstance(event, GroupMessageEvent):
@@ -171,7 +180,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                     lambda: loop.create_task(
                         bot.delete_msg(message_id=message_id)),
                 )
-        tags_list = tags_to_list(args.tags[0])
+        tags_str = await prepocess_tags(args.tags, False)
+        tags_list = tags_to_list(tags_str)
         if redis_client:
             if config.auto_match and args.match is False:
                 r = redis_client[1]
@@ -187,24 +197,15 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                             style = ast.literal_eval(style.decode("utf-8"))
                             for tag in tags_list:
                                 pop_index += 1
-                                if style["name"] in tag:
+                                if tag in style["name"]:
                                     style_ = style["name"]
                                     info_style += f"自动找到的预设: {style_}\n"
-                                    style_tag += style["prompt"]  + ","
-                                    style_ntag += style["negative_prompt"] + ","
+                                    style_tag += str(style["prompt"])  + ","
+                                    style_ntag += str(style["negative_prompt"]) + ","
                                     tags_list.pop(org_tag_list.index(tag))
                                     logger.info(info_style)
-                                    break
-                                 
-        org_str = []
-        convert_list = []
-        for tag in tags_list:
-            if "_" in tag:
-                org_str.append(tag)
-            else:
-                convert_list.append(tag)
-        args.tags = convert_list + org_str
-        args.tags = await prepocess_tags(args.tags, False)
+                                    break                       
+        args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
         fifo.extra_info += info_style
         
@@ -212,12 +213,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
         else:
             await fifo.load_balance_init()
-        tags = fifo.tags
-        if isinstance(tags, str):
-            tags_list = tags_to_list(tags)
-        else:
-            tags_list = tags
-        org_tag_list = tags_list
+        org_tag_list = fifo.tags
+        org_list = deepcopy(tags_list)
         new_tags_list = []
         if args.match or not config.auto_match:
             pass
@@ -271,19 +268,21 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                                 break
                     if len(new_tags_list) >2:
                         new_tags_list = []
-                        tags_list = org_tag_list
+                        tags_list = org_list
                         fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
                         model_info = ""
                         raise RuntimeError("匹配到很多lora")
                     fifo.extra_info += f"{model_info}\n"
             except Exception as e:
                 logger.warning(str(traceback.print_exc()))
+                new_tags_list = []
+                tags_list = org_list
                 logger.warning(f"tag自动匹配失效,出现问题的: {tag}\n或者是prompt里自动匹配到的模型过多")
         # 检测是否有18+词条
         try:  # 检查翻译API是否失效
-            tags_list: str = await prepocess_tags(tags_list)
+            tags_list: str = await prepocess_tags(tags_list, False, True)
         except Exception as e:
-            logger.debug(str(e))
+            logger.error(str(traceback.print_exc()))
             await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         fifo.ntags = await prepocess_tags(fifo.ntags)
         pattern = re.compile(f"{htags}", re.IGNORECASE)

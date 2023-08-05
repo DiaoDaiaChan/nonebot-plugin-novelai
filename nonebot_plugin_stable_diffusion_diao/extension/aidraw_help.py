@@ -32,6 +32,7 @@ async def _(bot: Bot, event: MessageEvent):
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 # 我是群Ai绘画{nickname}
 ### 快速画图: 绘画 白发,红色眼睛
+### 请注意!!! 请用英文双引号把tags括起来 绘画"pink hair, red eye" 否则在带空格的情况下可能会意外解析
 <img width="300" src="https://q1.qlogo.cn/g?b=qq&nk={bot_qq}&s=640"/> 这是我主人QQ{superuser_list[0]}捏<img width="300" src="https://q1.qlogo.cn/g?b=qq&nk={superuser_list[0]}&s=640"/>
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>
 ## 以下是功能捏 "#"井号是备注!请忽略它!😡
@@ -128,6 +129,14 @@ lora
 # 绘图女仆  插件检测到 "女仆" 即自动等于  绘图maid,red_eye,white_hair
 释放显存0
 # 字面含义, 为1号后端释放显存并且重载模型
+```
+```
+随机出图
+# 随机一个模型画一张图,也可以 随机出图miku来指定prompt
+刷新模型
+# 刷新所有后端的lora和大模型
+终止生成1
+终止指定后端的生成任务
 ```
 # 绘画功能详解 🖼️
 ## 基础使用方法 😊
@@ -253,6 +262,19 @@ uw 900x450 2:1横构图
 ```text
 本张图片绘图完成后进行再次超分
 -sr
+使用 Tiled Diffusion 进行绘图, 降低显存使用, 已经低分辨率出大图
+-td
+```
+```
+绘制xyz表格
+-xyz 请严格按照以下格式
+绘画reimu -xyz '9, "", ("DDIM", "Euler a", "Euler"), 4, "8, 12, 20", "", 0, "", ""' -sd 1 
+分为三段, 分别为xyz轴, 每条轴3个参数
+第一位为数字, 为脚本索引(请去webui看, 或者使用获取脚本命令来查看)0为不使用本条轴
+第二位为字符串, 具体如何使用请查看webui, 例如步数, prompt等是手动填写参数, 故填写第二个参数, 例如步数
+第三位为元组, 当此项参数为可以由webui自动填写的时候填写, 例如采样器
+以上命令解释为
+绘画 x轴为采样器(第一位为9)轴, y轴为步数(第一位为4)轴的xyz图标, 不使用z轴(第一位为0)
 ```
 ### 最后, 送你一个示例
 <div style="background-color:rgba(255, 0, 0, 0.5);">&nbsp</div>

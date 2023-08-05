@@ -78,7 +78,7 @@ def get_user_session(user_id) -> Session:
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     if config.novelai_daylimit and not await SUPERUSER(bot, event):
         left = await count(str(event.user_id), 1)
-        if left == -1:
+        if left < 0:
             await chatgpt.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     user_msg = msg.extract_plain_text().strip()
     to_openai = user_msg + "prompt"

@@ -9,6 +9,7 @@ import json, aiofiles
 import asyncio
 import traceback
 import random
+import ast
 
 
 header = {
@@ -76,7 +77,8 @@ class AIDRAW(AIDRAW_BASE):
             "height": self.height,
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
-            "denoising_strength": self.strength
+            "denoising_strength": self.strength,
+            "save_images": config.save_img
         }
         
         if self.model_index:
@@ -87,10 +89,10 @@ class AIDRAW(AIDRAW_BASE):
                 from ..extension.sd_extra_api_func import sd
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
             self.model = model_dict[int(self.model_index)]
-            parameters.update({"override_settings": {"sd_model_checkpoint": self.model}, 
-                               "override_settings_restore_afterwards": "true"}
-                            )
-
+            parameters.update(
+                {"override_settings": {"sd_model_checkpoint": self.model}, 
+                "override_settings_restore_afterwards": "true"}
+            )
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
                 parameters.update(self.novelai_hr_payload)
@@ -98,14 +100,33 @@ class AIDRAW(AIDRAW_BASE):
                 "init_images": ["data:image/jpeg;base64,"+self.image],
                 "denoising_strength": self.strength,
             }
-            )
+            ) 
         else:
             if config.novelai_hr and self.disable_hr is False:
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
+        if self.xyz_plot:
+            input_str_replaced = self.xyz_plot.replace('""', 'None')
+            try:
+                xyz_list = ast.literal_eval('[' + input_str_replaced + ']')
+            except (SyntaxError, ValueError):
+                xyz_list = []
+            xyz_list = ["" if item is None else item for item in xyz_list]
+            parameters.update({"script_name": "x/y/z plot", "script_args": xyz_list})
+            # if "_" and "," in self.xyz_plot:
+            #     result = [config.scripts[0]["args"][i:i+3] for i in range(0, len(config.scripts[0]["args"]), 3)]
+            #     axes = self.xyz_plot.split(",")
+            #     args = axes.split("_")
+            #     result[0][0] = args[0]
+            #     args[0] = 
+
         if self.td or config.tiled_diffusion:
-            parameters.update({"alwayson_scripts": config.custom_scripts})
+            parameters.update({"alwayson_scripts": config.custom_scripts[0]})
+        if self.custom_scripts is not None:
+            parameters.update({"alwayson_scripts": config.custom_scripts[self.custom_scripts]})
+        if self.scripts is not None:
+            parameters.update({"script_name": config.scripts[self.scripts]["name"], "script_args": config.scripts[self.scripts]["args"]})
         if self.control_net["control_net"] == True and config.novelai_hr:
             if config.hr_off_when_cn:
                 parameters.update({"enable_hr": "false"})

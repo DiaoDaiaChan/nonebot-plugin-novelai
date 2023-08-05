@@ -1270,7 +1270,7 @@ async def _(bot: Bot,
         user_name = message
     if config.novelai_daylimit and not await SUPERUSER(bot, event):
         left = await count(str(event.user_id), 1)
-        if left == -1:
+        if left < 0:
             await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     img_url = None
     random_int_str = str(random.randint(0, 65535))

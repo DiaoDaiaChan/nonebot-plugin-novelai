@@ -90,6 +90,7 @@ read_png_info = on_command("读图", aliases={"读png", "读PNG"})
 random_pic = on_command("随机出图", aliases={"随机模型", "随机画图"})
 refresh_models = on_command("刷新模型")
 stop_all_mission = on_command("终止生成")
+get_scripts = on_command("获取脚本")
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -113,6 +114,21 @@ style_ = on_shell_command(
     parser=style_parser,
     priority=5
 )
+
+
+class GET_API():
+    
+    def __init__(self, 
+                site: str = None,
+                end_point: str = None
+    ) -> None:
+        self.site = site
+        self.end_point = end_point
+        self.task_list = []
+    
+    async def get_all_resp(self):
+        pass
+    
 
 
 async def get_random_tags(sample_num=12):
@@ -524,7 +540,7 @@ async def __():
 async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
     if config.novelai_daylimit and not await SUPERUSER(bot, event):
         left = await count(str(event.user_id), 2)
-        if left == -1:
+        if left < 0:
             await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     await func_init(event)
     start = time.time()
@@ -1130,3 +1146,35 @@ async def _(msg: Message = CommandArg()):
             task_list.append(aiohttp_func("post", backend_url))
     _ = await asyncio.gather(*task_list, return_exceptions=False)
     await stop_all_mission.finish(f"终止{extra_msg}任务成功")
+    
+    
+@get_scripts.handle()
+async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+    script_index = None
+    select_script_args = None
+    script_name = []
+    
+    if msg is not None:
+        text_msg = msg.extract_plain_text()
+        if "_" in text_msg:
+            backend = config.backend_site_list[int(text_msg.split("_")[0])]
+            script_index = int(text_msg.split("_")[1])
+        else:
+            if text_msg.isdigit():
+                backend = config.backend_site_list[int(text_msg)]
+            else:
+                await get_scripts.finish("笨蛋!后端编号是数字啦!!")
+                
+        backend_url = f"http://{backend}/sdapi/v1/script-info"
+        resp = await aiohttp_func("get", backend_url)
+        for script in resp[0]:
+            name = script["name"]
+            script_name.append(f"{name}\n")
+        if script_index:
+            select_script_args = resp[0][script_index]["args"]
+            print(select_script_args)
+            await risk_control(bot, event, str(select_script_args), True)
+        await risk_control(bot, event, script_name, True)
+        
+    else:
+        await get_scripts.finish("请按照以下格式获取脚本信息\n例如 获取脚本0 再使用 获取脚本0_2 查看具体脚本所需的参数")

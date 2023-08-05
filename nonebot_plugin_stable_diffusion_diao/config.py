@@ -21,6 +21,7 @@ backend_emb, backend_lora = None, None
 
 nickname = list(get_driver().config.nickname)[0] if len(
     get_driver().config.nickname) else "nonebot-plugin-stable-diffusion-diao"
+superusers = list(get_driver().config.superusers)
 
 
 class Config(BaseSettings):
@@ -40,6 +41,7 @@ class Config(BaseSettings):
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
     novelai_limit: bool = False  # 是否开启限速
+    novelai_daylimit_type = 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
     novelai_daylimit: int = 24  # 每日次数限制，0为禁用
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地)
@@ -56,9 +58,9 @@ class Config(BaseSettings):
     novelai_random_ratio: bool = True  # 是否开启随机比例
     novelai_random_sampler: bool = False  # 是否开启随机采样器
     novelai_random_scale: bool = False  # 是否开启随机CFG
-    novelai_random_ratio_list: list =  [("p", 0.55), ("s", 0.1), ("l", 0.2), ("uw", 0.05), ("uwp", 0.1)] # 随机图片比例
-    novelai_random_sampler_list = [("Euler a", 0.35), ("DDIM", 0.3), ("DPM++ 2S a Karras", 0.05), ("DPM++ 2M Karras", 0.3)]
-    novelai_random_scale_list = [(3, 0.05), (4, 0.2), (5, 0.05), (6, 0.4), (7, 0.1), (8, 0.18), (9, 0.02)]
+    novelai_random_ratio_list: list =  [("p", 0.7), ("s", 0.1), ("l", 0.1), ("uw", 0.05), ("uwp", 0.05)] # 随机图片比例
+    novelai_random_sampler_list = [("Euler a", 0.9), ("DDIM", 0.1)]
+    novelai_random_scale_list = [(5, 0.4), (6, 0.4), (7, 0.2)]
     novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
     novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
@@ -90,14 +92,53 @@ class Config(BaseSettings):
         novelai_size: int = novelai_size_org
     else:
         novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
-    custom_scripts = {  # 自定义脚本此功能就可以使用webui上才能调用的插件, 需要自己去抓包
-    "Tiled Diffusion": {
-        "args": [True, "MultiDiffusion", False, True, 1024, 1024, 96, 96, 48, 1, "None", 2, False, 10, 1, []]
-    },
-    "Tiled VAE": {
-        "args": [True, 1536, 96, False, True, True]
-    }
-    }
+    custom_scripts = [{
+        "Tiled Diffusion": {
+            "args": [True, "MultiDiffusion", False, True, 1024, 1024, 96, 96, 48, 1, "None", 2, False, 10, 1, []]}
+        ,
+        "Tiled VAE": {
+            "args": [True, 1536, 96, False, True, True]
+        }
+        },
+        {
+        "ADetailer": {
+            "args": [
+            True, 
+            {
+        "ad_model": "mediapipe_face_mesh_eyes_only",
+        "ad_prompt": "",
+        "ad_negative_prompt": "",
+        "ad_confidence": 0.1,
+        "ad_mask_min_ratio": 0,
+        "ad_mask_max_ratio": 1,
+        "ad_x_offset": 0,
+        "ad_y_offset": 0,
+        "ad_dilate_erode": 4,
+        "ad_mask_merge_invert": "None",
+        "ad_mask_blur": 4,
+        "ad_denoising_strength": 0.4,
+        "ad_inpaint_only_masked": True,
+        "ad_inpaint_only_masked_padding": 32,
+        "ad_use_inpaint_width_height": False,
+        "ad_inpaint_width": 512,
+        "ad_inpaint_height": 512,
+        "ad_use_steps": False,
+        "ad_steps": 28,
+        "ad_use_cfg_scale": False,
+        "ad_cfg_scale": 7,
+        "ad_use_sampler": False,
+        "ad_sampler": "Euler a",
+        "ad_use_noise_multiplier": False,
+        "ad_noise_multiplier": 1,
+        "ad_use_clip_skip": False,
+        "ad_clip_skip": 1,
+        "ad_restore_face": False
+                    }
+                ]
+            }
+        }
+    ]
+    scripts = [{"name": "x/y/z plot", "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]}]
     novelai_ControlNet_payload: list = [
         {
             "alwayson_scripts": {
@@ -157,7 +198,7 @@ class Config(BaseSettings):
     backend_site_list = []
     only_super_user = True  # 只有超级用户才能永久更换模型, 雕雕没有小号来测试了, 悲
     tiled_diffusion = False  # 使用tiled-diffusion来生成图片
-    enable_scripts = False  # 是否启动custom_scripts中设置的自定义脚本
+    save_img = True  # 是否保存图片(API侧)
     # 允许单群设置的设置
     def keys(cls):
         return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")

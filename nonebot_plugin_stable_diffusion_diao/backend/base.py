@@ -15,12 +15,14 @@ from nonebot import get_driver
 from nonebot.log import logger
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
+from nonebot.permission import SUPERUSER
 from nonebot import logger
 from datetime import datetime
-from ..config import config, redis_client
+from ..config import config, redis_client, superusers
 from ..utils import png2jpg, unload_and_reload, get_generate_info
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
+from ..extension.daylimit import count
 
 
 class AIDRAW_BASE:
@@ -46,7 +48,10 @@ class AIDRAW_BASE:
         event: MessageEvent = None,
         sr: bool = False,
         model_index: str = None,
-        td: bool = False,
+        custom_scripts: int = None,
+        scripts: int = None,
+        td = None,
+        xyz_plot = None,
         **kwargs,
     ):
         """
@@ -136,7 +141,10 @@ class AIDRAW_BASE:
         self.sr = sr or config.novelai_SuperRes_generate
         self.model_index = model_index
         self.is_random_model = False
+        self.custom_scripts = custom_scripts
+        self.scripts = scripts
         self.td = td
+        self.xyz_plot = xyz_plot
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -304,6 +312,16 @@ class AIDRAW_BASE:
                         for i in list(config.novelai_backend_url_dict.keys()):
                             backend_dict[i] = 1
                             backend_info["gpu"] = backend_dict
+                    if config.novelai_daylimit and self.user_id not in superusers and config.novelai_daylimit_type == 2:
+                        if backend_info.get("spend_time"):
+                            counting = backend_info.get("spend_time")
+                        else:
+                            counting = {}
+                        org_spend_time = counting.get(self.user_id, 0)
+                        user_spend_time = org_spend_time + int(spend_time)
+                        counting[self.user_id] = user_spend_time
+                        backend_info["spend_time"] = counting
+                    self.extra_info += f"\n耗时{spend_time:.2f}秒\n"
                     r.set(day, str(backend_info))
             else:
                 filename = "data/novelai/day_limit_data.json"

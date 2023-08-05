@@ -21,7 +21,7 @@ aiohttp,aiofiles
 ### 雕主要是为stable-diffusion-webui更新了功能，novalai官方，naifu没动过，理论上也能工作，不过推荐使用本插件只使用sdwebui(
 
 ## 指令示例
-
+#### 温馨提示!很长的tag建议使用""括起来, 否则容易解析错误, 例如 绘画"(((Masterpiece))),(((best quality))),(detailed and Beautiful Eyes:1.3),1girl,solo,(brown color low twintails:1.3),(shushing),(half body),(serafuku:1.2), long sleeves,plaid skirt,(white color socks:1.2), blue_eye, Hair Between Eyes, very long hair, choker,hair bow,wristband,head tilt, naughty ,strip,earrings,light blush,medium breasts, medium_wind,floating hair"
 .aidraw loli,cute --ntags big breast --seed 114514
 - 指令使用shell解析输入的参数
 - square为指定画幅，支持简写为s，其他画幅为portrait和landscape，同样支持简写，默认为portrait
@@ -87,6 +87,29 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 8.5 0.4 更新
+```
+新的命令
+获取脚本(没雕用, 应该没人会去用吧)
+```
+![xyz](./docs/main/images/help/xyz.png)
+```
+新的参数
+-xyz 请严格按照以下格式, 一个标点不能错!
+'整数, 字符串, 元组'
+绘画reimu -xyz '9, "", ("DDIM", "Euler a", "Euler"), 4, "8, 12, 20", "", 0, "", ""' -sd 1 
+分为三段, 分别为xyz轴, 每条轴3个参数
+第一位为数字, 为脚本索引(请去webui看, 或者使用获取脚本命令来查看)0为不使用本条轴
+第二位为字符串, 具体如何使用请查看webui, 例如步数, prompt等是手动填写参数, 故填写第二个参数, 例如步数
+第三位为元组, 当此项参数为可以由webui自动填写的时候填写, 例如采样器
+以上命令解释为
+绘画 x轴为采样器(第一位为9)轴, y轴为步数(第一位为4)轴的xyz图标, 不使用z轴(第一位为0)
+```
+```
+现在可以使用绘画所用的时间来计算点数设置为
+novelai_daylimit_type = 2
+-e 参数现在能控制高清修复的重绘幅度
+```
 ## 7.30 0.3.9.8
 ```
 新的命令:
