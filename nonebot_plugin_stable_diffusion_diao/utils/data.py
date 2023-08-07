@@ -1,6 +1,6 @@
 from ..config import config
 # 基础优化tag
-basetag = "masterpiece, best quality,"
+basetag = "masterpiece,best quality,"
 
 # 基础排除tag
 lowQuality = "easynegative,badhandv4"

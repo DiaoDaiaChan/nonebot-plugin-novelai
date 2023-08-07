@@ -66,8 +66,13 @@ async def unload_and_reload(backend_index: int=None, backend_site=None):
             logger.info("重载模型成功")
             
             
-async def pic_audit_standalone(img_base64, is_return_tags=False, audit=False):
-    
+async def pic_audit_standalone(img_base64, 
+                               is_return_tags=False, 
+                               audit=False, 
+                               return_none=False
+):
+    if isinstance(img_base64, bytes):
+        img_base64 = base64.b64encode(img_base64).decode()
     payload = {"image": img_base64, "model": f"{config.tagger_model}", "threshold": 0.35 }
 
     async with aiohttp.ClientSession() as session:
@@ -93,6 +98,12 @@ async def pic_audit_standalone(img_base64, is_return_tags=False, audit=False):
                 value.sort(reverse=True)
                 reverse_dict = {value: key for key, value in to_user_dict.items()}
                 message += (f"最终结果为:{reverse_dict[value[0]].rjust(5)}")
+    if return_none:
+        value = list(possibilities.values())
+        value.sort(reverse=True)
+        reverse_dict = {value: key for key, value in possibilities.items()}
+        logger.info(message)
+        return True if reverse_dict[value[0]] == "questionable" or reverse_dict[value[0]] == "explicit" else False
     if is_return_tags:
         return message, tags
     if audit:
@@ -100,7 +111,7 @@ async def pic_audit_standalone(img_base64, is_return_tags=False, audit=False):
     return message
 
 
-def tags_to_list(tags: str) -> list:
+def tags_to_list(tags: str, mode=1) -> list:
     separators = ['，', '。', ","]
     for separator in separators:
         tags = tags.replace(separator, separators[0])

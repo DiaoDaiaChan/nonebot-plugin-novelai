@@ -119,7 +119,7 @@ async def translate_google_proxy(input: str, to: str):
             from_="zh"
         async with aiohttp.ClientSession()as session:
             data = {"data": [input, from_, to]}
-            async with session.post("https://mikeee-gradio-gtr.hf.space/api/predict", json=data)as resp:
+            async with session.post("https://mikeee-gradio-gtr.hf.space/api/predict", json=data, proxy=config.proxy_site)as resp:
                 if resp.status != 200:
                     logger.error(f"谷歌代理翻译接口调用失败,错误代码{resp.status},{await resp.text()}")
                 result = await resp.json()

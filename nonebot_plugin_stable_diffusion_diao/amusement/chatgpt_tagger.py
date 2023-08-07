@@ -59,7 +59,9 @@ class Session(): # 这里来自nonebot-plugin-gpt3
         }
 
         async with aiohttp.ClientSession(headers=header) as session:
-            async with session.post(url=f"https://{config.openai_proxy_site}/v1/chat/completions",json=payload) as resp:
+            async with session.post(url=f"https://{config.openai_proxy_site}/v1/chat/completions", 
+                                    json=payload, proxy=config.proxy_site
+            ) as resp:
                 print(resp.status)
                 all_resp = await resp.json()
                 resp = all_resp["choices"][0]["message"]["content"]

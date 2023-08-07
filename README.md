@@ -87,6 +87,37 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 8.7 0.4.1更新 更新C站(https://civitai.com/)搜索, 下载模型功能!
+```
+注意! 使用C站功能需要你手动创建文件夹
+仓库里的 sd-webui-api 文件夹中的api.py放到以下目录(可以设置代理, 请留意代码第14行)
+stable-diffusion-webui\extensions\civitai\scripts\
+完成之后重启前端
+```
+```
+如何获取C站搜索用的token?
+打开C站官网 https://civitai.com/
+按F12打开开发人员工具
+```
+![xyz](./docs/main/images/help/token.png)
+![xyz](./docs/main/images/help/token2.png)
+```
+命令详解
+c站
+--limit, -l 搜索时匹配到的模型数量默认为3
+-d, -下载 下载指定模型
+-s, -搜索 搜索指定模型
+-c, 设置c站cookie
+-sd, 选择后端
+-run, 下载完成模型立即生图, 小tips, 你的lora模型之类的太多的话, 刷新模型会卡住不少时间
+请仔细看图
+下载完成后后端会自动重载模型列表, 不行的话请发送  刷新模型  命令手动执行
+```
+![xyz](./docs/main/images/help/download_hint.png)
+![xyz](./docs/main/images/help/download_hint2.png)
+```
+新的设置项目 proxy_site = "" 例: "http://127.0.0.1:7860"
+```
 ## 8.5 0.4 更新
 ```
 新的命令

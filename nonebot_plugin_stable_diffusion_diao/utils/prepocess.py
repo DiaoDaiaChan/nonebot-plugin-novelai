@@ -33,5 +33,5 @@ async def prepocess_tags(tags: list[str], translation=True, only_trans=False):
     taglist = tags.split(",")
     if not translation:
         return ','.join(taglist)
-    tags_str = await trans(tags)
-    return tags_str
+    tags = await trans(taglist)
+    return tags

@@ -386,12 +386,12 @@ async def change_model(event: MessageEvent,
 async def aiohttp_func(way, url, payload={}):
     try:
         if way == "post":
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
                 async with session.post(url=url, json=payload) as resp:
                     resp_data = await resp.json()
                     return resp_data, resp.status
         else:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
                 async with session.get(url=url) as resp:
                     resp_data = await resp.json()
                     return resp_data, resp.status
@@ -1178,3 +1178,4 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         
     else:
         await get_scripts.finish("请按照以下格式获取脚本信息\n例如 获取脚本0 再使用 获取脚本0_2 查看具体脚本所需的参数")
+        
