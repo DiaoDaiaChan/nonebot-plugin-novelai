@@ -28,12 +28,15 @@ async def compare_version(old: str, new: str):
     return False
 
 
-async def sendtosuperuser(message):
+async def sendtosuperuser(message, self_id=None):
     # 将消息发送给superuser
     from nonebot import get_bot, get_driver
     import asyncio
     superusers = get_driver().config.superusers
-    bot = get_bot()
+    if self_id:
+        bot = get_bot(self_id)
+    else:
+        bot = get_bot()
     for superuser in superusers:
         message_data = await bot.call_api('send_msg', **{
             'message': message,

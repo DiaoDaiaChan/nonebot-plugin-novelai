@@ -139,36 +139,7 @@ class Config(BaseSettings):
         }
     ]
     scripts = [{"name": "x/y/z plot", "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]}]
-    novelai_ControlNet_payload: list = [
-        {
-            "alwayson_scripts": {
-            "controlnet": {
-            "args": [
-                {
-                "input_image": "",
-                "module": "lineart_anime",
-                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]",
-                "weight": 1,
-                "lowvram": "false",
-                "processor_res": novelai_size*1.5,
-                "threshold_a": 100,
-                "threshold_b": 250,
-                }
-            ]
-                }
-            }
-        }, 
-        {"controlnet_units": 
-                [{"input_image": "", 
-                "module": "lineart_anime", 
-                "model": "control_v11p_sd15s2_lineart_anime [3825e83e]", 
-                "weight": 1, 
-                "lowvram": "false", 
-                "processor_res": novelai_size*1.5, 
-                "threshold_a": 100,
-                "threshold_b": 250}]
-        }
-    ]
+    novelai_ControlNet_payload: list = []
     
     novelai_cndm: dict = {"controlnet_module": "canny", 
                           "controlnet_processor_res": novelai_size, 
@@ -200,6 +171,7 @@ class Config(BaseSettings):
     tiled_diffusion = False  # 使用tiled-diffusion来生成图片
     save_img = True  # 是否保存图片(API侧)
     proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
+    control_net = ["lineart_anime", "control_v11p_sd15s2_lineart_anime [3825e83e]"]  # 处理器和模型
     # 允许单群设置的设置
     def keys(cls):
         return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")
@@ -337,6 +309,36 @@ async def this_is_a_func(end_point_index):
 config = Config(**get_driver().config.dict())
 config.backend_name_list = list(config.novelai_backend_url_dict.keys())
 config.backend_site_list = list(config.novelai_backend_url_dict.values())
+config.novelai_ControlNet_payload = [
+        {
+            "alwayson_scripts": {
+            "controlnet": {
+            "args": [
+                {
+                "input_image": "",
+                "module": config.control_net[0],
+                "model": config.control_net[1],
+                "weight": 1,
+                "lowvram": "false",
+                "processor_res": config.novelai_size*1.5,
+                "threshold_a": 100,
+                "threshold_b": 250,
+                }
+            ]
+                }
+            }
+        }, 
+        {"controlnet_units": 
+                [{"input_image": "", 
+                "module": config.control_net[0], 
+                "model": config.control_net[1], 
+                "weight": 1, 
+                "lowvram": "false", 
+                "processor_res": config.novelai_size*1.5, 
+                "threshold_a": 100,
+                "threshold_b": 250}]
+        }
+    ]
 
 try:
     import tensorflow

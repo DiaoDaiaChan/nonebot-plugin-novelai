@@ -133,8 +133,6 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
         group_id = str(event.user_id)+"_private"
     else:
         group_id = str(event.group_id)
-    global bot_id
-    bot_id = bot.self_id
     # 判断是否禁用，若没禁用，进入处理流程
     if await config.get_value(group_id, "on"):
         message = ""
@@ -504,7 +502,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             nickname = resp["card"] or resp["nickname"]
         # 开始生成
         try:
-            im = await _run_gennerate(fifo)
+            im = await _run_gennerate(fifo, bot)
         except Exception as e:
             logger.exception("生成失败")
             message = f"生成失败，"
@@ -578,7 +576,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
         await version.check_update()
 
 
-async def _run_gennerate(fifo: AIDRAW):
+async def _run_gennerate(fifo: AIDRAW, bot: Bot):
     # 处理单个请求
     message: list = []
     try:
@@ -592,7 +590,7 @@ async def _run_gennerate(fifo: AIDRAW):
     # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
     # 构造消息体并保存图片
     message.append(f"{config.novelai_mode}绘画完成~")
-    message = await check_safe_method(fifo, fifo.result, message, bot_id)
+    message = await check_safe_method(fifo, fifo.result, message, bot.self_id)
     for i in fifo.format():
         message.append(i)
     # 扣除点数

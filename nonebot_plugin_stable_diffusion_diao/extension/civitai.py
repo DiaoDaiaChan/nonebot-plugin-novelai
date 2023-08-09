@@ -122,7 +122,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 "attributesToHighlight":["*"],
                 "highlightPreTag":"__ais-highlight__",
                 "highlightPostTag":"__/ais-highlight__",
-                "limit":args.limit or 3,
+                "limit":args.limit or 2,
                 "offset":0}]
         }
         
@@ -134,40 +134,44 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 if resp.status == 200:
                     search_result = await resp.json()
                     models_page = search_result["results"][0]["hits"]
-        for model in models_page:
-            text_msg = ""
-            model_type = model['type']
-            download_id = model['modelVersion']['id']
-            text_msg += f"模型名称: {model['name']}\n模型id: {model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
-            metrics_replace_list = ["评论总数", "喜欢次数", "下载次数", "评分", "评分总数", "加权评分"]
-            metrics_msg = ""
-            metrics_dict: dict = model['metrics']
-            for replace, value in zip(metrics_replace_list, list(metrics_dict.values())):
-                metrics_msg += f"{replace}: {value}\n"
-            hash_str = '\n'.join(model['hashes'])
-            text_msg += f"{metrics_msg}\n下载id: {download_id}\n作者: {model['user']['username']}, id: {model['user']['id']}\n哈希值: {hash_str}\n触发词: {model['triggerWords'][0]}\n以下是返图"
-            
-            images = model['images']
-            task_list = []
-            for image in images:
-                if len(task_list) > 1:
-                    break
-                url = f"https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/{image['url']}/{image['name']}"
-                task_list.append(download_img(url))
+        try:
+            for model in models_page:
+                text_msg = ""
+                model_type = model['type']
+                download_id = model['modelVersion']['id']
+                text_msg += f"模型名称: {model['name']}\n模型id: {model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
+                metrics_replace_list = ["评论总数", "喜欢次数", "下载次数", "评分", "评分总数", "加权评分"]
+                metrics_msg = ""
+                metrics_dict: dict = model['metrics']
+                for replace, value in zip(metrics_replace_list, list(metrics_dict.values())):
+                    metrics_msg += f"{replace}: {value}\n"
+                hash_str = '\n'.join(model['hashes'])
+                trigger_words = model['triggerWords'][0] if len(model['triggerWords']) != 0 else ""
+                text_msg += f"{metrics_msg}\n下载id: {download_id}\n作者: {model['user']['username']}, id: {model['user']['id']}\n哈希值: {hash_str}\n触发词: {trigger_words}\n以下是返图"
                 
-            all_resp = await asyncio.gather(*task_list, return_exceptions=False)
-            pic_msg = []
-            for byte_img in all_resp:
-                if byte_img is not None:
-                    if config.novelai_extra_pic_audit:
-                        is_r18 = await pic_audit_standalone(byte_img, False, False, True)
-                        if is_r18:
-                            pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n"))
+                images = model['images']
+                task_list = []
+                for image in images:
+                    if len(task_list) > 1:
+                        break
+                    url = f"https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/{image['url']}/{image['name']}"
+                    task_list.append(download_img(url))
+                    
+                all_resp = await asyncio.gather(*task_list, return_exceptions=False)
+                pic_msg = []
+                for byte_img in all_resp:
+                    if byte_img is not None:
+                        if config.novelai_extra_pic_audit:
+                            is_r18 = await pic_audit_standalone(byte_img, False, False, True)
+                            if is_r18:
+                                pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n"))
+                            else:
+                                pic_msg.append(MessageSegment.image(byte_img))
                         else:
                             pic_msg.append(MessageSegment.image(byte_img))
-                    else:
-                        pic_msg.append(MessageSegment.image(byte_img))
-            logger.debug(text_msg)
-            all_msg_list.append(text_msg)
-            all_msg_list.append(pic_msg)
+                logger.debug(text_msg)
+                all_msg_list.append(text_msg)
+                all_msg_list.append(pic_msg)
+        except IndexError:
+            await civitai_.finish("报错了!可能是搜索到的模型太少, 请手动设置 --limit 1 以查看一个模型")
         await send_forward_msg(bot, event, event.sender.nickname, event.user_id, all_msg_list)

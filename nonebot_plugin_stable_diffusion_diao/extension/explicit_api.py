@@ -80,7 +80,7 @@ async def check_safe_method(fifo,
                 message.append(f"\n太涩了,让我先看, 这张图涩度{h_value:.1f}%")
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
-                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}")
+                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
                 message_id = message_data["message_id"]
                 message_all = await bot.get_msg(message_id=message_id)
                 url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'

@@ -44,7 +44,10 @@ async def count(user: str, num) -> int:
             if config.novelai_daylimit_type == 1:
                 return config.novelai_daylimit - count
             else:
-                return config.novelai_daylimit * mutil - total_spend_time
+                left_time = config.novelai_daylimit * mutil - total_spend_time
+                if left_time is None:
+                    left_time = 1
+                return left_time
     else:
         filename = "data/novelai/day_limit_data.json"
         

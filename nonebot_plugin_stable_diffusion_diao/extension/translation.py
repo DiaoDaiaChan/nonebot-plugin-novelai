@@ -52,7 +52,7 @@ async def translate_bing(text: str, to: str):
                 result=jsonresult[0]["translations"][0]["text"]
                 logger.debug(f"Bing翻译启动，获取到{text},翻译后{result}")
                 return result
-    except Exception:
+    except:
         return None
 
 
@@ -76,7 +76,7 @@ async def translate_deepl(text: str, to: str):
                 result=jsonresult["translations"][0]["text"]
                 logger.debug(f"DeepL翻译启动，获取到{text},翻译后{result}")
                 return result
-    except Exception:
+    except:
         return None
 
 
@@ -104,7 +104,7 @@ async def translate_youdao(input: str, type: str):
                 result=result["translateResult"][0][0]["tgt"]
                 logger.debug(f"有道翻译启动，获取到{input},翻译后{result}")
                 return result
-    except Exception:
+    except:
         return None
 
 
@@ -126,7 +126,7 @@ async def translate_google_proxy(input: str, to: str):
                 result=result["data"][0]
                 logger.debug(f"谷歌代理翻译启动，获取到{input},翻译后{result}")
                 return result
-    except Exception:
+    except:
         return None
 
 
@@ -162,5 +162,5 @@ async def translate_baidu(input: str, to: str):
                 json_ = await resp.json()
                 result = json_["result"]["trans_result"][0]["dst"]
         return result
-    except Exception:
+    except:
         return None

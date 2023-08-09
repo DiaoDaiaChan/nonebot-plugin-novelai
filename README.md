@@ -104,7 +104,7 @@ stable-diffusion-webui\extensions\civitai\scripts\
 ```
 命令详解
 c站
---limit, -l 搜索时匹配到的模型数量默认为3
+--limit, -l 搜索时匹配到的模型数量默认为1, 可以自行设置
 -d, -下载 下载指定模型
 -s, -搜索 搜索指定模型
 -c, 设置c站cookie
