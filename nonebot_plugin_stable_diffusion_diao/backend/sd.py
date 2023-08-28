@@ -120,7 +120,8 @@ class AIDRAW(AIDRAW_BASE):
             #     args = axes.split("_")
             #     result[0][0] = args[0]
             #     args[0] = 
-
+        if self.open_pose:
+            parameters.update({"enable_hr": "false"})
         if self.td or config.tiled_diffusion:
             parameters.update({"alwayson_scripts": config.custom_scripts[0]})
         if self.custom_scripts is not None:
@@ -142,7 +143,8 @@ class AIDRAW(AIDRAW_BASE):
                 post_api = f"http://{site}/controlnet/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[1])
                 parameters["controlnet_units"][0]["input_image"] = self.image
-        logger.debug(str(parameters))         
+        logger.debug(str(parameters))        
+        self.post_parms = parameters
         return header, post_api, parameters
 
     async def post(self):

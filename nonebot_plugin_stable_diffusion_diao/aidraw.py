@@ -86,8 +86,10 @@ aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
 aidraw_parser.add_argument("-xyz", type=str, help="xyz生图", dest="xyz_plot")
 aidraw_parser.add_argument("-sc", "--script", "--scripts",
                            type=int, help="脚本生图", dest="scripts")
-# aidraw_parser.add_argument("-ef", "--eye_fix",
-#                            action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
+aidraw_parser.add_argument("-ef", "--eye_fix",
+                           action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
+aidraw_parser.add_argument("-op", "--openpose",
+                           action="store_true", help="使用openpose修复身体等", dest="open_pose")
 
 
 async def get_message_at(data: str) -> int:
@@ -127,7 +129,8 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
     model_info_ = ""
     random_tags = ""
     info_style = ""
-    style_tag, style_ntag = "", ""
+    style_tag = "" 
+    style_ntag = ""
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
         group_id = str(event.user_id)+"_private"
@@ -180,29 +183,27 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
                 )
         tags_str = await prepocess_tags(args.tags, False)
         tags_list = tags_to_list(tags_str)
-        if redis_client:
-            if config.auto_match and args.match is False:
-                r = redis_client[1]
-                if r.exists("style"):
-                    info_style = ""
-                    style_list: list[bytes] = r.lrange("style", 0, -1)
-                    style_list_: list[bytes] = r.lrange("user_style", 0, -1)
-                    style_list += style_list_
-                    pop_index = -1
-                    if isinstance(args.tags, list) and len(args.tags) > 0:
-                        org_tag_list = tags_list
-                        for style in style_list:
-                            style = ast.literal_eval(style.decode("utf-8"))
-                            for tag in tags_list:
-                                pop_index += 1
-                                if tag in style["name"]:
-                                    style_ = style["name"]
-                                    info_style += f"自动找到的预设: {style_}\n"
-                                    style_tag += str(style["prompt"])  + ","
-                                    style_ntag += str(style["negative_prompt"]) + ","
-                                    tags_list.pop(org_tag_list.index(tag))
-                                    logger.info(info_style)
-                                    break                       
+        r = redis_client[1]
+        if redis_client and config.auto_match and args.match is False and r.exists("style"):
+            info_style = ""
+            style_list: list[bytes] = r.lrange("style", 0, -1)
+            style_list_: list[bytes] = r.lrange("user_style", 0, -1)
+            style_list += style_list_
+            pop_index = -1
+            if isinstance(args.tags, list) and len(args.tags) > 0:
+                org_tag_list = tags_list
+                for style in style_list:
+                    style = ast.literal_eval(style.decode("utf-8"))
+                    for tag in tags_list:
+                        pop_index += 1
+                        if tag in style["name"]:
+                            style_ = style["name"]
+                            info_style += f"自动找到的预设: {style_}\n"
+                            style_tag += str(style["prompt"])  + ","
+                            style_ntag += str(style["negative_prompt"]) + ","
+                            tags_list.pop(org_tag_list.index(tag))
+                            logger.info(info_style)
+                            break                       
         args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
         fifo.extra_info += info_style

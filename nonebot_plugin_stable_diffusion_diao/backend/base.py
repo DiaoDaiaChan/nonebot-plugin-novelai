@@ -52,6 +52,7 @@ class AIDRAW_BASE:
         scripts: int = None,
         td = None,
         xyz_plot = None,
+        open_pose = False,
         **kwargs,
     ):
         """
@@ -129,10 +130,11 @@ class AIDRAW_BASE:
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix: bool = True if config.novelai_hr else False
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
-        self.control_net = {"control_net": False,
-                           "controlnet_module": "",
-                           "controlnet_model": ""
-                           }
+        self.control_net = {
+            "control_net": False,
+            "controlnet_module": "",
+            "controlnet_model": ""
+        }
         self.backend_info: dict = None
         self.task_type: str = None
         self.img_hash = None
@@ -145,6 +147,8 @@ class AIDRAW_BASE:
         self.scripts = scripts
         self.td = td
         self.xyz_plot = xyz_plot
+        self.open_pose = config.openpose or open_pose
+        self.post_parms = None
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -231,7 +235,6 @@ class AIDRAW_BASE:
         width, height = image_.size
         self.width, self.height = self.shape_set(width, height, config.novelai_size_org)
         self.image = str(base64.b64encode(image), "utf-8")
-        self.steps = 20
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
         self.update_cost()
@@ -287,6 +290,8 @@ class AIDRAW_BASE:
                 self.spend_time = f"{spend_time:.2f}秒"
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
+                if self.open_pose or config.openpose:
+                    img = await self.dwpose(img, header)
                 # 将图片转化为jpg
                 if config.novelai_save == 1:
                     image_new = await png2jpg(img)
@@ -296,33 +301,32 @@ class AIDRAW_BASE:
         current_date = datetime.now().date()
         day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
         try:
-            if redis_client:
-                r = redis_client[2]
-                if r.exists(day):
-                    backend_info = r.get(day)
-                    backend_info = backend_info.decode("utf-8")
-                    backend_info = ast.literal_eval(backend_info)
-                    if backend_info.get("gpu"):
-                        backend_dict = backend_info.get("gpu")
-                        backend_dict[self.backend_name] = backend_dict[self.backend_name] + 1
+            r = redis_client[2]
+            if redis_client and r.exists(day):
+                backend_info = r.get(day)
+                backend_info = backend_info.decode("utf-8")
+                backend_info = ast.literal_eval(backend_info)
+                if backend_info.get("gpu"):
+                    backend_dict = backend_info.get("gpu")
+                    backend_dict[self.backend_name] = backend_dict[self.backend_name] + 1
+                    backend_info["gpu"] = backend_dict
+                else:
+                    backend_dict = {}
+                    backend_info["gpu"] = {}
+                    for i in list(config.novelai_backend_url_dict.keys()):
+                        backend_dict[i] = 1
                         backend_info["gpu"] = backend_dict
+                if config.novelai_daylimit and self.user_id not in superusers and config.novelai_daylimit_type == 2:
+                    if backend_info.get("spend_time"):
+                        counting = backend_info.get("spend_time")
                     else:
-                        backend_dict = {}
-                        backend_info["gpu"] = {}
-                        for i in list(config.novelai_backend_url_dict.keys()):
-                            backend_dict[i] = 1
-                            backend_info["gpu"] = backend_dict
-                    if config.novelai_daylimit and self.user_id not in superusers and config.novelai_daylimit_type == 2:
-                        if backend_info.get("spend_time"):
-                            counting = backend_info.get("spend_time")
-                        else:
-                            counting = {}
-                        org_spend_time = counting.get(self.user_id, 0)
-                        user_spend_time = org_spend_time + int(spend_time)
-                        counting[self.user_id] = user_spend_time
-                        backend_info["spend_time"] = counting
-                    self.extra_info += f"\n耗时{spend_time:.2f}秒\n"
-                    r.set(day, str(backend_info))
+                        counting = {}
+                    org_spend_time = counting.get(self.user_id, 0)
+                    user_spend_time = org_spend_time + int(spend_time)
+                    counting[self.user_id] = user_spend_time
+                    backend_info["spend_time"] = counting
+                self.extra_info += f"\n耗时{spend_time:.2f}秒\n"
+                r.set(day, str(backend_info))
             else:
                 filename = "data/novelai/day_limit_data.json"
                 if os.path.exists(filename):
@@ -422,5 +426,27 @@ class AIDRAW_BASE:
         except:
             return ""
         
+    async def dwpose(self, img_base64, header):
+        logger.info("开始进行dwpose处理")
+        payload = self.post_parms
+        payload.update(config.novelai_ControlNet_payload[config.novelai_ControlNet_post_method])
+        replace_dict = {
+            "module": "dw_openpose_full", 
+            "model": "control_v11p_sd15_openpose [cab727d4]"
+        }
+        enable_hr = False if self.disable_hr else True
+        payload.update({"enable_hr": enable_hr})
+        payload["alwayson_scripts"]["controlnet"]["args"][0].update(replace_dict)
+        async with aiohttp.ClientSession(headers=header) as session:
+            async with session.post(
+                url=f"http://{self.backend_site}/sdapi/v1/txt2img", 
+                json=payload
+            ) as resp:
+                if resp.status not in [200, 201]:
+                    logger.error(f"dwpose处理失败,错误代码{resp.status}")
+                    return img_base64
+                else:
+                    img = await self.fromresp(resp)
+                    return img
 
 

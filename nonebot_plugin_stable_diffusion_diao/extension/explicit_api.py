@@ -85,35 +85,39 @@ async def check_safe_method(fifo,
                 message_all = await bot.get_msg(message_id=message_id)
                 url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
                 img_url = re.findall(url_regex, str(message_all["message"]))
-                if htype in [1, 2]:
-                    if htype == 1:
+                if htype == 1:
+                    try:
+                        await bot.send_private_msg(user_id=fifo.user_id, 
+                                                    message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                                                    )
+                    except ActionFailed:
+                        await bot.send_group_msg(group_id=fifo.group_id, 
+                                                    message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
+                                                    )
+                elif htype == 2:
+                    try:
+                        await bot.send_group_msg(group_id=fifo.group_id, 
+                                                    message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
+                                                    )
+                    except ActionFailed:
                         try:
                             await bot.send_private_msg(user_id=fifo.user_id, 
-                                                       message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
-                                                       )
-                        except ActionFailed:
-                            await bot.send_group_msg(group_id=fifo.group_id, 
-                                                     message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
-                                                     )
-                    elif htype == 2:
-                        try:
-                            await bot.send_group_msg(group_id=fifo.group_id, 
-                                                     message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
-                                                     )
+                                                        message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                                                        )
                         except ActionFailed:
                             try:
-                                await bot.send_private_msg(user_id=fifo.user_id, 
-                                                           message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
-                                                           )
+                                await bot.send_group_msg(group_id=fifo.group_id, 
+                                                            message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
+                                                            )
                             except ActionFailed:
-                                try:
-                                    await bot.send_group_msg(group_id=fifo.group_id, 
-                                                             message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
-                                                             )
-                                except ActionFailed:
-                                    await send_qr_code(bot, fifo, img_url)
+                                await send_qr_code(bot, fifo, img_url)
                 elif htype == 3:
                     await send_qr_code(bot, fifo, img_url)
+                elif htype == 4:
+                    await bot.send_group_msg(
+                        group_id=fifo.group_id, 
+                        message="太色了, 不准看"
+                    )
         else:
             if fifo.sr:
                 try:

@@ -1,20 +1,24 @@
 import aiohttp
 from ..config import config
 from nonebot.log import logger
-
+import traceback
+import json
 
 async def translate(text: str, to: str):
     # en,jp,zh
     is_translate = False
     for i in range(config.novelai_retry):
         try:
-            result = (await translate_deepl(text, to) or 
-                      await translate_bing(text, to) or
-                      await translate_baidu(text, to) or
-                      await translate_youdao(text, to) or
-                      await translate_google_proxy(text, to)
-                      )
+            result = (
+                await translate_api(text, to) or
+                await translate_deepl(text, to) or 
+                await translate_bing(text, to) or
+                await translate_baidu(text, to) or
+                await translate_youdao(text, to) or
+                await translate_google_proxy(text, to)
+            )
         except:
+            logger.error(traceback.print_exc())
             logger.info(f"未找到可用的翻译引擎！,第{i+1}次重试")
             if i == config.novelai_retry:
                 logger.error(f"重试{i}次后依然失败")
@@ -163,4 +167,24 @@ async def translate_baidu(input: str, to: str):
                 result = json_["result"]["trans_result"][0]["dst"]
         return result
     except:
+        return None
+    
+    
+async def translate_api(input: str, to: str):
+    try:
+        url = f"http://{config.trans_api}/translate"
+        headers = {"Content-Type": "application/json"}
+        payload = {"text": input}
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.post(url=url, data=json.dumps(payload)) as resp:
+                if resp.status != 200:
+                    logger.error(f"自建翻译接口错误, 错误代码{resp.status},{await resp.text()}")
+                    return None
+                else:
+                    logger.info("自建api翻译成功")
+                    json_ = await resp.json()
+                    result = json_["translated_text"]
+                    return result
+    except:
+        logger.error(traceback.print_exc())
         return None

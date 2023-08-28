@@ -62,6 +62,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                     "model_type": model_type
                 }
                 resp, status_code = await aiohttp_func("post", f"http://{site}/civitai/download", payload)
+                
                 if status_code not in [200, 201]:
                     await civitai_.finish(f"错误代码{status_code}, 请检查后端")
                 else:
@@ -73,6 +74,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                     _ = await asyncio.gather(*task_list, return_exceptions=False)
                     model_name:str = resp['name']
                     lora_ = model_name.split(".")[0]
+                    
                     if args.run_:
                         fifo = AIDRAW(tags=f"<lora:{lora_}:0.7>", 
                                       ntags=lowQuality, 
@@ -160,13 +162,12 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 all_resp = await asyncio.gather(*task_list, return_exceptions=False)
                 pic_msg = []
                 for byte_img in all_resp:
-                    if byte_img is not None:
+                    if byte_img is not None and config.novelai_extra_pic_audit:
                         if config.novelai_extra_pic_audit:
                             is_r18 = await pic_audit_standalone(byte_img, False, False, True)
-                            if is_r18:
-                                pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n"))
-                            else:
-                                pic_msg.append(MessageSegment.image(byte_img))
+                            (pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n")) if is_r18 
+                            else pic_msg.append(MessageSegment.image(byte_img))
+                            )
                         else:
                             pic_msg.append(MessageSegment.image(byte_img))
                 logger.debug(text_msg)

@@ -87,6 +87,14 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 8.29 0.4.2更新 可以是openpose的dwpose来生图
+```
+openpose = True
+绘画miku -op
+绘画miku --opsenpose
+```
+来进行control生图，大幅度降低肢体崩坏
+添加了雕雕自建的翻译API
 ## 8.7 0.4.1更新 更新C站(https://civitai.com/)搜索, 下载模型功能!
 ```
 注意! 使用C站功能需要你手动创建文件夹

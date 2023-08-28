@@ -141,10 +141,12 @@ class Config(BaseSettings):
     scripts = [{"name": "x/y/z plot", "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]}]
     novelai_ControlNet_payload: list = []
     
-    novelai_cndm: dict = {"controlnet_module": "canny", 
-                          "controlnet_processor_res": novelai_size, 
-                          "controlnet_threshold_a": 100, 
-                          "controlnet_threshold_b": 250}
+    novelai_cndm: dict = {
+        "controlnet_module": "canny", 
+        "controlnet_processor_res": novelai_size, 
+        "controlnet_threshold_a": 100, 
+        "controlnet_threshold_b": 250
+    }
     
     novelai_picaudit: int = 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     novelai_pic_audit_api_key: dict = {"SECRET_KEY": "",
@@ -172,6 +174,8 @@ class Config(BaseSettings):
     save_img = True  # 是否保存图片(API侧)
     proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
     control_net = ["lineart_anime", "control_v11p_sd15s2_lineart_anime [3825e83e]"]  # 处理器和模型
+    trans_api = "la.iamdiao.lol:5000"  # 自建翻译API
+    openpose = False  # 使用openpose dwopen生图，大幅度降低肢体崩坏
     # 允许单群设置的设置
     def keys(cls):
         return ("novelai_cd", "novelai_tags", "novelai_on", "novelai_ntags", "novelai_revoke", "novelai_h", "novelai_htype", "novelai_picaudit", "novelai_pure", "novelai_site")
@@ -315,14 +319,20 @@ config.novelai_ControlNet_payload = [
             "controlnet": {
             "args": [
                 {
-                "input_image": "",
-                "module": config.control_net[0],
-                "model": config.control_net[1],
-                "weight": 1,
-                "lowvram": "false",
-                "processor_res": config.novelai_size*1.5,
-                "threshold_a": 100,
-                "threshold_b": 250,
+                    "enabled": True,
+                    "module": config.control_net[0],
+                    "model": config.control_net[1],
+                    "weight": 1.5,
+                    "image": "",
+                    "resize_mode": 1,
+                    "lowvram": False,
+                    "processor_res": config.novelai_size*1.5,
+                    "threshold_a": 64,
+                    "threshold_b": 64,
+                    "guidance_start": 0.0,
+                    "guidance_end": 1.0,
+                    "control_mode": 0,
+                    "pixel_perfect": True
                 }
             ]
                 }
@@ -333,7 +343,7 @@ config.novelai_ControlNet_payload = [
                 "module": config.control_net[0], 
                 "model": config.control_net[1], 
                 "weight": 1, 
-                "lowvram": "false", 
+                "lowvram": False, 
                 "processor_res": config.novelai_size*1.5, 
                 "threshold_a": 100,
                 "threshold_b": 250}]
