@@ -4,6 +4,7 @@ from nonebot.params import CommandArg
 from nonebot.permission import SUPERUSER
 
 from ..backend import AIDRAW
+from ..backend.mj import AIDRAW as MJ_AIDRAW
 from ..extension.translation import translate_deepl, translate
 from ..extension.daylimit import count
 from ..config import config
@@ -1261,6 +1262,11 @@ async def _(bot: Bot,
 ):  
     user_id = str(event.user_id)
     message = msg.extract_plain_text()
+    mj_mode = False
+    if message.find('/mj') != -1 and hasattr(config, "novelai_mj_proxy") and config.novelai_mj_proxy:
+        # 可以使用mj代理
+        mj_mode = True
+        message = message.replace('/mj', '')
     if message == "我":
         if isinstance(event, PrivateMessageEvent):
          user_name = event.sender.nickname
@@ -1284,7 +1290,8 @@ async def _(bot: Bot,
             await today_girl.finish(f"以图生图功能已禁用")
     user_name += random_int_str
     user_id_random = user_id + random_int_str
-    if config.novelai_todaygirl == 2:
+    if config.novelai_todaygirl == 2 or mj_mode:
+        # MJ需要传统模式，否则大概率不过机审
         inst = Choicer(data_dict)
         msg = inst.format_msg(user_id_random, user_name)
         to_user = msg.replace(random_int_str, "")
@@ -1342,10 +1349,17 @@ async def _(bot: Bot,
     tags = basetag + tags
     ntags = lowQuality
     fifo = AIDRAW(
-        tags=tags, 
-        ntags=ntags, 
-        event=event
+      tags=tags, 
+      ntags=ntags, 
+      event=event
     )
+    if mj_mode:
+        tags = 'cute girl, ' + tags
+        fifo = MJ_AIDRAW(
+          tags=tags, 
+          ntags='', 
+          event=event
+        )
     if img_url:
         async with aiohttp.ClientSession() as session:
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -1358,6 +1372,12 @@ async def _(bot: Bot,
         await today_girl.finish(f"服务端出错辣,{e.args}")
     else:
         img_msg = MessageSegment.image(fifo.result[0])
+        if mj_mode:
+            # MJ一次出四张图，进行切图，切无需审核
+            image_bytes = MJ_AIDRAW.split_image(fifo.result[0])
+            img_msg = ''
+            for i in range(4):
+                img_msg += MessageSegment.image(image_bytes[i])
         if config.novelai_extra_pic_audit:
             result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_todaygirl")
             if isinstance(result[1], MessageSegment):

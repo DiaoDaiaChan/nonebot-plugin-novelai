@@ -37,6 +37,8 @@ class Config(BaseSettings):
     '''
     key或者后台设置
     '''
+    novelai_mj_proxy: str = "" # 必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
+    novelai_mj_token: str = "" # 选填，鉴权用
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
