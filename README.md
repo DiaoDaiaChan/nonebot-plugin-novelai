@@ -78,13 +78,13 @@ lora
 
 # 更新日志
 ## 8.29 0.4.3更新 使用了yaml配置文件路径为config/novelai/config.yaml
-放弃使用.env文件配置,请以后在config.yaml中配置
-绘画miku -sag
-使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
-可以使用mj生成二次元的我图片
-config.yaml里设置proxy地址后
-二次元的我/mj 即可
-mj功能来自 @noahzark
+放弃使用.env文件配置,请以后在config.yaml中配置  
+绘画miku -sag  
+使用Self Attention Guidance进行生图(能一定程度上提升图片质量)  
+可以使用mj生成二次元的我图片  
+config.yaml里设置proxy地址后  
+二次元的我/mj 即可  
+mj功能来自 @noahzark  
 ## 8.29 0.4.2更新 可以是openpose的dwpose来生图
 ```
 openpose = True

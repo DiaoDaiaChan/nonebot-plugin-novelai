@@ -76,18 +76,23 @@ async def pic_audit_standalone(
     audit=False, 
     return_none=False
 ):
-    btye_img = (BytesIO(img_base64) if isinstance(img_base64, bytes) 
-                else BytesIO(base64.b64decode(img_base64))
-                )
-    new_img = Image.open(btye_img)
-    img_base64 = await set_res(new_img)
+    
+    byte_img = (
+        img_base64 if isinstance(img_base64, bytes) 
+        else base64.b64decode(img_base64)
+    )
+    img = Image.open(BytesIO(byte_img)).convert("RGB")
+    img_base64 = await set_res(img)
+    
     payload = {"image": img_base64, "model": f"{config.tagger_model}", "threshold": 0.35 }
     async with aiohttp.ClientSession() as session:
         async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:
+            
             if resp.status not in [200, 201]:
                 resp_text = await resp.text()
                 logger.error(f"API失败，错误信息:{resp.status, resp_text}")
                 return None
+            
             else:
                 resp_dict = await resp.json()
                 tags = resp_dict["caption"]
@@ -105,6 +110,7 @@ async def pic_audit_standalone(
                 value.sort(reverse=True)
                 reverse_dict = {value: key for key, value in to_user_dict.items()}
                 message += (f"最终结果为:{reverse_dict[value[0]].rjust(5)}")
+                
     if return_none:
         value = list(possibilities.values())
         value.sort(reverse=True)
@@ -151,7 +157,7 @@ async def set_res(new_img: Image) -> str:
             ratio = width/height
             height: float = max_res/pow(ratio, 0.5)
             width: float = height*ratio
-
+        logger.info(f"图片尺寸已调整至{round(width)}x{round(height)}")
         new_img.resize((round(width), round(height)))
     img_bytes =  BytesIO()
     new_img.save(img_bytes, format="JPEG")
@@ -160,12 +166,13 @@ async def set_res(new_img: Image) -> str:
     return img_base64
     
     
-async def revoke_msg(message_data, bot, time=None):
+async def revoke_msg(message_data, bot, time = None):
     message_id = message_data["message_id"]
     recall_time = time or random.randint(30, 110)
     loop = get_running_loop()
     loop.call_later(
         recall_time,
         lambda: loop.create_task(
-            bot.delete_msg(message_id=message_id)),
+            bot.delete_msg(message_id=message_id)
+        ),
     )

@@ -186,5 +186,5 @@ async def translate_api(input: str, to: str):
                     result = json_["translated_text"]
                     return result
     except:
-        logger.error(traceback.print_exc())
+        logger.warning(traceback.print_exc())
         return None

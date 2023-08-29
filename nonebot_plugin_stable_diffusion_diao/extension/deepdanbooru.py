@@ -25,13 +25,10 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
         async with aiohttp.ClientSession() as session:
             logger.info(f"正在获取图片")
             async with session.get(url) as resp:
-                bytes = await resp.read()
-        str_img = str(base64.b64encode(bytes), "utf-8")
-        start = "data:image/jpeg;base64,"
-        str0 = start+str_img
+                bytes_ = await resp.read()
         
         if config.novelai_tagger_site:
-            resp_tuple = await pic_audit_standalone(str0, True)
+            resp_tuple = await pic_audit_standalone(bytes_, True)
             if resp_tuple is None:
                 await deepdanbooru.finish("识别失败")
             h_, tags = resp_tuple
@@ -39,7 +36,10 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
 
         else:
             async with aiohttp.ClientSession() as session:
-                async with session.post('https://mayhug-rainchan-anime-image-label.hf.space/api/predict/', json={"data": [str0, 0.6,"ResNet101"]}) as resp:
+                async with session.post(
+                    'https://mayhug-rainchan-anime-image-label.hf.space/api/predict/', 
+                    json={"data": [str(base64.b64encode(bytes_), "utf-8"), 0.6,"ResNet101"]}
+                ) as resp:
                     if resp.status != 200:
                         await deepdanbooru.finish(f"识别失败，错误代码为{resp.status}")
                     jsonresult = await resp.json()
@@ -49,16 +49,17 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 for label in data['confidences']:
                     tags = tags+label["label"]+","
         tags_ch = await translate(tags.replace("_", " "), "zh")
-        message_list = [MessageSegment.image(bytes), tags, f"\n机翻结果:" + tags_ch]
+        message_list = [MessageSegment.image(bytes_), tags, f"\n机翻结果:" + tags_ch]
         if h_:
             message_list = message_list + [h_]
         try: 
-            await send_forward_msg(bot, 
-                               event, 
-                               event.sender.nickname, 
-                               str(event.get_user_id()), 
-                               message_list
-                               )  
+            await send_forward_msg(
+                bot, 
+                event, 
+                event.sender.nickname, 
+                str(event.get_user_id()), 
+                message_list
+            )  
         except ActionFailed:
             await risk_control(bot, event, [tags, tags_ch], False, True)
     else:

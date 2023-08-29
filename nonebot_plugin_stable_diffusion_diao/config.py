@@ -335,9 +335,9 @@ def copy_config(source_template, destination_file):
     shutil.copy(source_template, destination_file)
     
 
-def rewrite_yaml(config):
+def rewrite_yaml(config, source_template):
     config_dict = config.__dict__
-    with open(config_file_path, 'r', encoding="utf-8") as f:
+    with open(source_template, 'r', encoding="utf-8") as f:
         yaml_data = yaml.load(f)
         for key, value in config_dict.items():
             yaml_data[key] = value
@@ -376,12 +376,12 @@ if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
     copy_config(source_template, destination_file)
-    rewrite_yaml(config)
+    rewrite_yaml(config, source_template)
 else:
     logger.info("配置文件存在,正在读取")
     if check_yaml_is_changed(source_template):
         logger.info("新的配置已更新,正在更新")
-        rewrite_yaml(config)
+        rewrite_yaml(config, source_template)
     else:
         with open(config_file_path, "r", encoding="utf-8") as f:
             yaml_config = yaml.load(f, Loader=yaml.FullLoader)

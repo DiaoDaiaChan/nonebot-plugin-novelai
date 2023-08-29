@@ -1,6 +1,8 @@
 # --------------------------------
 # key或者后台设置
 # --------------------------------
+novelai_mj_proxy: "" # 必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
+novelai_mj_token: "" # 选填，鉴权用
 bing_key: null  # bing的翻译key
 deepl_key: null  # deepL的翻译key
 baidu_translate_key:
