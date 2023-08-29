@@ -1,12 +1,13 @@
 from nonebot import require
-from nonebot.adapters.onebot.v11 import (Bot,
-                                         MessageEvent,
-                                         Message,
-                                         ActionFailed,
-                                         MessageSegment,
-                                         GroupMessageEvent,
-                                         PrivateMessageEvent
-                                         )
+from nonebot.adapters.onebot.v11 import (
+    Bot,
+    MessageEvent,
+    Message,
+    ActionFailed,
+    MessageSegment,
+    GroupMessageEvent,
+    PrivateMessageEvent
+)
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
@@ -44,14 +45,15 @@ async def markdown_temple(bot: Bot, text):
     return markdown
 
 
-async def risk_control(bot: Bot, 
-                       event: MessageEvent, 
-                       message: list, 
-                       is_forward=False, 
-                       md_temple=False, 
-                       width: int=500, 
-                       at_sender=True, 
-                       reply_message=True
+async def risk_control(
+    bot: Bot, 
+    event: MessageEvent, 
+    message: list, 
+    is_forward=False, 
+    md_temple=False, 
+    width: int=500, 
+    at_sender=True, 
+    reply_message=True
 ):
     '''
     为防止风控的函数, is_forward True为发送转发消息

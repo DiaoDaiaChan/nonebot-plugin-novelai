@@ -10,6 +10,7 @@ from ..extension.daylimit import count
 from ..config import config
 from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
+from ..utils import revoke_msg
 from ..aidraw import get_message_at
 from ..extension.explicit_api import check_safe_method
 
@@ -1338,22 +1339,27 @@ async def _(bot: Bot,
         tags =  build_msg_en[0] +","+ f','.join(build_msg_en)
     
     try:
-        await bot.send(event=event, 
+        message_data = await bot.send(event=event, 
                         message=f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
     except ActionFailed:
-        await bot.send(event=event, 
+        message_data = await bot.send(event=event, 
                         message=f"风控了...不过图图我还是会画给你的...")
+    await revoke_msg(message_data, bot)
     tags = "" if tags is None else tags
     tags = basetag + tags
     ntags = lowQuality
-    fifo = AIDRAW(tags=tags, 
-                ntags=ntags, 
-                event=event)
+    fifo = AIDRAW(
+      tags=tags, 
+      ntags=ntags, 
+      event=event
+    )
     if mj_mode:
         tags = 'cute girl, ' + tags
-        fifo = MJ_AIDRAW(tags=tags, 
-                ntags='', 
-                event=event)
+        fifo = MJ_AIDRAW(
+          tags=tags, 
+          ntags='', 
+          event=event
+        )
     if img_url:
         async with aiohttp.ClientSession() as session:
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -1375,14 +1381,17 @@ async def _(bot: Bot,
         if config.novelai_extra_pic_audit:
             result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_todaygirl")
             if isinstance(result[1], MessageSegment):
-                await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
+                message_data = await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
         else:
             try:
-                await bot.send(event=event, 
+                message_data = await bot.send(event=event, 
                             message=f"这是你的二次元形象,hso\n"+img_msg+f"\n{fifo.img_hash}"+f"\n生成耗费时间{fifo.spend_time}", 
                             at_sender=True, reply_message=True)
             except ActionFailed:
-                await bot.send(event=event, 
+                message_data = await bot.send(event=event, 
                             message=img_msg+f"\n{fifo.img_hash}", 
                             at_sender=True, reply_message=True)
             await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_todaygirl")
+        revoke = await config.get_value(fifo.group_id, "revoke")
+        if revoke:
+            await revoke_msg(message_data, bot, revoke)

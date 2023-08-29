@@ -10,7 +10,6 @@ from copy import deepcopy
 import aiohttp
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
-from asyncio import get_running_loop
 from nonebot import get_bot, on_shell_command
 import aiofiles
 import traceback
@@ -30,6 +29,7 @@ from .extension.explicit_api import check_safe_method
 from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
 from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
+from .utils import revoke_msg
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
@@ -90,6 +90,8 @@ aidraw_parser.add_argument("-ef", "--eye_fix",
                            action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
 aidraw_parser.add_argument("-op", "--openpose",
                            action="store_true", help="使用openpose修复身体等", dest="open_pose")
+aidraw_parser.add_argument("-sag", "-SAG",
+                           action="store_true", help="使用Self Attention Guidance生图", dest="sag")
 
 
 async def get_message_at(data: str) -> int:
@@ -174,13 +176,7 @@ async def aidraw_get(bot: Bot, event: MessageEvent, args: Namespace = ShellComma
             except ActionFailed:
                 logger.info("被风控了")
             else:
-                message_id = message_data["message_id"]
-                loop = get_running_loop()
-                loop.call_later(
-                    random.randint(30, 60),
-                    lambda: loop.create_task(
-                        bot.delete_msg(message_id=message_id)),
-                )
+                await revoke_msg(message_data, bot)
         tags_str = await prepocess_tags(args.tags, False)
         tags_list = tags_to_list(tags_str)
         r = redis_client[1]
@@ -470,13 +466,7 @@ async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=Non
         finally:
             await fifo_gennerate(event, fifo, bot)
     if message_data:
-        message_id = message_data["message_id"]
-        loop = get_running_loop()
-        loop.call_later(
-            random.randint(30, 60),
-            lambda: loop.create_task(
-                bot.delete_msg(message_id=message_id)),
-        )
+        await revoke_msg(message_data, bot)
 
 
 def wait_len():
@@ -509,8 +499,9 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             message = f"生成失败，"
             for i in e.args:
                 message += str(i)
-            await bot.send(event=event, 
-                           message=message,
+            await bot.send(
+                event=event, 
+                message=message,
             )
         else:
             pic_message = im[1]
@@ -524,10 +515,11 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
-                message_data = await bot.send(event=event, 
-                                          message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{fifo.img_hash}",
-                                          reply_message=True, 
-                                          at_sender=True, 
+                message_data = await bot.send(
+                    event=event, 
+                    message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{fifo.img_hash}",
+                    reply_message=True, 
+                    at_sender=True, 
             ) if (
                     await config.get_value(fifo.group_id, "pure")) or (
                     await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
@@ -535,29 +527,18 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 )
 
             except ActionFailed:
-                message_data = await bot.send(event=event, 
-                                             message=pic_message,
-                                             reply_message=True, 
-                                             at_sender=True, 
-                                )
+                message_data = await bot.send(
+                    event=event, 
+                    message=pic_message,
+                    reply_message=True, 
+                    at_sender=True, 
+                )
 
             revoke = await config.get_value(fifo.group_id, "revoke")
             if revoke:
-                message_id = message_data["message_id"]
-                loop = get_running_loop()
-                loop.call_later(
-                    revoke,
-                    lambda: loop.create_task(
-                        bot.delete_msg(message_id=message_id)),
-                )
+                await revoke_msg(message_data, bot, revoke)
             message_data = await bot.send(event=event, message=f"{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}")
-            message_id = message_data["message_id"]
-            loop = get_running_loop()
-            loop.call_later(
-                random.randint(30, 60),
-                lambda: loop.create_task(
-                    bot.delete_msg(message_id=message_id)),
-            )
+            await revoke_msg(message_data, bot)
     if fifo:
         await generate(fifo)
 

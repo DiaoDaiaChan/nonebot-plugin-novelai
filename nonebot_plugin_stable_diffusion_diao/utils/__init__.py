@@ -6,6 +6,7 @@ import base64
 import random
 from nonebot import logger
 from ..config import config
+from asyncio import get_running_loop
 
 
 async def check_last_version(package: str):
@@ -51,7 +52,7 @@ async def png2jpg(raw: bytes):
     img_PIL = Image.open(raw).convert("RGB")
     image_new = BytesIO()
     img_PIL.save(image_new, format="JPEG", quality=95)
-    image_new=image_new.getvalue()
+    image_new = image_new.getvalue()
     return image_new
 
 
@@ -69,15 +70,18 @@ async def unload_and_reload(backend_index: int=None, backend_site=None):
             logger.info("重载模型成功")
             
             
-async def pic_audit_standalone(img_base64, 
-                               is_return_tags=False, 
-                               audit=False, 
-                               return_none=False
+async def pic_audit_standalone(
+    img_base64, 
+    is_return_tags=False, 
+    audit=False, 
+    return_none=False
 ):
-    if isinstance(img_base64, bytes):
-        img_base64 = base64.b64encode(img_base64).decode()
+    btye_img = (BytesIO(img_base64) if isinstance(img_base64, bytes) 
+                else BytesIO(base64.b64decode(img_base64))
+                )
+    new_img = Image.open(btye_img)
+    img_base64 = await set_res(new_img)
     payload = {"image": img_base64, "model": f"{config.tagger_model}", "threshold": 0.35 }
-
     async with aiohttp.ClientSession() as session:
         async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:
             if resp.status not in [200, 201]:
@@ -130,3 +134,38 @@ def get_generate_info(fifo, info):
     for key, value in zip(list(fifo_dict.keys()), list(fifo_dict.values())):
         generate_info += f"[{key}]: {value}\n"
     return generate_info
+
+
+async def set_res(new_img: Image) -> str:
+    max_res = config.novelai_size_org
+    old_res = new_img.width * new_img.height
+    width = new_img.width
+    height = new_img.height
+
+    if old_res > pow(max_res, 2):
+        if width <= height:
+            ratio = height/width
+            width: float = max_res/pow(ratio, 0.5)
+            height: float = width*ratio
+        else:
+            ratio = width/height
+            height: float = max_res/pow(ratio, 0.5)
+            width: float = height*ratio
+
+        new_img.resize((round(width), round(height)))
+    img_bytes =  BytesIO()
+    new_img.save(img_bytes, format="JPEG")
+    img_bytes = img_bytes.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+    return img_base64
+    
+    
+async def revoke_msg(message_data, bot, time=None):
+    message_id = message_data["message_id"]
+    recall_time = time or random.randint(30, 110)
+    loop = get_running_loop()
+    loop.call_later(
+        recall_time,
+        lambda: loop.create_task(
+            bot.delete_msg(message_id=message_id)),
+    )

@@ -61,12 +61,13 @@ async def sd_LoadBalance():
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
     for resp_tuple in all_resp:
         e += 1 
-        if isinstance(resp_tuple,
-                      (aiohttp.ContentTypeError,
-                       asyncio.exceptions.TimeoutError,
-                       aiohttp.ClientTimeout,
-                       Exception)
-                       ):
+        if isinstance(
+            resp_tuple,
+            (aiohttp.ContentTypeError,
+            asyncio.exceptions.TimeoutError,
+            aiohttp.ClientTimeout,
+            Exception)
+        ):
             print(f"后端{list(config.novelai_backend_url_dict.keys())[e]}掉线")
         else:
             try:
@@ -90,10 +91,11 @@ async def sd_LoadBalance():
             progress = int(resp_tuple[0]["progress"]*100)
             show_str = f"{list(backend_url_dict.keys())[e]}"
             show_str = show_str.ljust(25, "-")
-            with tqdm(total=total,
-                      desc=show_str + "-->",
-                      bar_format="{l_bar}{bar}|"
-                      ) as pbar:
+            with tqdm(
+                total=total,
+                desc=show_str + "-->",
+                bar_format="{l_bar}{bar}|"
+            ) as pbar:
                 pbar.update(progress)
                 time.sleep(0.1)
     if config.novelai_load_balance_mode == 1:

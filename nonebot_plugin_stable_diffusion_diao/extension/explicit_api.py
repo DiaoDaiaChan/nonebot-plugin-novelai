@@ -1,4 +1,5 @@
 from ..config import config, nickname
+from ..utils import revoke_msg
 from ..utils.save import save_img
 from ..utils import sendtosuperuser, pic_audit_standalone
 from io import BytesIO
@@ -24,17 +25,19 @@ async def send_qr_code(bot, fifo, img_url):
     img.save(file_name)
     with open(file_name, 'rb') as f:
         bytes_img = f.read()
-    await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
+    message_data = await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
     os.remove(file_name)
+    return message_data
 
 
-async def check_safe_method(fifo, 
-                            img_bytes, 
-                            message: list, 
-                            bot_id=None, 
-                            save_img_=True, 
-                            extra_lable="",
-                            ) -> list:
+async def check_safe_method(
+    fifo, 
+    img_bytes, 
+    message: list, 
+    bot_id=None, 
+    save_img_=True, 
+    extra_lable="",
+) -> list:
     try:
         bot = nonebot.get_bot(bot_id)
     except:
@@ -87,37 +90,45 @@ async def check_safe_method(fifo,
                 img_url = re.findall(url_regex, str(message_all["message"]))
                 if htype == 1:
                     try:
-                        await bot.send_private_msg(user_id=fifo.user_id, 
-                                                    message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
-                                                    )
+                        message_data = await bot.send_private_msg(
+                            user_id=fifo.user_id, 
+                            message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                        )
                     except ActionFailed:
-                        await bot.send_group_msg(group_id=fifo.group_id, 
-                                                    message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
-                                                    )
+                        message_data = await bot.send_group_msg(
+                            group_id=fifo.group_id, 
+                            message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
+                        )
                 elif htype == 2:
                     try:
-                        await bot.send_group_msg(group_id=fifo.group_id, 
-                                                    message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
-                                                    )
+                        message_data = await bot.send_group_msg(
+                            group_id=fifo.group_id, 
+                            message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
+                        )
                     except ActionFailed:
                         try:
-                            await bot.send_private_msg(user_id=fifo.user_id, 
-                                                        message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
-                                                        )
+                            message_data = await bot.send_private_msg(
+                                user_id=fifo.user_id, 
+                                message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                            )
                         except ActionFailed:
                             try:
-                                await bot.send_group_msg(group_id=fifo.group_id, 
-                                                            message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
-                                                            )
+                                message_data = await bot.send_group_msg(
+                                    group_id=fifo.group_id, 
+                                    message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
+                                )
                             except ActionFailed:
-                                await send_qr_code(bot, fifo, img_url)
+                                message_data = await send_qr_code(bot, fifo, img_url)
                 elif htype == 3:
-                    await send_qr_code(bot, fifo, img_url)
+                    message_data = await send_qr_code(bot, fifo, img_url)
                 elif htype == 4:
                     await bot.send_group_msg(
                         group_id=fifo.group_id, 
                         message="太色了, 不准看"
                     )
+                revoke = await config.get_value(fifo.group_id, "revoke")
+                if revoke:
+                    await revoke_msg(message_data, bot, revoke)
         else:
             if fifo.sr:
                 try:
