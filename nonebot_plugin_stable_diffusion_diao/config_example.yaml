@@ -1,0 +1,178 @@
+# --------------------------------
+# key或者后台设置
+# --------------------------------
+bing_key: null  # bing的翻译key
+deepl_key: null  # deepL的翻译key
+baidu_translate_key:
+    SECRET_KEY: ""
+    API_KEY: ""
+# 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
+novelai_tagger_site: "la.iamdiao.lol:6884"  # 分析功能的地址 例如 127.0.0.1:7860
+tagger_model: "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
+vits_site: "la.iamdiao.lol:587"
+novelai_pic_audit_api_key:
+    SECRET_KEY: ""
+    API_KEY: ""
+# 你的百度云API Key
+openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
+openai_proxy_site: "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
+proxy_site: null  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
+trans_api: "la.iamdiao.lol:5000"  # 自建翻译API
+# --------------------------------
+# 开关设置
+# --------------------------------
+novelai_antireport: true  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
+novelai_on: true  # 是否全局开启
+novelai_save_png: false  # 是否保存为PNG格式
+novelai_pure: true  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
+novelai_extra_pic_audit: true  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
+run_screenshot: false  # 获取服务器的屏幕截图
+is_redis_enable: true  # 是否启动redis, 启动redis以获得更多功能
+auto_match: true  # 是否自动匹配
+hr_off_when_cn: true  # 使用controlnet功能的时候关闭高清修复
+only_super_user: true  # 只有超级用户才能永久更换模型
+tiled_diffusion: false  # 使用tiled-diffusion来生成图片
+save_img: true  # 是否保存图片(API侧)
+openpose: false  # 使用openpose dwopen生图，大幅度降低肢体崩坏
+sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+# --------------------------------
+# 模式选择
+# --------------------------------
+novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
+novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
+novelai_paid: 3  # 0为禁用付费模式，1为点数制，2为不限制
+novelai_htype: 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
+novelai_h: 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+novelai_picaudit: 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+novelai_todaygirl: 1  # 可选值 1 和 2 两种不同的方式
+# --------------------------------
+# 负载均衡设置
+# --------------------------------
+novelai_load_balance: true  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
+novelai_load_balance_mode: 1  # 负载均衡模式, 1为随机, 2为加权随机选择
+novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
+# 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
+novelai_backend_url_dict:
+    "雕雕的后端": "la.iamdiao.lol:5938"
+    "雕雕的后端2": "la.iamdiao.lol:1521"
+# --------------------------------
+# post参数设置
+# --------------------------------
+novelai_tags: ""  # 内置的tag
+novelai_ntags: ""  # 内置的反tag
+novelai_steps: null  # 默认步数
+novelai_scale: 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
+novelai_random_scale: false  # 是否开启随机CFG
+novelai_random_scale_list:
+- - 5
+  - 0.4
+- - 6
+  - 0.4
+- - 7
+  - 0.2
+novelai_random_ratio: true  # 是否开启随机比例
+novelai_random_ratio_list: 
+- - p
+  - 0.7
+- - s
+  - 0.1
+- - l
+  - 0.1
+- - uw
+  - 0.05
+- - uwp
+  - 0.05
+novelai_random_sampler: false  # 是否开启随机采样器
+novelai_random_sampler_list: 
+- - Euler a
+  - 0.9
+- - DDIM
+  - 0.1
+novelai_sampler: null  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
+novelai_hr: true  # 是否启动高清修复
+novelai_hr_scale: 1.5  # 高清修复放大比例
+novelai_hr_payload: 
+    enable_hr: true
+    denoising_strength: 0.4  # 重绘幅度
+    hr_scale: 1.5  # 高清修复比例, 1.5为长宽分辨率各X1.5
+    hr_upscaler: "R-ESRGAN 4x+ Anime6B"  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
+    hr_second_pass_steps: 7  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
+novelai_SuperRes_MaxPixels: 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
+novelai_SuperRes_generate: false  # 图片生成后是否再次进行一次超分
+novelai_SuperRes_generate_payload: 
+    upscaling_resize: 1.2  # 超分倍率, 为长宽分辨率各X1.2
+    upscaler_1: "Lanczos"  # 第一次超分使用的方法
+    upscaler_2: "R-ESRGAN 4x+ Anime6B"  # 第二次超分使用的方法
+    extras_upscaler_2_visibility: 0.6  # 第二层upscaler力度
+novelai_ControlNet_post_method: 0
+control_net: 
+    - "lineart_anime"
+    - "control_v11p_sd15s2_lineart_anime [3825e83e]"  # 处理器和模型
+# --------------------------------
+# 插件设置
+# --------------------------------
+novelai_command_start: 
+    - "绘画"
+    - "咏唱"
+    - "召唤"
+    - "约稿"
+    - "aidraw"
+    - "画"
+    - "绘图"
+    - "AI绘图"
+    - "ai绘图"
+novelai_retry: 4  # post失败后重试的次数
+novelai_site: "la.iamdiao.lol:5938"
+novelai_daylimit: 24  # 每日次数限制，0为禁用
+# 可运行更改的设置
+novelai_cd: 60  # 默认的cd
+novelai_group_cd: 3  # 默认的群共享cd
+novelai_revoke: 0  # 是否自动撤回，该值不为0时，则为撤回时间
+novelai_size_org: 640  # 最大分辨率
+# 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
+# --------------------------------
+# 脚本设置
+# --------------------------------
+custom_scripts:
+-
+  "Tiled Diffusion":
+    args: [true, "MultiDiffusion", false, true, 1024, 1024, 96, 96, 48, 1, "None", 2, false, 10, 1, []]
+  "Tiled VAE":
+    args: [true, 1536, 96, false, true, true]
+- "ADetailer":
+    args:
+        - true
+        - 
+            ad_model: "mediapipe_face_mesh_eyes_only"
+            ad_prompt: ""
+            ad_negative_prompt: ""
+            ad_confidence: 0.1
+            ad_mask_min_ratio: 0
+            ad_mask_max_ratio: 1
+            ad_x_offset: 0
+            ad_y_offset: 0
+            ad_dilate_erode: 4
+            ad_mask_merge_invert: "None"
+            ad_mask_blur: 4
+            ad_denoising_strength: 0.4
+            ad_inpaint_only_masked: true
+            ad_inpaint_only_masked_padding: 32
+            ad_use_inpaint_width_height: false
+            ad_inpaint_width: 512
+            ad_inpaint_height: 512
+            ad_use_steps: false
+            ad_steps: 28
+            ad_use_cfg_scale: false
+            ad_cfg_scale: 7
+            ad_use_sampler: false
+            ad_sampler: "Euler a"
+            ad_use_noise_multiplier: false
+            ad_noise_multiplier: 1
+            ad_use_clip_skip: false
+            ad_clip_skip: 1
+            ad_restore_face: false
+- "Self Attention Guidance":
+    args: [true, 0.75, 1.5]
+scripts:
+- name: "x/y/z plot"
+  args: [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]

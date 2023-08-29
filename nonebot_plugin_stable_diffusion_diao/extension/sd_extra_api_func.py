@@ -1022,12 +1022,13 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
             img_list = []
             for i in img_byte_list:
                 img_list.append(f"{MessageSegment.image(i)}")
-            await send_forward_msg(bot, 
-                                   event, 
-                                   event.sender.nickname, 
-                                   event.user_id, 
-                                   img_list
-                                   )
+            await send_forward_msg(
+                bot, 
+                event, 
+                event.sender.nickname, 
+                event.user_id, 
+                img_list
+            )
             
     else:
         await rembg.reject("请重新发送图片")

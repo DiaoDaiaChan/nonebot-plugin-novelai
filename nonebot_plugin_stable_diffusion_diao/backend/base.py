@@ -53,6 +53,7 @@ class AIDRAW_BASE:
         td = None,
         xyz_plot = None,
         open_pose = False,
+        sag = False,
         **kwargs,
     ):
         """
@@ -149,6 +150,7 @@ class AIDRAW_BASE:
         self.xyz_plot = xyz_plot
         self.open_pose = config.openpose or open_pose
         self.post_parms = None
+        self.sag = config.sag or sag
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -286,18 +288,18 @@ class AIDRAW_BASE:
                     if resp_dict["error"] == "OutOfMemoryError":
                         logger.info("检测到爆显存，执行自动模型释放并加载")
                         await unload_and_reload(backend_site=self.backend_site)
-                spend_time = time.time() - self.start_time
-                self.spend_time = f"{spend_time:.2f}秒"
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
                 if self.open_pose or config.openpose:
                     img = await self.dwpose(img, header)
+                spend_time = time.time() - self.start_time
+                self.spend_time = f"{spend_time:.2f}秒"
                 # 将图片转化为jpg
                 if config.novelai_save == 1:
                     image_new = await png2jpg(img)
                 else:
                     image_new = base64.b64decode(img)
-                self.img_hash = f"图片id:{hashlib.md5(image_new).hexdigest()}"
+                self.img_hash = f"图片id:\n{hashlib.md5(image_new).hexdigest()}"
         current_date = datetime.now().date()
         day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
         try:
@@ -429,13 +431,15 @@ class AIDRAW_BASE:
     async def dwpose(self, img_base64, header):
         logger.info("开始进行dwpose处理")
         payload = self.post_parms
-        payload.update(config.novelai_ControlNet_payload[config.novelai_ControlNet_post_method])
+        payload["alwayson_scripts"].update(config.novelai_ControlNet_payload[config.novelai_ControlNet_post_method]["alwayson_scripts"])
         replace_dict = {
             "module": "dw_openpose_full", 
-            "model": "control_v11p_sd15_openpose [cab727d4]"
+            "model": "control_v11p_sd15_openpose [cab727d4]",
+            "image": img_base64,
         }
         enable_hr = False if self.disable_hr else True
         payload.update({"enable_hr": enable_hr})
+        payload["steps"] = self.steps
         payload["alwayson_scripts"]["controlnet"]["args"][0].update(replace_dict)
         async with aiohttp.ClientSession(headers=header) as session:
             async with session.post(

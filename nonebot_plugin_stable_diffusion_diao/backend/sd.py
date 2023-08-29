@@ -78,7 +78,8 @@ class AIDRAW(AIDRAW_BASE):
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
             "denoising_strength": self.strength,
-            "save_images": config.save_img
+            "save_images": config.save_img,
+            "alwayson_scripts": {}
         }
         
         if self.model_index:
@@ -122,10 +123,13 @@ class AIDRAW(AIDRAW_BASE):
             #     args[0] = 
         if self.open_pose:
             parameters.update({"enable_hr": "false"})
+            parameters["steps"] = 12
         if self.td or config.tiled_diffusion:
-            parameters.update({"alwayson_scripts": config.custom_scripts[0]})
+            parameters["alwayson_scripts"].update(config.custom_scripts[0])
+        if self.sag:
+            parameters["alwayson_scripts"].update(config.custom_scripts[2]) 
         if self.custom_scripts is not None:
-            parameters.update({"alwayson_scripts": config.custom_scripts[self.custom_scripts]})
+            parameters["alwayson_scripts"].update(config.custom_scripts[self.custom_scripts])
         if self.scripts is not None:
             parameters.update({"script_name": config.scripts[self.scripts]["name"], "script_args": config.scripts[self.scripts]["args"]})
         if self.control_net["control_net"] == True and config.novelai_hr:
@@ -171,12 +175,18 @@ class AIDRAW(AIDRAW_BASE):
             else:
                 if config.novelai_load_balance is False:
                     try:
-                        self.backend_name = (list(config.novelai_backend_url_dict.keys())[self.backend_index] 
-                                             if self.backend_index 
-                                             else self.backend_name)
+                        self.backend_name = (
+                            list(config.novelai_backend_url_dict.keys())[self.backend_index] 
+                            if self.backend_index 
+                            else self.backend_name
+                        )
                     except Exception:
                         self.backend_name = ""
-                resp_list = await asyncio.gather(*[self.get_webui_config(self.backend_site), get_vram(self.backend_site)], return_exceptions=False)
+                resp_list = await asyncio.gather(
+                    *[self.get_webui_config(self.backend_site), 
+                    get_vram(self.backend_site)], 
+                    return_exceptions=False
+                )
                 resp_json = resp_list[0]
                 try:
                     if self.model is None:
@@ -185,7 +195,6 @@ class AIDRAW(AIDRAW_BASE):
                     self.model = ""
                 self.vram = resp_list[1]
                 break
-                
         generate_info = get_generate_info(self, "生成完毕")
         logger.info(
             f"{generate_info}")
