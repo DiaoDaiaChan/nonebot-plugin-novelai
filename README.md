@@ -10,7 +10,7 @@
 # 简要说明
 ## 由于雕雕比较菜，所以请时常检查更新(
 ## 本插件不配置插件也能正常启动，自带后端配置即开即用 
-### 雕主要是为stable-diffusion-webui更新了功能，novalai官方，naifu没动过，理论上也能工作，不过推荐使用本插件只使用sdwebui(
+### 配置文件路径config/novelai/config.yaml,放弃.env配置方法
 
 ## 指令示例
 .aidraw loli,cute --ntags big breast --seed 114514
@@ -81,6 +81,9 @@ lora
 放弃使用.env文件配置,请以后在config.yaml中配置
 绘画miku -sag
 使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+可以使用mj生成二次元的我图片
+config.yaml里设置proxy地址后
+二次元的我/mj 即可
 ## 8.29 0.4.2更新 可以是openpose的dwpose来生图
 ```
 openpose = True

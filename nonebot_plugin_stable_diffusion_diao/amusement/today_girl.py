@@ -1349,16 +1349,16 @@ async def _(bot: Bot,
     tags = basetag + tags
     ntags = lowQuality
     fifo = AIDRAW(
-      tags=tags, 
-      ntags=ntags, 
-      event=event
+    tags=tags, 
+    ntags=ntags, 
+    event=event
     )
     if mj_mode:
         tags = 'cute girl, ' + tags
         fifo = MJ_AIDRAW(
-          tags=tags, 
-          ntags='', 
-          event=event
+        tags=tags, 
+        ntags='', 
+        event=event
         )
     if img_url:
         async with aiohttp.ClientSession() as session:
@@ -1374,7 +1374,7 @@ async def _(bot: Bot,
         img_msg = MessageSegment.image(fifo.result[0])
         if mj_mode:
             # MJ一次出四张图，进行切图，切无需审核
-            image_bytes = MJ_AIDRAW.split_image(fifo.result[0])
+            image_bytes = await MJ_AIDRAW.split_image(fifo.result[0])
             img_msg = ''
             for i in range(4):
                 img_msg += MessageSegment.image(image_bytes[i])
