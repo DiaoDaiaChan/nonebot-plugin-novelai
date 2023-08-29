@@ -35,6 +35,8 @@ class Config(BaseSettings):
     # novelai: dict = {"novelai":""}# 你的服务器地址（包含端口），不包含http头，例:127.0.0.1:6969
     novelai_mode: str = "sd"
     novelai_site: str = "la.iamdiao.lol:5938"
+    novelai_mj_proxy: str = "" # 必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
+    novelai_mj_token: str = "" # 选填，鉴权用
     # 后台设置
     novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_save_png: bool = False  # 是否保存为PNG格式
