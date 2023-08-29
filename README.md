@@ -84,6 +84,7 @@ lora
 可以使用mj生成二次元的我图片
 config.yaml里设置proxy地址后
 二次元的我/mj 即可
+mj功能来自 @noahzark
 ## 8.29 0.4.2更新 可以是openpose的dwpose来生图
 ```
 openpose = True
