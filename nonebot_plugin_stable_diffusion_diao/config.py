@@ -333,8 +333,7 @@ def copy_config(source_template, destination_file):
     shutil.copy(source_template, destination_file)
     
 
-def rewrite_yaml():
-    config = Config(**get_driver().config.dict())
+def rewrite_yaml(config):
     config_dict = config.__dict__
     with open(config_file_path, 'r', encoding="utf-8") as f:
         yaml_data = yaml.load(f)
@@ -369,19 +368,18 @@ source_template = os.path.join(current_dir, "config_example.yaml")
 destination_folder = "config/novelai/"
 destination_file = os.path.join(destination_folder, "config.yaml")
 yaml = YAML()
+config = Config(**get_driver().config.dict())
 
 if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
     copy_config(source_template, destination_file)
-    rewrite_yaml()
+    rewrite_yaml(config)
 else:
     logger.info("配置文件存在,正在读取")
     if check_yaml_is_changed(source_template):
         logger.info("新的配置已更新,正在更新")
-        config = Config(**get_driver().config.dict())
-        config_dict = config.__dict__
-        rewrite_yaml()
+        rewrite_yaml(config)
     else:
         with open(config_file_path, "r", encoding="utf-8") as f:
             yaml_config = yaml.load(f, Loader=yaml.FullLoader)
