@@ -33,6 +33,9 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 await deepdanbooru.finish("识别失败")
             h_, tags = resp_tuple
             tags = ", ".join(tags)
+            tags = tags.replace(
+                'general, sensitive, questionable, explicit, ', "", 1)
+            tags = tags.replace("_", " ")
 
         else:
             async with aiohttp.ClientSession() as session:
@@ -48,8 +51,8 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 tags = ""
                 for label in data['confidences']:
                     tags = tags+label["label"]+","
-        tags_ch = await translate(tags.replace("_", " "), "zh")
-        message_list = [MessageSegment.image(bytes_), tags, f"\n机翻结果:" + tags_ch]
+        tags_ch = await translate(tags, "zh")
+        message_list = [MessageSegment.image(bytes_), tags, f"机翻结果:\n" + tags_ch]
         if h_:
             message_list = message_list + [h_]
         try: 
