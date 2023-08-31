@@ -7,7 +7,7 @@ import traceback
 from tqdm import tqdm
 from datetime import datetime
 import redis
-import yaml
+import yaml as yaml_
 import os
 from typing import Tuple
 from ruamel.yaml import YAML
@@ -132,11 +132,8 @@ class Config(BaseSettings):
     novelai_group_cd: int = 3  # 默认的群共享cd
     novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
     novelai_size_org: int = 640  # 最大分辨率
+    novelai_size: int = 0
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
-    if novelai_hr:
-        novelai_size: int = novelai_size_org
-    else:
-        novelai_size: int = novelai_size_org * novelai_hr_payload["hr_scale"]
     '''
     脚本设置
     '''
@@ -192,12 +189,7 @@ class Config(BaseSettings):
         }
     ]
     scripts = [{"name": "x/y/z plot", "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]}]
-    novelai_cndm: dict = {
-        "controlnet_module": "canny", 
-        "controlnet_processor_res": novelai_size, 
-        "controlnet_threshold_a": 100, 
-        "controlnet_threshold_b": 250
-    }
+    novelai_cndm: dict = {}
     '''
     过时设置
     '''
@@ -317,6 +309,102 @@ class Config(BaseSettings):
             logger.debug(f"不正确的赋值,{arg_},{value},{type(value)}")
             return False
 
+
+async def check_working_record(r3, day):
+    '''
+    匹配数据库中的后端是否和配置文件中的相同
+    '''
+    if r3.exists(day):
+        is_changed = False
+        today_dict = r3.get(day)
+        today_dict = ast.literal_eval(today_dict.decode('utf-8'))
+        today_gpu_dict: dict = today_dict["gpu"]
+        backend_name_list = list(today_gpu_dict.keys())
+        logger.info("开始匹配redis中的后端数据")
+        if len(backend_name_list) != len(config.backend_name_list):
+            is_changed = True
+        for backend_name in config.backend_name_list:
+            if backend_name not in backend_name_list:
+                is_changed = True
+        if is_changed:
+            today_gpu_dict = {}
+            for backend_name in config.backend_name_list:
+                today_gpu_dict[backend_name] = 0
+            logger.info("更新redis中的后端数据...")
+            logger.warning("请注意,本日后端的工作数量会被清零")
+            today_dict["gpu"] = today_gpu_dict
+            r3.set(day, str(today_dict))
+
+async def get_redis_client():
+    
+    redis_client = []
+    r1 = redis.Redis(host='localhost', port=6379, db=7)
+    r2 = redis.Redis(host='localhost', port=6379, db=8)
+    r3 = redis.Redis(host='localhost', port=6379, db=9)
+    redis_client = [r1, r2, r3]
+    logger.info("redis连接成功")
+    current_date = datetime.now().date()
+    day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+    
+    await check_working_record(r3, day)
+    
+    logger.info("开始读取webui的预设")
+    all_style_list, all_emb_list, all_lora_list = [], [], []
+    backend_emb, backend_lora = {}, {}
+    all_resp_style = await this_is_a_func(0)
+    
+    for backend_style in all_resp_style:
+        if backend_style is not None:
+            for style in backend_style:
+                all_style_list.append(json.dumps(style))
+                
+    logger.info("读取webui的预设完成")
+    logger.info("开始读取webui的embs")
+    normal_backend_index = -1
+    all_emb_list = await this_is_a_func(1)
+    
+    for back_emb in all_emb_list:
+        normal_backend_index += 1
+        if back_emb is not None:
+            emb_dict = {}
+            n = 0
+            for emb in list(back_emb["loaded"].keys()):
+                n += 1
+                emb_dict[n] = emb
+            backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict
+        else:
+            backend_emb[config.backend_name_list[normal_backend_index]] = None
+            
+    logger.info("开始读取webui的loras")
+    all_lora_list = await this_is_a_func(2)
+    normal_backend_index = -1
+    
+    for back_lora in all_lora_list:
+        normal_backend_index += 1
+        if back_lora is not None:
+            lora_dict = {}
+            n = 0
+            for lora in back_lora:
+                lora_name = lora["name"]
+                n += 1
+                lora_dict[n] = lora_name
+            backend_lora[config.backend_name_list[normal_backend_index]] = lora_dict
+        else:
+            backend_lora[config.backend_name_list[normal_backend_index]] = None
+            
+    logger.info("存入数据库...")
+    if r2.exists("emb"):
+        r2.delete(*["style", "emb", "lora"])
+    pipe = r2.pipeline()
+    if len(all_style_list) != 0:
+        pipe.rpush("style", *all_style_list)
+    pipe.set("emb", str(backend_emb))
+    pipe.set("lora", str(backend_lora))
+    pipe.execute()
+    
+    return redis_client
+
+
 async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
     try:
         async with aiohttp.ClientSession() as session:
@@ -335,11 +423,10 @@ def copy_config(source_template, destination_file):
     shutil.copy(source_template, destination_file)
     
 
-def rewrite_yaml(config, source_template):
-    config_dict = config.__dict__
+def rewrite_yaml(old_config, source_template):
     with open(source_template, 'r', encoding="utf-8") as f:
         yaml_data = yaml.load(f)
-        for key, value in config_dict.items():
+        for key, value in old_config.items():
             yaml_data[key] = value
     with open(config_file_path, 'w', encoding="utf-8") as f:
         yaml.dump(yaml_data, f)
@@ -352,10 +439,13 @@ def check_yaml_is_changed(source_template):
         example_ = yaml.load(f)
     keys1 = set(example_.keys())
     keys2 = set(old.keys())
+    logger.info(f"检测到键更改{keys1 - keys2}")
+    # print(f"{keys1}\n{keys2}")
     if keys1 == keys2:
         return False
     else:
         return True
+
 
 async def this_is_a_func(end_point_index):
     task_list = []
@@ -364,6 +454,7 @@ async def this_is_a_func(end_point_index):
         task_list.append(get_(site, end_point_list[end_point_index]))
     all_resp = await asyncio.gather(*task_list, return_exceptions=False)
     return all_resp
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 source_template = os.path.join(current_dir, "config_example.yaml")
@@ -376,16 +467,19 @@ if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
     copy_config(source_template, destination_file)
-    rewrite_yaml(config, source_template)
+    rewrite_yaml(config.__dict__, source_template)
 else:
     logger.info("配置文件存在,正在读取")
     if check_yaml_is_changed(source_template):
         logger.info("新的配置已更新,正在更新")
-        rewrite_yaml(config, source_template)
+        with open(config_file_path, 'r', encoding="utf-8") as f:
+            old_config = yaml.load(f)
+        rewrite_yaml(old_config, source_template)
     else:
         with open(config_file_path, "r", encoding="utf-8") as f:
-            yaml_config = yaml.load(f, Loader=yaml.FullLoader)
+            yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
             config = Config(**yaml_config)
+            
 config.backend_name_list = list(config.novelai_backend_url_dict.keys())
 config.backend_site_list = list(config.novelai_backend_url_dict.values())
 config.novelai_ControlNet_payload = [
@@ -424,100 +518,26 @@ config.novelai_ControlNet_payload = [
                 "threshold_b": 250}]
         }
     ]
+if config.novelai_hr:
+    config.novelai_size: int = config.novelai_size_org
+else:
+    config.novelai_size: int = config.novelai_size_org * config.novelai_hr_payload["hr_scale"]
+config.novelai_cndm = {
+        "controlnet_module": "canny", 
+        "controlnet_processor_res": config.novelai_size, 
+        "controlnet_threshold_a": 100, 
+        "controlnet_threshold_b": 250
+    }
 
 try:
     import tensorflow
 except ImportError:
     logger.warning("未能成功导入tensorflow")
     logger.warning("novelai_picaudit为2时本地图片审核不可用")
+    
 if config.is_redis_enable:
     try:
-        async def main():
-            redis_client = []
-            r1 = redis.Redis(host='localhost', port=6379, db=7)
-            r2 = redis.Redis(host='localhost', port=6379, db=8)
-            r3 = redis.Redis(host='localhost', port=6379, db=9)
-            redis_client = [r1, r2, r3]
-            logger.info("redis连接成功")
-            current_date = datetime.now().date()
-            day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
-            
-            if r3.exists(day):
-                is_changed = False
-                today_dict = r3.get(day)
-                today_dict = ast.literal_eval(today_dict.decode('utf-8'))
-                today_gpu_dict: dict = today_dict["gpu"]
-                backend_name_list = list(today_gpu_dict.keys())
-                logger.info("开始匹配redis中的后端数据")
-                if len(backend_name_list) != len(config.backend_name_list):
-                    is_changed = True
-                for backend_name in config.backend_name_list:
-                    if backend_name not in backend_name_list:
-                        is_changed = True
-                if is_changed:
-                    today_gpu_dict = {}
-                    for backend_name in config.backend_name_list:
-                        today_gpu_dict[backend_name] = 0
-                    logger.info("更新redis中的后端数据...")
-                    logger.warning("请注意,本日后端的工作数量会被清零")
-                    today_dict["gpu"] = today_gpu_dict
-                    r3.set(day, str(today_dict))
-            logger.info("开始读取webui的预设")
-            all_style_list, all_emb_list, all_lora_list = [], [], []
-            backend_emb, backend_lora = {}, {}
-            all_resp_style = await this_is_a_func(0)
-            
-            for backend_style in all_resp_style:
-                if backend_style is not None:
-                    for style in backend_style:
-                        all_style_list.append(json.dumps(style))
-            logger.info("读取webui的预设完成")
-            logger.info("开始读取webui的embs")
-            normal_backend_index = -1
-            all_emb_list = await this_is_a_func(1)
-            
-            for back_emb in all_emb_list:
-                normal_backend_index += 1
-                if back_emb is not None:
-                    emb_dict = {}
-                    n = 0
-                    for emb in list(back_emb["loaded"].keys()):
-                        n += 1
-                        emb_dict[n] = emb
-                    backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict
-                else:
-                    backend_emb[config.backend_name_list[normal_backend_index]] = None
-                    
-            logger.info("开始读取webui的loras")
-            all_lora_list = await this_is_a_func(2)
-            normal_backend_index = -1
-            
-            for back_lora in all_lora_list:
-                normal_backend_index += 1
-                if back_lora is not None:
-                    lora_dict = {}
-                    n = 0
-                    for lora in back_lora:
-                        lora_name = lora["name"]
-                        n += 1
-                        lora_dict[n] = lora_name
-                    backend_lora[config.backend_name_list[normal_backend_index]] = lora_dict
-                else:
-                    backend_lora[config.backend_name_list[normal_backend_index]] = None
-                    
-            logger.info("存入数据库...")
-            if r2.exists("emb"):
-                r2.delete(*["style", "emb", "lora"])
-            pipe = r2.pipeline()
-            if len(all_style_list) != 0:
-                pipe.rpush("style", *all_style_list)
-            pipe.set("emb", str(backend_emb))
-            pipe.set("lora", str(backend_lora))
-            pipe.execute()
-            
-            return redis_client
-        
-        redis_client = asyncio.run(main())
+        redis_client = asyncio.run(get_redis_client())
     except Exception:
         redis_client = None
         logger.warning(traceback.print_exc())

@@ -3,6 +3,7 @@ import aiofiles
 import os
 import json
 import asyncio
+import random
 
 from nonebot.rule import ArgumentParser
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, MessageSegment
@@ -39,7 +40,7 @@ async def download_img(url: str) -> bytes or None:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 content = await resp.read()
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(random.randint(1, 10) / 10)
                 return content
     except:
         return None
@@ -47,6 +48,7 @@ async def download_img(url: str) -> bytes or None:
 
 @civitai_.handle()
 async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
+    
     token_file_name = "data/novelai/civitai.json"
     
     if args.download:
@@ -71,22 +73,25 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                     for end_point in post_end_point_list:
                         backend_url = f"http://{site}{end_point}"
                         task_list.append(aiohttp_func("post", backend_url, {}))
+                        
                     _ = await asyncio.gather(*task_list, return_exceptions=False)
                     model_name:str = resp['name']
                     lora_ = model_name.split(".")[0]
                     
                     if args.run_:
-                        fifo = AIDRAW(tags=f"<lora:{lora_}:0.7>", 
-                                      ntags=lowQuality, 
-                                      event=event,
-                                      backend_index=int(args.backend),
+                        fifo = AIDRAW(
+                            tags=f"<lora:{lora_}:0.7>", 
+                            ntags=lowQuality, 
+                            event=event,
+                            backend_index=int(args.backend),
                         )
                         fifo.backend_site = site
                         await fifo.post()
-                        await bot.send(event, 
-                                       message=MessageSegment.image(fifo.result[0]), 
-                                       reply_message=True, 
-                                       at_sender=True
+                        await bot.send(
+                            event, 
+                            message=MessageSegment.image(fifo.result[0]), 
+                            reply_message=True, 
+                            at_sender=True
                         )
                     await civitai_.finish(f"下载成功！模型哈希值: {resp['hash']}, 耗时: {resp['spend_time']}秒\n模型文件名: {model_name}")
             else:
@@ -129,9 +134,10 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         }
         
         async with aiohttp.ClientSession(headers=search_headers) as session:
-            async with session.post(search_post_url, 
-                                    json=search_payload, 
-                                    proxy=config.proxy_site
+            async with session.post(
+                search_post_url, 
+                json=search_payload, 
+                proxy=config.proxy_site
             ) as resp:
                 if resp.status == 200:
                     search_result = await resp.json()

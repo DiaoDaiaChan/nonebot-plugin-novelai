@@ -178,3 +178,15 @@ custom_scripts:
 scripts:
 - name: "x/y/z plot"
   args: [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]
+# 没有用的东西（
+novelai_ControlNet_payload:
+novelai_limit: false
+novelai_token:
+backend_site_list:
+backend_name_list:
+novelai_size:
+novelai_mode: sd
+novelai_max: 3
+novelai_cndm:
+novelai_auto_icon: false
+novelai_auto_icon2: false

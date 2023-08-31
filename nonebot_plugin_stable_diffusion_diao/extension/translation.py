@@ -18,7 +18,7 @@ async def translate(text: str, to: str):
                 await translate_google_proxy(text, to)
             )
         except:
-            logger.error(traceback.print_exc())
+            logger.warning(traceback.print_exc())
             logger.info(f"未找到可用的翻译引擎！,第{i+1}次重试")
             if i == config.novelai_retry:
                 logger.error(f"重试{i}次后依然失败")

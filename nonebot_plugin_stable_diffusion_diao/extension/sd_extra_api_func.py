@@ -1013,11 +1013,12 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
             img_byte_list.append(base64.b64decode(resp_data["image"]))
         if len(img_byte_list) == 1:
                 img_mes = MessageSegment.image(img_byte_list[0])
-                await bot.send(event=event, 
-                               message=img_mes,
-                               at_sender=True, 
-                               reply_message=True
-                               ) 
+                await bot.send(
+                    event=event, 
+                    message=img_mes,
+                    at_sender=True, 
+                    reply_message=True
+                )
         else:
             img_list = []
             for i in img_byte_list:
