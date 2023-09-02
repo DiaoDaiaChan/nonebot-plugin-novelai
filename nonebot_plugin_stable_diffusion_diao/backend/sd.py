@@ -13,8 +13,8 @@ import ast
 
 
 header = {
-                "content-type": "application/json",
-                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+    "content-type": "application/json",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
 }
 
 
@@ -79,28 +79,33 @@ class AIDRAW(AIDRAW_BASE):
             "sampler_name": self.sampler,
             "denoising_strength": self.strength,
             "save_images": config.save_img,
-            "alwayson_scripts": {}
+            "alwayson_scripts": {},
+            "script_args": [],
+            "script_name": ""
         }
         
         if self.model_index:
             from ..extension.sd_extra_api_func import sd
             model_dict = await sd(self.backend_index or config.backend_site_list.index(self.backend_site), True)
-            self.model_index = self.model_index if self.model_index.isdigit() else await self.get_model_index(self.model_index, model_dict)
+            self.model_index = self.model_index if str(self.model_index).isdigit() else await self.get_model_index(self.model_index, model_dict)
             if self.is_random_model:
                 from ..extension.sd_extra_api_func import sd
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
             self.model = model_dict[int(self.model_index)]
             parameters.update(
-                {"override_settings": {"sd_model_checkpoint": self.model}, 
-                "override_settings_restore_afterwards": "true"}
+                {
+                "override_settings": {"sd_model_checkpoint": self.model}, 
+                "override_settings_restore_afterwards": "true"
+                }
             )
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
                 parameters.update(self.novelai_hr_payload)
-            parameters.update({
+            parameters.update(
+                {
                 "init_images": ["data:image/jpeg;base64,"+self.image],
                 "denoising_strength": self.strength,
-            }
+                }
             ) 
         else:
             if config.novelai_hr and self.disable_hr is False:

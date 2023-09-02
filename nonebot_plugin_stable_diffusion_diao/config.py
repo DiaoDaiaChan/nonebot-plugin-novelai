@@ -22,6 +22,7 @@ from pydantic.fields import ModelField
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
 config_file_path = Path("config/novelai/config.yaml").resolve()
+config_file_path_old = Path("config/novelai/config_old.yaml").resolve()
 redis_client = None
 backend_emb, backend_lora = None, None
 
@@ -104,7 +105,7 @@ class Config(BaseSettings):
     novelai_hr: bool = True  # 是否启动高清修复
     novelai_hr_scale: float = 1.5  # 高清修复放大比例
     novelai_hr_payload: dict = {
-        "enable_hr": "true", 
+        "enable_hr": True, 
         "denoising_strength": 0.4,  # 重绘幅度
         "hr_scale": novelai_hr_scale,  # 高清修复比例, 1.5为长宽分辨率各X1.5
         "hr_upscaler": "R-ESRGAN 4x+ Anime6B",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
@@ -112,6 +113,7 @@ class Config(BaseSettings):
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
     novelai_SuperRes_generate: bool = False  # 图片生成后是否再次进行一次超分
+    novelai_SuperRes_generate_way: str = None  # 可选fast和slow, slow需要用到Ultimate SD upscale脚本
     novelai_SuperRes_generate_payload: dict = {
         "upscaling_resize": 1.2,  # 超分倍率, 为长宽分辨率各X1.2
         "upscaler_1": "Lanczos",  # 第一次超分使用的方法
@@ -188,7 +190,16 @@ class Config(BaseSettings):
             }
         }
     ]
-    scripts = [{"name": "x/y/z plot", "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]}]
+    scripts = [
+        {
+            "name": "x/y/z plot", 
+            "args": [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]
+        }, 
+        {
+            "name": "ultimate sd upscale",
+            "args": [None, novelai_size_org*1.25, novelai_size_org*1.25, 8, 32, 64, 0.35, 32, 6, True, 0, False, 8, 0, 2, 2048, 2048, 2.0]
+        }
+    ]
     novelai_cndm: dict = {}
     '''
     过时设置
@@ -421,15 +432,19 @@ async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
 
 def copy_config(source_template, destination_file):
     shutil.copy(source_template, destination_file)
-    
 
-def rewrite_yaml(old_config, source_template):
-    with open(source_template, 'r', encoding="utf-8") as f:
-        yaml_data = yaml.load(f)
-        for key, value in old_config.items():
-            yaml_data[key] = value
-    with open(config_file_path, 'w', encoding="utf-8") as f:
-        yaml.dump(yaml_data, f)
+
+def rewrite_yaml(old_config, source_template, delete_old=False):
+    if delete_old:
+        shutil.copy(config_file_path, config_file_path_old)
+        os.remove(config_file_path)
+    else:
+        with open(source_template, 'r', encoding="utf-8") as f:
+            yaml_data = yaml.load(f)
+            for key, value in old_config.items():
+                yaml_data[key] = value
+        with open(config_file_path, 'w', encoding="utf-8") as f:
+            yaml.dump(yaml_data, f)
 
     
 def check_yaml_is_changed(source_template):
@@ -439,7 +454,6 @@ def check_yaml_is_changed(source_template):
         example_ = yaml.load(f)
     keys1 = set(example_.keys())
     keys2 = set(old.keys())
-    logger.info(f"检测到键更改{keys1 - keys2}")
     # print(f"{keys1}\n{keys2}")
     if keys1 == keys2:
         return False
@@ -471,10 +485,19 @@ if not config_file_path.exists():
 else:
     logger.info("配置文件存在,正在读取")
     if check_yaml_is_changed(source_template):
-        logger.info("新的配置已更新,正在更新")
+        logger.info("插件新的配置已更新,正在更新")
         with open(config_file_path, 'r', encoding="utf-8") as f:
             old_config = yaml.load(f)
-        rewrite_yaml(old_config, source_template)
+        logger.warning(
+'''
+请注意新的配置文件从.env读取并且生成,旧的配置文件命名为config_old.yaml,
+此操作是为了确保插件新的功能能运行成功.
+请手动前往复制更改到新的config.yaml文件！！！
+'''
+        )
+        rewrite_yaml(old_config, source_template, True)
+        copy_config(source_template, destination_file)
+        rewrite_yaml(config.__dict__, source_template)
     else:
         with open(config_file_path, "r", encoding="utf-8") as f:
             yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
@@ -527,7 +550,7 @@ config.novelai_cndm = {
         "controlnet_processor_res": config.novelai_size, 
         "controlnet_threshold_a": 100, 
         "controlnet_threshold_b": 250
-    }
+}
 
 try:
     import tensorflow

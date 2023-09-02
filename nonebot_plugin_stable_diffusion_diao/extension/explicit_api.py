@@ -50,13 +50,13 @@ async def check_safe_method(
     for i in img_bytes:
         # try:
         if isinstance(fifo.event, PrivateMessageEvent):
-            if fifo.sr:
-                try:
-                    from ..extension.sd_extra_api_func import super_res_api_func
-                    resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
-                except:
-                    logger.debug("超分API失效")
+            # if fifo.sr:
+            #     try:
+            #         from ..extension.sd_extra_api_func import super_res_api_func
+            #         resp_tuple = await super_res_api_func(i, 3)
+            #         i = resp_tuple[0]
+            #     except:
+            #         logger.debug("超分API失效")
             if save_img_:
                 await save_img(fifo, i, fifo.group_id)
             message.append(MessageSegment.image(i))
@@ -69,14 +69,14 @@ async def check_safe_method(
                 label = "unknown"
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
-                if fifo.sr:
-                    try:
-                        from ..extension.sd_extra_api_func import super_res_api_func
-                        resp_tuple = await super_res_api_func(i, 3)
-                        for i in resp_tuple:
-                            i = resp_tuple[0]
-                    except:
-                        pass
+                # if fifo.sr:
+                #     try:
+                #         from ..extension.sd_extra_api_func import super_res_api_func
+                #         resp_tuple = await super_res_api_func(i, 3)
+                #         for i in resp_tuple:
+                #             i = resp_tuple[0]
+                #     except:
+                #         pass
                 message.append(MessageSegment.image(i))
             else:
                 label = "_explicit"
@@ -130,13 +130,13 @@ async def check_safe_method(
                 if revoke:
                     await revoke_msg(message_data, bot, revoke)
         else:
-            if fifo.sr:
-                try:
-                    from ..extension.sd_extra_api_func import super_res_api_func
-                    resp_tuple = await super_res_api_func(i, 3)
-                    i = resp_tuple[0]
-                except:
-                    logger.debug("超分API失效")
+            # if fifo.sr:
+            #     try:
+            #         from ..extension.sd_extra_api_func import super_res_api_func
+            #         resp_tuple = await super_res_api_func(i, 3)
+            #         i = resp_tuple[0]
+            #     except:
+            #         logger.debug("超分API失效")
             if save_img_:
                 await save_img(fifo, i, fifo.group_id+extra_lable)
             message.append(MessageSegment.image(i))
@@ -154,8 +154,8 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'
 }
-    picaudit = await config.get_value(fifo.group_id, "picaudit")
-    if picaudit == 2 or config.novelai_picaudit == 2:
+    picaudit = await config.get_value(fifo.group_id, "picaudit") or config.novelai_picaudit
+    if picaudit == 2:
         if os.path.isfile("rainchan-image-porn-detection/lite_model.tflite"):
             pass
         else:
@@ -200,7 +200,7 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
             return possibilities
         return reverse_dict[value[0]], value[0] * 100, ""
     
-    elif picaudit == 4 or config.novelai_picaudit == 4:
+    elif picaudit == 4:
         img_base64 = base64.b64encode(img_bytes).decode()
         possibilities, message = await pic_audit_standalone(img_base64, False, True)
         value = list(possibilities.values())

@@ -7,6 +7,7 @@ from .translation import translate
 from .safe_method import send_forward_msg, risk_control
 from ..config import config
 from ..utils import pic_audit_standalone
+from ..aidraw import get_message_at
 
 deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书", "分析"})
 
@@ -21,6 +22,10 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
     if reply:
         for seg in reply.message['image']:
             url = seg.data["url"]
+    at_id = await get_message_at(event.json())
+        # 获取图片url
+    if at_id:
+        url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
     if url:
         async with aiohttp.ClientSession() as session:
             logger.info(f"正在获取图片")
@@ -34,9 +39,9 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
             h_, tags = resp_tuple
             tags = ", ".join(tags)
             tags = tags.replace(
-                'general, sensitive, questionable, explicit, ', "", 1)
+                'general, sensitive, questionable, explicit, ', "", 1
+            )
             tags = tags.replace("_", " ")
-
         else:
             async with aiohttp.ClientSession() as session:
                 async with session.post(

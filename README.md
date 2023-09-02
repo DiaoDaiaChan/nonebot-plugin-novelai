@@ -77,14 +77,29 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 9.2 0.4.4更新
+分析@别人现在可以分析TA的头像了
+```
+新的命令参数 --ar
+绘画miku --ar 16:9
+绘画reimu --ar 1:1
+直接使用画幅比例绘图
+-sr参数更新
+绘画miku -sr fast  # 使用普通超分在图片生成完成后超分
+绘画miku -sr slow  # 使用分块超分进行超分， 需要ultimate sd upscale插件
+```
 ## 8.29 0.4.3更新 使用了yaml配置文件路径为config/novelai/config.yaml
-放弃使用.env文件配置,请以后在config.yaml中配置  
-绘画miku -sag  
-使用Self Attention Guidance进行生图(能一定程度上提升图片质量)  
+放弃使用.env文件配置,请以后在config.yaml中配置
+```
 可以使用mj生成二次元的我图片  
 config.yaml里设置proxy地址后  
 二次元的我/mj 即可  
-mj功能来自 @noahzark  
+mj功能来自 @noahzark 
+```
+```
+绘画miku -sag  
+使用Self Attention Guidance进行生图(能一定程度上提升图片质量) 
+```  
 ## 8.29 0.4.2更新 可以是openpose的dwpose来生图
 ```
 openpose = True

@@ -174,8 +174,11 @@ async def translate_api(input: str, to: str):
     try:
         url = f"http://{config.trans_api}/translate"
         headers = {"Content-Type": "application/json"}
-        payload = {"text": input}
-        async with aiohttp.ClientSession(headers=headers) as session:
+        payload = {"text": input, "to": to}
+        async with aiohttp.ClientSession(
+            headers=headers, 
+            timeout=aiohttp.ClientTimeout(total=3)
+        ) as session:
             async with session.post(url=url, data=json.dumps(payload)) as resp:
                 if resp.status != 200:
                     logger.error(f"自建翻译接口错误, 错误代码{resp.status},{await resp.text()}")

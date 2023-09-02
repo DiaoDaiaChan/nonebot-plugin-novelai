@@ -4,15 +4,18 @@ import random
 import json
 import os
 import ast
+import aiofiles
+import traceback
+import aiohttp
 
 from collections import deque
 from copy import deepcopy
-import aiohttp
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from nonebot import get_bot, on_shell_command
-import aiofiles
-import traceback
+from PIL import Image
+from io import BytesIO
+
 
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, GroupMessageEvent
 from nonebot.rule import ArgumentParser
@@ -43,10 +46,12 @@ aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
 aidraw_parser.add_argument("-r", "--resolution", "-形状",
                            help="画布形状/分辨率", dest="man_shape")
+aidraw_parser.add_argument("-ar", "--ar", "--accept_ratio",
+                           help="画布比例", dest="accept_ratio")
 aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
-aidraw_parser.add_argument(
-    "-s", "--seed", "-种子", type=int, help="种子", dest="seed")
+aidraw_parser.add_argument("-s", "--seed", "-种子", 
+                           type=int, help="种子", dest="seed")
 aidraw_parser.add_argument("-t", "--steps", "-步数",
                            type=int, help="步数", dest="steps")
 aidraw_parser.add_argument("-u", "--ntags", "-排除",
@@ -77,8 +82,8 @@ aidraw_parser.add_argument("-m",
                            type=str, help="更换模型", dest="model_index")
 aidraw_parser.add_argument("-match_off","-match-off",
                            action="store_true", help="关闭自动匹配", dest="match")
-aidraw_parser.add_argument("-sr_on", "-sr-on", "-sr",
-                           action="store_true", help="图片生产后再次超分", dest="sr")
+aidraw_parser.add_argument("-sr",nargs="*",
+                           type=str, help="生成后超分", dest="sr")
 aidraw_parser.add_argument("-td", "--tiled-diffusion",
                            action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
 aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
@@ -122,7 +127,6 @@ async def aidraw_get(
     event: MessageEvent, 
     args: Namespace = ShellCommandArgs()
 ):
-    
     logger.debug(args.tags)
     tags_list = []
     model_info_ = ""
@@ -226,7 +230,7 @@ async def aidraw_get(
         org_tag_list = fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
-        if not args.match or config.auto_match:
+        if config.auto_match and not args.match and redis_client:
             r2 = redis_client[1]
             try:
                 tag = ""
@@ -549,17 +553,10 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 message=message,
             )
         else:
-            
             pic_message = im[1]
-            res_msg = (
-                f"分辨率:{fifo.width}x{fifo.hiresfix_scale}x{fifo.height}x{fifo.hiresfix_scale}") if (
-                fifo.hiresfix and fifo.img2img is False) else (
-                f"分辨率:{fifo.width}x{fifo.height}"
-            )
-            if fifo.sr and fifo.img2img:
-                sr_scale = config.novelai_SuperRes_generate_payload["upscaling_resize"]
-                res_msg = (f"分辨率:({fifo.width}x{fifo.hiresfix_scale}x{fifo.height}x{fifo.hiresfix_scale})x{sr_scale}")
-                
+            byte_img = fifo.result[0]
+            new_img = Image.open(BytesIO(byte_img))
+            res_msg = f"分辨率:{new_img.width}x{new_img.height}"
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"

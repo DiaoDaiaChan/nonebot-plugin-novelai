@@ -223,48 +223,61 @@ async def download_img(url):
             return img_base64, img_bytes
 
 
-async def super_res_api_func(img_bytes, size: int = 0):
+async def super_res_api_func(
+    img: str or bytes, 
+    size: int=0, 
+    site=None, 
+    compress=True,
+    upscale=2,
+):
     '''
     sd超分extra API, size,1为
     '''
-    upsale = None
+    img = img if isinstance(img, bytes) else base64.b64decode(img)
+    msg = ""
     max_res = config.novelai_SuperRes_MaxPixels
     if size == 0:
-        upsale = 2
+        upscale = 2
     elif size == 1:
-        upsale = 3
-    new_img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-    old_res = new_img.width * new_img.height
-    width = new_img.width
-    height = new_img.height
+        upscale = 3
     ai_draw_instance = AIDRAW()
-    if old_res > pow(max_res, 2):
-        new_width, new_height = ai_draw_instance.shape_set(width, height, max_res) # 借用一下shape_set函数
-        new_img = new_img.resize((round(new_width), round(new_height)))
-        msg = f"原图已经自动压缩至{int(new_width)}*{int(new_height)}"
-    else:
-        msg = ''
+    if compress:
+        
+        new_img = Image.open(io.BytesIO(img)).convert("RGB")
+        old_res = new_img.width * new_img.height
+        width = new_img.width
+        height = new_img.height
+        
+        if old_res > pow(max_res, 2):
+            new_width, new_height = ai_draw_instance.shape_set(width, height, max_res) # 借用一下shape_set函数
+            new_img = new_img.resize((round(new_width), round(new_height)))
+            msg = f"原图已经自动压缩至{int(new_width)}*{int(new_height)}"
+        else:
+            msg = ''
 
-    img_bytes =  io.BytesIO()
-    new_img.save(img_bytes, format="JPEG")
-    img_bytes = img_bytes.getvalue()
+        img_bytes =  io.BytesIO()
+        new_img.save(img_bytes, format="JPEG")
+        img_bytes = img_bytes.getvalue()
+    else:
+        img_bytes = img
+
     img_base64 = base64.b64encode(img_bytes).decode("utf-8")
-# "data:image/jpeg;base64," + 
     payload = {"image": img_base64}
     payload.update(config.novelai_SuperRes_generate_payload)
-    if upsale:
-        payload["upscaling_resize"] = upsale
-    resp_tuple = await sd_LoadBalance()
+    if upscale:
+        payload["upscaling_resize"] = upscale
+    backend_site = site or await sd_LoadBalance()
+    backend_site = backend_site if isinstance(backend_site, str) else backend_site[1][0]
     async with aiohttp.ClientSession() as session:
-        api_url = "http://" + resp_tuple[1][0] + "/sdapi/v1/extra-single-image"
+        api_url = "http://" + backend_site + "/sdapi/v1/extra-single-image"
         async with session.post(url=api_url, json=payload) as resp:
             if resp.status not in [200, 201]:
-                raise RuntimeError
+                return img_bytes, msg, resp.status, img_base64
             else:
                 resp_json = await resp.json()
                 resp_img = resp_json["image"]
                 bytes_img = base64.b64decode(resp_img)
-                return bytes_img, msg, resp.status
+                return bytes_img, msg, resp.status, resp_img
 
 
 async def sd(backend_site_index, return_models=False):
@@ -485,34 +498,36 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
         if len(msg) > 1:
             for i in msg:
                 img_url_list.append(i.data["url"])
-                upsale = 0
+                upscale = 0
         else:
             img_url_list.append(msg[0].data["url"])
-            upsale = 1
+            upscale = 1
             
         for i in img_url_list:
             qq_img = await download_img(i)
-            qq_img, text_msg, status_code = await super_res_api_func(qq_img[1], upsale)
+            qq_img, text_msg, status_code, _ = await super_res_api_func(qq_img[1], upscale)
             if status_code not in [200, 201]:
                 await super_res.finish(f"出错了,错误代码{status_code},请检查服务器")
             img_byte_list.append(qq_img)
         if len(img_byte_list) == 1:
                 img_mes = MessageSegment.image(img_byte_list[0])
-                await bot.send(event=event, 
-                               message=img_mes+text_msg, 
-                               at_sender=True, 
-                               reply_message=True
-                               ) 
+                await bot.send(
+                    event=event, 
+                    message=img_mes+text_msg, 
+                    at_sender=True, 
+                    reply_message=True
+                ) 
         else:
             img_list = []
             for i in img_byte_list:
                 img_list.append(f"{MessageSegment.image(i)}\n{text_msg}")
-            await send_forward_msg(bot, 
-                                   event, 
-                                   event.sender.nickname, 
-                                   event.user_id, 
-                                   img_list
-                                   )
+            await send_forward_msg(
+                bot, 
+                event, 
+                event.sender.nickname, 
+                event.user_id, 
+                img_list
+            )
                                         
     else:
         await super_res.reject("请重新发送图片")

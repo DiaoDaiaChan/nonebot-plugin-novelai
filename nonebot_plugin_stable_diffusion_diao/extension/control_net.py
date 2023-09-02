@@ -33,25 +33,25 @@ async def control_net_func(pic: bytes, sd_url, tag):
 # "data:image/jpeg;base64," + 
 
     payload = {
-  "prompt": tag,
-  "negative_prompt": "秋柔嫣姬",
-  "controlnet_input_image": [img_base64],
-  "controlnet_module": "canny",
-  "controlnet_model": "control_canny [9d312881]",
-  "controlnet_weight": 0.8,
-  "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
-  "controlnet_lowvram": "false",
-  "controlnet_processor_res": 768,
-  "controlnet_threshold_a": 100,
-  "controlnet_threshold_b": 250,
-  "sampler_index": "DDIM",
-  "steps": 15,
-  "cfg_scale": 7,
-  "width": round(width),
-  "height":round(height),
-  "restore_faces": "false",
-  "override_settings_restore_afterwards": "true"
-}
+        "prompt": tag,
+        "negative_prompt": "秋柔嫣姬",
+        "controlnet_input_image": [img_base64],
+        "controlnet_module": "canny",
+        "controlnet_model": "control_canny [9d312881]",
+        "controlnet_weight": 0.8,
+        "controlnet_resize_mode": "Scale to Fit (Inner Fit)",
+        "controlnet_lowvram": "false",
+        "controlnet_processor_res": 768,
+        "controlnet_threshold_a": 100,
+        "controlnet_threshold_b": 250,
+        "sampler_index": "DDIM",
+        "steps": 15,
+        "cfg_scale": 7,
+        "width": round(width),
+        "height":round(height),
+        "restore_faces": "false",
+        "override_settings_restore_afterwards": "true"
+    }
 
 
     async with aiohttp.ClientSession() as session:

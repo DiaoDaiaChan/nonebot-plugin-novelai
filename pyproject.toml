@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-stable-diffusion-diao"
-version = "0.4.3.3"
+version = "0.4.4"
 description = "主要面对stable-diffusion-webui-api的nonebot2插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},

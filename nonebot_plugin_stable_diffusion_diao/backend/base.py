@@ -46,14 +46,15 @@ class AIDRAW_BASE:
         disable_hr: bool = False if config.novelai_hr else True,
         hiresfix_scale: float = None,
         event: MessageEvent = None,
-        sr: bool = False,
+        sr: list = None,
         model_index: str = None,
         custom_scripts: int = None,
         scripts: int = None,
-        td = None,
+        td: bool = None,
         xyz_plot = None,
-        open_pose = False,
-        sag = False,
+        open_pose: bool = False,
+        sag: bool = False,
+        accept_ratio: str = None,
         **kwargs,
     ):
         """
@@ -85,12 +86,16 @@ class AIDRAW_BASE:
         """
         self.event = event
         self.disable_hr = disable_hr
-        if config.novelai_random_ratio:
-            random_shape = self.weighted_choice(config.novelai_random_ratio_list)
-            shape = man_shape or random_shape
-            self.width, self.height = self.extract_shape(shape)
+        if accept_ratio:
+            self.accept_ratio = accept_ratio
+            self.width, self.height = self.extract_ratio()
         else:
-            self.width, self.height = self.extract_shape(man_shape)
+            if config.novelai_random_ratio:
+                random_shape = self.weighted_choice(config.novelai_random_ratio_list)
+                shape = man_shape or random_shape
+                self.width, self.height = self.extract_shape(shape)
+            else:
+                self.width, self.height = self.extract_shape(man_shape)
         self.status: int = 0
         self.result: list = []
         self.signal: asyncio.Event = None
@@ -115,9 +120,11 @@ class AIDRAW_BASE:
         self.image: str = None
         self.model: str = None
         if config.novelai_random_sampler:
-            self.sampler: str = (sampler if sampler else 
-                                self.weighted_choice(config.novelai_random_sampler_list) or 
-                                "Euler a")
+            self.sampler: str = (
+                sampler if sampler else 
+            self.weighted_choice(config.novelai_random_sampler_list) or 
+            "Euler a"
+        )
         else:
             self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
@@ -141,7 +148,7 @@ class AIDRAW_BASE:
         self.img_hash = None
         self.extra_info = ""
         self.audit_info = ""
-        self.sr = sr or config.novelai_SuperRes_generate
+        self.sr = sr
         self.model_index = model_index
         self.is_random_model = False
         self.custom_scripts = custom_scripts
@@ -279,7 +286,10 @@ class AIDRAW_BASE:
         generate_info = get_generate_info(self, "开始生成")
         logger.info(
             f"{generate_info}")
-        async with aiohttp.ClientSession(headers=header, timeout=aiohttp.ClientTimeout(total=1800)) as session:
+        async with aiohttp.ClientSession(
+                headers=header, 
+                timeout=aiohttp.ClientTimeout(total=1800)
+            ) as session:
             # 向服务器发送请求
             async with session.post(post_api, json=payload) as resp:
                 if resp.status not in [200, 201]:
@@ -292,6 +302,11 @@ class AIDRAW_BASE:
                 logger.debug(f"获取到返回图片，正在处理")
                 if self.open_pose or config.openpose:
                     img = await self.dwpose(img, header)
+                if config.novelai_SuperRes_generate:
+                    self.sr = ["fast"]
+                if self.sr is not None and isinstance(self.sr, list):
+                    way = "fast" if len(self.sr) == 0 else self.sr[0]
+                    img = await self.super_res(img, header, way)
                 spend_time = time.time() - self.start_time
                 self.spend_time = f"{spend_time:.2f}秒"
                 # 将图片转化为jpg
@@ -430,6 +445,7 @@ class AIDRAW_BASE:
         
     async def dwpose(self, img_base64, header):
         logger.info("开始进行dwpose处理")
+        
         payload = self.post_parms
         payload["alwayson_scripts"].update(config.novelai_ControlNet_payload[config.novelai_ControlNet_post_method]["alwayson_scripts"])
         replace_dict = {
@@ -441,7 +457,11 @@ class AIDRAW_BASE:
         payload.update({"enable_hr": enable_hr})
         payload["steps"] = self.steps
         payload["alwayson_scripts"]["controlnet"]["args"][0].update(replace_dict)
-        async with aiohttp.ClientSession(headers=header) as session:
+        
+        async with aiohttp.ClientSession(
+                headers=header, 
+                timeout=aiohttp.ClientTimeout(total=1800)
+        ) as session:
             async with session.post(
                 url=f"http://{self.backend_site}/sdapi/v1/txt2img", 
                 json=payload
@@ -452,5 +472,67 @@ class AIDRAW_BASE:
                 else:
                     img = await self.fromresp(resp)
                     return img
+                
+    async def super_res(self, img_base64, header, way="fast"):
+        logger.info(f"开始使用{way}方式进行超分")
+        if way == "fast":
+            from ..extension.sd_extra_api_func import super_res_api_func
+            resp_tuple = await super_res_api_func(
+                img_base64, 
+                3, 
+                self.backend_site, 
+                False, 
+                config.novelai_SuperRes_generate_payload["upscaling_resize"]
+            )
+            return resp_tuple[3]
+        
+        else:
+            logger.info(f"开始使用Ultimate SD upscale进行超分，请耐心等待！")
+            payload = self.post_parms
+            payload.update({"init_images": [img_base64]})
+            payload["denoising_strength"] = 0.05
+            payload["steps"] = 140
+            payload.update({"script_name": config.scripts[1]["name"]})
+            payload.update({"script_args": config.scripts[1]["args"]})
+            if payload["enable_hr"]:
+                scale = payload["hr_scale"]
+                payload.update(
+                    {
+                        "width": self.width*scale, 
+                        "height": self.height*scale
+                    }
+                )
+                
+            async with aiohttp.ClientSession(
+                    headers=header, 
+                    timeout=aiohttp.ClientTimeout(total=1800)
+            ) as session:
+                async with session.post(
+                    url=f"http://{self.backend_site}/sdapi/v1/img2img", 
+                    json=payload
+                ) as resp:
+                    if resp.status not in [200, 201]:
+                        logger.error(f"脚本超分处理失败,错误代码{resp.status}")
+                        return img_base64
+                    else:
+                        img = await self.fromresp(resp)
+                        return img
+                
+    def extract_ratio(self):
+        if ":" in self.accept_ratio:
+            width_ratio, height_ratio = map(int, self.accept_ratio.split(':'))
+        else:
+            return 512, 768
+
+        max_resolution = config.novelai_size_org ** 2
+        aspect_ratio = width_ratio / height_ratio
+        if aspect_ratio >= 1:
+            width = int(min(640, max_resolution ** 0.5))
+            height = int(width / aspect_ratio)
+        else:
+            height = int(min(640, max_resolution ** 0.5))
+            width = int(height * aspect_ratio)
+
+        return width, height
 
 

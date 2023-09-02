@@ -19,7 +19,7 @@ novelai_pic_audit_api_key:
 openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
 openai_proxy_site: "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
 proxy_site: null  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-trans_api: "la.iamdiao.lol:5000"  # 自建翻译API
+trans_api: la.iamdiao.lol:5000  # 自建翻译API
 # --------------------------------
 # 开关设置
 # --------------------------------
@@ -57,6 +57,7 @@ novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数�
 novelai_backend_url_dict:
     "雕雕的后端": "la.iamdiao.lol:5938"
     "雕雕的后端2": "la.iamdiao.lol:1521"
+    "雕雕的后端3": "la.iamdiao.lol:1522"
 # --------------------------------
 # post参数设置
 # --------------------------------
@@ -101,6 +102,7 @@ novelai_hr_payload:
     hr_second_pass_steps: 7  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错
 novelai_SuperRes_MaxPixels: 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
 novelai_SuperRes_generate: false  # 图片生成后是否再次进行一次超分
+novelai_SuperRes_generate_way: "fast"  # 可选fast和slow, slow需要用到Ultimate SD upscale脚本
 novelai_SuperRes_generate_payload: 
     upscaling_resize: 1.2  # 超分倍率, 为长宽分辨率各X1.2
     upscaler_1: "Lanczos"  # 第一次超分使用的方法
@@ -175,9 +177,29 @@ custom_scripts:
             ad_restore_face: false
 - "Self Attention Guidance":
     args: [true, 0.75, 1.5]
-scripts:
+scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制大小）和最后一个参数（放大倍率）
 - name: "x/y/z plot"
   args: [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]
+- name: "ultimate sd upscale"
+  args: 
+  - null
+  - 800
+  - 800
+  - 8
+  - 32
+  - 64
+  - 0.35
+  - 32
+  - 6
+  - true
+  - 0
+  - false
+  - 8
+  - 0
+  - 2
+  - 2048
+  - 2048
+  - 2.0
 # 没有用的东西（
 novelai_ControlNet_payload:
 novelai_limit: false
@@ -189,4 +211,3 @@ novelai_mode: sd
 novelai_max: 3
 novelai_cndm:
 novelai_auto_icon: false
-novelai_auto_icon2: false
