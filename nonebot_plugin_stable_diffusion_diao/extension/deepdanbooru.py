@@ -19,13 +19,13 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
     reply = event.reply
     for seg in event.message['image']:
         url = seg.data["url"]
-    if reply:
-        for seg in reply.message['image']:
-            url = seg.data["url"]
     at_id = await get_message_at(event.json())
         # 获取图片url
     if at_id:
         url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
     if url:
         async with aiohttp.ClientSession() as session:
             logger.info(f"正在获取图片")
