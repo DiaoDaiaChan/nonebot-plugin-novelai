@@ -15,7 +15,7 @@ import asyncio
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed, PrivateMessageEvent
 from nonebot.log import logger
-from ..config import config 
+from ..config import config
 
 
 async def send_qr_code(bot, fifo, img_url):
@@ -28,6 +28,17 @@ async def send_qr_code(bot, fifo, img_url):
     message_data = await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
     os.remove(file_name)
     return message_data
+
+async def add_qr_code(img_url, message: list):
+    img_id = time.time()
+    img = qrcode.make(img_url[0])
+    file_name = f"qr_code_{img_id}.png"
+    img.save(file_name)
+    with open(file_name, 'rb') as f:
+        bytes_img = f.read()
+    message.append(MessageSegment.image(bytes_img))
+    os.remove(file_name)
+    return message
 
 
 async def check_safe_method(
@@ -80,7 +91,7 @@ async def check_safe_method(
                 message.append(MessageSegment.image(i))
             else:
                 label = "_explicit"
-                message.append(f"\n太涩了,让我先看, 这张图涩度{h_value:.1f}%")
+                message.append(f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n")
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
@@ -120,7 +131,9 @@ async def check_safe_method(
                             except ActionFailed:
                                 message_data = await send_qr_code(bot, fifo, img_url)
                 elif htype == 3:
-                    message_data = await send_qr_code(bot, fifo, img_url)
+                    if config.novelai_pure:
+                        message_data = await send_qr_code(bot, fifo, img_url)
+                    message = await add_qr_code(img_url, message)                                                            
                 elif htype == 4:
                     await bot.send_group_msg(
                         group_id=fifo.group_id, 
@@ -144,7 +157,7 @@ async def check_safe_method(
         if save_img_:
             await save_img(fifo, i, fifo.group_id+extra_lable+label)
     if nsfw_count:
-        message.append(f",有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
+        message.append(f"有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
     return message
 
 
