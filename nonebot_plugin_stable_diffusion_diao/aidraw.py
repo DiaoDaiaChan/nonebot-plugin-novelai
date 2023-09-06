@@ -16,14 +16,27 @@ from nonebot import get_bot, on_shell_command
 from PIL import Image
 from io import BytesIO
 
-
-from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, GroupMessageEvent
+from nonebot.adapters.onebot.v11 import (
+    MessageEvent, 
+    MessageSegment, 
+    Bot, 
+    ActionFailed, 
+    PrivateMessageEvent, 
+    GroupMessageEvent
+)
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
 from nonebot.params import ShellCommandArgs
 
-from .config import config, nickname, redis_client, backend_emb, backend_lora, get_
+from .config import (
+    config, 
+    nickname, 
+    redis_client, 
+    backend_emb, 
+    backend_lora, 
+    get_
+)
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_check, anlas_set
@@ -97,6 +110,8 @@ aidraw_parser.add_argument("-op", "--openpose",
                            action="store_true", help="使用openpose修复身体等", dest="open_pose")
 aidraw_parser.add_argument("-sag", "-SAG",
                            action="store_true", help="使用Self Attention Guidance生图", dest="sag")
+aidraw_parser.add_argument("-otp", "--outpaint",
+                           action="store_true", help="扩图", dest="outpaint")
 
 
 async def get_message_at(data: str) -> int:
@@ -193,10 +208,10 @@ async def aidraw_get(
         tags_list = tags_to_list(tags_str)
         # 匹配预设
         r = redis_client[1]
-        if (redis_client and 
-            config.auto_match and 
-            args.match is False and 
-            r.exists("style")
+        if (redis_client 
+            and config.auto_match 
+            and args.match is False 
+            and r.exists("style")
         ):
             info_style = ""
             style_list: list[bytes] = r.lrange("style", 0, -1)
@@ -305,7 +320,7 @@ async def aidraw_get(
         try: 
             tags_list: str = await prepocess_tags(tags_list, False, True)
         except Exception as e:
-            logger.error(str(traceback.print_exc()))
+            logger.error(traceback.format_exc())
             await aidraw.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         fifo.ntags = await prepocess_tags(fifo.ntags)
         # 检测是否有18+词条
@@ -444,19 +459,13 @@ async def aidraw_get(
             try:
                 await wait_fifo(fifo, event, message=message, bot=bot)
             except ActionFailed:
-                logger.error(traceback.print_exc())
+                logger.error(traceback.format_exc())
                 logger.info("风控了,额外消息发不出来捏")
 
 
 async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
-    # 纯净模式额外信息
     message_data = None
-    if await config.get_value(fifo.group_id, "pure"):
-        extra_message = f"后端:{fifo.backend_name}, 采样器:{fifo.sampler}, CFG Scale:{fifo.scale}"
-    else:
-        extra_message= ""
-        
     if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
         fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
         extra_message = f"已选择后端:{fifo.backend_name}"
@@ -566,8 +575,10 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                     reply_message=True, 
                     at_sender=True, 
                 ) if (
-                    await config.get_value(fifo.group_id, "pure")) or (
-                    await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure) else (
+                    await config.get_value(fifo.group_id, "pure")
+                    ) or (
+                    await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
+                    ) else (
                     await send_forward_msg(
                         bot=bot, 
                         event=event, 

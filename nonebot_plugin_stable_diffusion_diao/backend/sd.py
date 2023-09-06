@@ -64,17 +64,25 @@ class AIDRAW(AIDRAW_BASE):
                 await self.load_balance_init()
                 site = self.backend_site or defult_site 
             else:
-                site = defult_site or await config.get_value(self.group_id, "site") or config.novelai_site or "127.0.0.1:7860"
+                site = (
+                    defult_site 
+                    or await config.get_value(self.group_id, "site") 
+                    or config.novelai_site 
+                    or "127.0.0.1:7860"
+                )
 
-        post_api = f"http://{site}/sdapi/v1/img2img" if self.img2img else f"http://{site}/sdapi/v1/txt2img"
+        post_api = (
+            f"http://{site}/sdapi/v1/img2img" if self.img2img 
+            else f"http://{site}/sdapi/v1/txt2img"
+        )
         
         parameters = {
             "prompt": self.tags,
             "seed": self.seed,
             "steps": self.steps,
             "cfg_scale": self.scale,
-            "width": self.width,
-            "height": self.height,
+            "width": self.width if not self.hr_fix else self.width * self.hiresfix_scale,
+            "height": self.height if not self.hr_fix else self.height * self.hiresfix_scale,
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
             "denoising_strength": self.strength,
@@ -83,28 +91,41 @@ class AIDRAW(AIDRAW_BASE):
             "script_args": [],
             "script_name": ""
         }
-        
+        if config.negpip:
+            parameters["alwayson_scripts"].update(config.custom_scripts[4])
+        # 如果手动指定了模型
         if self.model_index:
             from ..extension.sd_extra_api_func import sd
-            model_dict = await sd(self.backend_index or config.backend_site_list.index(self.backend_site), True)
-            self.model_index = self.model_index if str(self.model_index).isdigit() else await self.get_model_index(self.model_index, model_dict)
+            model_dict = (
+                await sd(
+                    self.backend_index or 
+                    config.backend_site_list.index(self.backend_site), 
+                    True
+                )
+            )
+            self.model_index = (
+                self.model_index 
+                if str(self.model_index).isdigit() 
+                else await self.get_model_index(self.model_index, model_dict)
+            )
             if self.is_random_model:
                 from ..extension.sd_extra_api_func import sd
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
             self.model = model_dict[int(self.model_index)]
             parameters.update(
                 {
-                "override_settings": {"sd_model_checkpoint": self.model}, 
-                "override_settings_restore_afterwards": "true"
+                    "override_settings": {"sd_model_checkpoint": self.model}, 
+                    "override_settings_restore_afterwards": "true"
                 }
             )
+        # 图生图
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
                 parameters.update(self.novelai_hr_payload)
             parameters.update(
                 {
-                "init_images": ["data:image/jpeg;base64,"+self.image],
-                "denoising_strength": self.strength,
+                    "init_images": ["data:image/jpeg;base64,"+self.image],
+                    "denoising_strength": self.strength,
                 }
             ) 
         else:
@@ -120,30 +141,35 @@ class AIDRAW(AIDRAW_BASE):
                 xyz_list = []
             xyz_list = ["" if item is None else item for item in xyz_list]
             parameters.update({"script_name": "x/y/z plot", "script_args": xyz_list})
-            # if "_" and "," in self.xyz_plot:
-            #     result = [config.scripts[0]["args"][i:i+3] for i in range(0, len(config.scripts[0]["args"]), 3)]
-            #     axes = self.xyz_plot.split(",")
-            #     args = axes.split("_")
-            #     result[0][0] = args[0]
-            #     args[0] = 
         if self.open_pose:
             parameters.update({"enable_hr": "false"})
             parameters["steps"] = 12
         if self.td or config.tiled_diffusion:
             parameters["alwayson_scripts"].update(config.custom_scripts[0])
-        if self.sag:
+        if self.sag or config.sag:
             parameters["alwayson_scripts"].update(config.custom_scripts[2]) 
         if self.custom_scripts is not None:
             parameters["alwayson_scripts"].update(config.custom_scripts[self.custom_scripts])
         if self.scripts is not None:
-            parameters.update({"script_name": config.scripts[self.scripts]["name"], "script_args": config.scripts[self.scripts]["args"]})
+            parameters.update(
+                {
+                    "script_name": config.scripts[self.scripts]["name"], 
+                    "script_args": config.scripts[self.scripts]["args"]
+                }
+            )
+        if self.cutoff:
+            cutoff_payload = config.custom_scripts[3]
+            cutoff_payload["Cutoff"]["args"][1] = self.cutoff
+            parameters["alwayson_scripts"].update(cutoff_payload)
+        # controlnet相关
         if self.control_net["control_net"] == True and config.novelai_hr:
             if config.hr_off_when_cn:
-                parameters.update({"enable_hr": "false"})
+                parameters.update({"enable_hr": False})
             else:
                 org_scale = parameters["hr_scale"]
                 parameters.update({"hr_scale": org_scale * 0.75}) # control较吃显存, 高清修复倍率恢复为1.5
             del parameters["init_images"]
+
             if config.novelai_ControlNet_post_method == 0:
                 post_api = f"http://{site}/sdapi/v1/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[0])
@@ -152,6 +178,18 @@ class AIDRAW(AIDRAW_BASE):
                 post_api = f"http://{site}/controlnet/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[1])
                 parameters["controlnet_units"][0]["input_image"] = self.image
+        if self.outpaint:
+            controlnet_full_payload = config.novelai_ControlNet_payload[0]
+            rewrite_controlnet = {
+                "module": "inpaint_only",
+                "model": "control_v11p_sd15_inpaint [ebff9138]",
+                "input_image": self.image,
+                "resize_mode": 2,
+                "control_mode": 2
+            }
+            controlnet_full_payload[0]["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
+            parameters.update(controlnet_full_payload[0])
+
         logger.debug(str(parameters))        
         self.post_parms = parameters
         return header, post_api, parameters
@@ -168,7 +206,7 @@ class AIDRAW(AIDRAW_BASE):
             except Exception:
                 self.start_time: float = time.time()
                 logger.info(f"第{retry_times + 1}次尝试")
-                logger.error(traceback.print_exc())
+                logger.error(traceback.format_exc())
                 await asyncio.sleep(2)
                 if retry_times >= 1: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                     defult_site = config.novelai_site

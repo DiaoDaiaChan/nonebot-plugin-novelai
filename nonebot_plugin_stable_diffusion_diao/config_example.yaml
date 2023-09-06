@@ -37,6 +37,7 @@ tiled_diffusion: false  # 使用tiled-diffusion来生成图片
 save_img: true  # 是否保存图片(API侧)
 openpose: false  # 使用openpose dwopen生图，大幅度降低肢体崩坏
 sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+negpip: false  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -177,6 +178,11 @@ custom_scripts:
             ad_restore_face: false
 - "Self Attention Guidance":
     args: [true, 0.75, 1.5]
+- "Cutoff":
+    args": [True, "prompt here", 2 , True, False]
+- "NegPiP": 
+    args: [True]
+
 scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制大小）和最后一个参数（放大倍率）
 - name: "x/y/z plot"
   args: [9, "", ["DDIM", "Euler a", "Euler"], 0, "", "", 0, "", ""]

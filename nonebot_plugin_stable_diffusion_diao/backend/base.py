@@ -55,6 +55,8 @@ class AIDRAW_BASE:
         open_pose: bool = False,
         sag: bool = False,
         accept_ratio: str = None,
+        outpaint: int = None,
+        cutoff: str = None,
         **kwargs,
     ):
         """
@@ -107,9 +109,11 @@ class AIDRAW_BASE:
             f"{event.get_user_id()}_private" if isinstance(event, PrivateMessageEvent)
             else str(event.group_id)
         )
-
         if config.novelai_random_scale:
-            self.scale: int = int(scale or self.weighted_choice(config.novelai_random_scale_list))
+            self.scale: int = int(
+                scale 
+                or self.weighted_choice(config.novelai_random_scale_list)
+            )
         else:
             self.scale = int(scale or config.novelai_scale)
         self.strength: float = strength or config.novelai_hr_payload["denoising_strength"]
@@ -129,7 +133,10 @@ class AIDRAW_BASE:
             self.sampler: str = sampler if sampler else config.novelai_sampler or "Euler a"
         self.start_time: float = None
         self.spend_time: float = None
-        self.backend_site: str = config.backend_site_list[backend_index] if backend_index else None
+        self.backend_site: str = (
+            config.backend_site_list[backend_index] 
+            if backend_index else None
+        )
         self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
@@ -146,7 +153,7 @@ class AIDRAW_BASE:
         self.backend_info: dict = None
         self.task_type: str = None
         self.img_hash = None
-        self.extra_info = ""
+        self.extra_info = f"后端:{self.backend_name}\n采样器:{self.sampler}\nCFG Scale:{self.scale}"
         self.audit_info = ""
         self.sr = sr
         self.model_index = model_index
@@ -158,6 +165,8 @@ class AIDRAW_BASE:
         self.open_pose = config.openpose or open_pose
         self.post_parms = None
         self.sag = config.sag or sag
+        self.outpaint = outpaint or 1
+        self.cutoff = cutoff
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -246,7 +255,20 @@ class AIDRAW_BASE:
         self.image = str(base64.b64encode(image), "utf-8")
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
+        if self.hr:
+            self.set_max_step()
+            hr_scale = self.hr or config.novelai_hr_scale
+            self.width, self.height = self.width * hr_scale , self.height * hr_scale
+        if self.outpaint:
+            self.accept_ratio = self.accept_ratio or "1:1"
+            self.width, self.height = self.accept_ratio()
+            self.width, self.height = self.width * self.outpaint , self.height * self.outpaint
+            self.control_net["control_net"] = True
         self.update_cost()
+
+    def set_max_step(self):
+        target_steps = 8
+        self.steps = int(target_steps / self.strength)
 
     def shape_set(self, width: int, height: int, extra_limit=None):
         """
@@ -300,6 +322,7 @@ class AIDRAW_BASE:
                         await unload_and_reload(backend_site=self.backend_site)
                 img = await self.fromresp(resp)
                 logger.debug(f"获取到返回图片，正在处理")
+                # 收到图片后处理
                 if self.open_pose or config.openpose:
                     img = await self.dwpose(img, header)
                 if config.novelai_SuperRes_generate:
@@ -353,11 +376,9 @@ class AIDRAW_BASE:
                     json_[day]["gpu"][self.backend_name] = json_[day]["gpu"][self.backend_name] + 1
                     async with aiofiles.open(filename, "w") as f:
                         await f.write(json.dumps(json_))
-                else:
-                    pass
         except Exception:
             logger.warning("记录后端工作数量出错")
-            logger.warning(str(traceback.print_exc()))
+            logger.warning(traceback.format_exc())
         self.result.append(image_new)
         return image_new
 
@@ -443,6 +464,23 @@ class AIDRAW_BASE:
         except:
             return ""
         
+    async def re_posting(self, header, payload, img_base64, img2img=False):
+        async with aiohttp.ClientSession(
+                headers=header, 
+                timeout=aiohttp.ClientTimeout(total=1800)
+        ) as session:
+            url = f"http://{self.backend_site}/sdapi/v1/img2img" if img2img else f"http://{self.backend_site}/sdapi/v1/txt2img"
+            async with session.post(
+                url=url, 
+                json=payload
+            ) as resp:
+                if resp.status not in [200, 201]:
+                    logger.error(f"dwpose处理失败,错误代码{resp.status}")
+                    return img_base64
+                else:
+                    img = await self.fromresp(resp)
+                    return img
+        
     async def dwpose(self, img_base64, header):
         logger.info("开始进行dwpose处理")
         
@@ -457,22 +495,9 @@ class AIDRAW_BASE:
         payload.update({"enable_hr": enable_hr})
         payload["steps"] = self.steps
         payload["alwayson_scripts"]["controlnet"]["args"][0].update(replace_dict)
-        
-        async with aiohttp.ClientSession(
-                headers=header, 
-                timeout=aiohttp.ClientTimeout(total=1800)
-        ) as session:
-            async with session.post(
-                url=f"http://{self.backend_site}/sdapi/v1/txt2img", 
-                json=payload
-            ) as resp:
-                if resp.status not in [200, 201]:
-                    logger.error(f"dwpose处理失败,错误代码{resp.status}")
-                    return img_base64
-                else:
-                    img = await self.fromresp(resp)
-                    return img
-                
+        img = await self.re_posting(header, payload, img_base64)
+        return img
+
     async def super_res(self, img_base64, header, way="fast"):
         logger.info(f"开始使用{way}方式进行超分")
         if way == "fast":
@@ -502,29 +527,17 @@ class AIDRAW_BASE:
                         "height": self.height*scale
                     }
                 )
+            img = await self.re_posting(header, payload, img_base64, True)
+            return img
+
                 
-            async with aiohttp.ClientSession(
-                    headers=header, 
-                    timeout=aiohttp.ClientTimeout(total=1800)
-            ) as session:
-                async with session.post(
-                    url=f"http://{self.backend_site}/sdapi/v1/img2img", 
-                    json=payload
-                ) as resp:
-                    if resp.status not in [200, 201]:
-                        logger.error(f"脚本超分处理失败,错误代码{resp.status}")
-                        return img_base64
-                    else:
-                        img = await self.fromresp(resp)
-                        return img
-                
-    def extract_ratio(self):
+    def extract_ratio(self, max_res=None):
         if ":" in self.accept_ratio:
             width_ratio, height_ratio = map(int, self.accept_ratio.split(':'))
         else:
             return 512, 768
 
-        max_resolution = config.novelai_size_org ** 2
+        max_resolution = (max_res or config.novelai_size_org) ** 2
         aspect_ratio = width_ratio / height_ratio
         if aspect_ratio >= 1:
             width = int(min(640, max_resolution ** 0.5))

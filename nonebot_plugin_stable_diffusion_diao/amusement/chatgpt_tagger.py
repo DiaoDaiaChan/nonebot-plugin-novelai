@@ -59,10 +59,10 @@ class Session(): # 这里来自nonebot-plugin-gpt3
         }
 
         async with aiohttp.ClientSession(headers=header) as session:
-            async with session.post(url=f"https://{config.openai_proxy_site}/v1/chat/completions", 
-                                    json=payload, proxy=config.proxy_site
+            async with session.post(
+                url=f"https://{config.openai_proxy_site}/v1/chat/completions", 
+                json=payload, proxy=config.proxy_site
             ) as resp:
-                print(resp.status)
                 all_resp = await resp.json()
                 resp = all_resp["choices"][0]["message"]["content"]
                 return resp
@@ -87,18 +87,18 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     prompt = await get_user_session(event.get_session_id()).main(to_openai)
 
     await risk_control(
-                    bot, 
-                    event, 
-                    "这是chatgpt为你生成的prompt"+prompt 
+        bot, 
+        event, 
+        "这是chatgpt为你生成的prompt"+prompt 
     )
     
     tags = basetag + prompt
     ntags =  lowQuality
 
     fifo = AIDRAW(
-                tags=tags, 
-                ntags=ntags,
-                event=event
+        tags=tags, 
+        ntags=ntags,
+        event=event
     )
 
     await fifo.load_balance_init()

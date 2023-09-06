@@ -71,6 +71,7 @@ class Config(BaseSettings):
     save_img = True  # 是否保存图片(API侧)
     openpose = False  # 使用openpose dwopen生图，大幅度降低肢体崩坏
     sag = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+    negpip = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
     '''
     模式选择
     '''
@@ -187,6 +188,16 @@ class Config(BaseSettings):
         {
             "Self Attention Guidance":{
                 "args": [True, 0.75, 1.5]
+            }
+        },
+        {
+            "Cutoff": {
+                "args": [True, "prompt here", 2 , True, False]
+            }
+        },
+        {
+            "NegPiP": {
+                "args": [True]
             }
         }
     ]
@@ -566,6 +577,13 @@ if config.is_redis_enable:
         logger.warning(traceback.print_exc())
         logger.warning("redis初始化失败, 已经禁用redis")
 
-logger.info(f"加载config完成" + str(config))
+def format_config(config: Config):
+    msg = ''
+    config_dict = config.__dict__
+    for key, value in config_dict.items():
+        msg += f"[{key}: {value}]"
+    return msg
+
+logger.info(f"加载config完成\n{format_config(config)}")
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")
 

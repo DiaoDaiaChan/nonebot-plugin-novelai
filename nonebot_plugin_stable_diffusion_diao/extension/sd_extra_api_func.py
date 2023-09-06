@@ -91,6 +91,7 @@ random_pic = on_command("随机出图", aliases={"随机模型", "随机画图"}
 refresh_models = on_command("刷新模型")
 stop_all_mission = on_command("终止生成")
 get_scripts = on_command("获取脚本")
+redraw = on_command("重绘")
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
@@ -153,7 +154,7 @@ async def get_random_tags(sample_num=12):
         chose_tags_list = random.sample(all_tags_list, sample_num)
         return chose_tags_list
     except:
-        logger.error(traceback.print_exc())
+        logger.error(traceback.format_exc())
         return None
 
 async def get_and_process_lora(site, site_, text_msg=None):
@@ -591,7 +592,7 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
         processed_pic = fifo.result[0]
         message_ = await check_safe_method(fifo, [processed_pic], [""], None, True, "_controlnet")
     except Exception as e:
-        logger.error(traceback.print_exc())
+        logger.error(traceback.format_exc())
         await control_net.finish(f"出现错误{e}")
     if isinstance(message_[1], MessageSegment):
         message = MessageSegment.image(processed_pic) + f"\n耗时{fifo.spend_time}\n" + fifo.img_hash
@@ -753,29 +754,41 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     chose_tags_list = await get_random_tags()
     chose_tags = ', '.join(chose_tags_list)
 
-    fifo = AIDRAW(user_id=event.user_id, 
-                  tags=chose_tags, 
-                  ntags=lowQuality, 
-                  event=event
-                  )
+    fifo = AIDRAW(
+        user_id=event.user_id, 
+        tags=chose_tags, 
+        ntags=lowQuality, 
+        event=event
+    )
     
     await risk_control(bot, event, [chose_tags], True)
     await fifo.load_balance_init()
     await fifo.post()
     if config.novelai_extra_pic_audit:
-        message_ = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_tags")
+        message_ = await check_safe_method(
+            fifo, 
+            [fifo.result[0]], 
+            [""], 
+            None, 
+            True, 
+            "_random_tags"
+        )
         if isinstance(message_[1], MessageSegment):
-            await bot.send(event, 
-                           message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
-                           at_sender=True, 
-                           reply_message=True)
+            await bot.send(
+                event, 
+                message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
+                at_sender=True, 
+                reply_message=True
+            )
         else:
             pass
     else:
-        await bot.send(event, 
-                       message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
-                       at_sender=True, 
-                       reply_message=True)
+        await bot.send(
+            event, 
+            message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
+            at_sender=True, 
+            reply_message=True
+        )
 
 
 @find_pic.handle()
@@ -899,7 +912,7 @@ async def _(event: MessageEvent, bot: Bot):
             try:
                 await fifo.post()
             except Exception:
-                logger.error(traceback.print_exc())
+                logger.error(traceback.format_exc())
                 await genera_aging.finish("出错惹, 快叫主人看控制台")
             else:
                 img_msg = MessageSegment.image(fifo.result[0])
@@ -928,7 +941,7 @@ async def _(msg: Message = CommandArg()):
     try:
         await unload_and_reload(text_msg)
     except Exception:
-        logger.error(traceback.print_exc())
+        logger.error(traceback.format_exc())
     else:
         await reload_.finish(f"为后端{config.backend_name_list[text_msg]}重载成功啦!")
         
