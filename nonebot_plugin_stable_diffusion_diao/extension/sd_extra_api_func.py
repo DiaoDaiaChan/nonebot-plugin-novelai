@@ -580,14 +580,15 @@ async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: 
     img_bytes = base64.b64decode(img[0])
     tags = basetag + tags_en
     try:
-        fifo = AIDRAW(user_id=str(event.user_id), 
-                      tags=tags,
-                      ntags=lowQuality,
-                      event=event
-                      )
+        fifo = AIDRAW(
+            user_id=str(event.user_id), 
+            tags=tags,
+            ntags=lowQuality,
+            event=event
+        )
         
         await fifo.load_balance_init()
-        fifo.add_image(image=img_bytes, control_net=True)
+        await fifo.add_image(image=img_bytes, control_net=True)
         await fifo.post()
         processed_pic = fifo.result[0]
         message_ = await check_safe_method(fifo, [processed_pic], [""], None, True, "_controlnet")

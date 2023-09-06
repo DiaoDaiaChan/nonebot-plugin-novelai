@@ -1326,17 +1326,17 @@ async def _(bot: Bot,
             build_msg_en.append(en)
 
         to_user = f'''
-        二次元的{user_name},
-        {build_msg_zh[11]},
-        是{build_msg_zh[0]},{build_msg_zh[7]},
-        {build_msg_zh[1]}色{build_msg_zh[2]},
-        穿着{build_msg_zh[3]}和{build_msg_zh[4]},
-        有着{build_msg_zh[5]}和{build_msg_zh[6]},
-        正在{build_msg_zh[8]},
-        画面{build_msg_zh[9]},{build_msg_zh[10]},
-        '''.strip()
+二次元的{user_name},
+{build_msg_zh[11]},
+是{build_msg_zh[0]},{build_msg_zh[7]},
+{build_msg_zh[1]}色{build_msg_zh[2]},
+穿着{build_msg_zh[3]}和{build_msg_zh[4]},
+有着{build_msg_zh[5]}和{build_msg_zh[6]},
+正在{build_msg_zh[8]},
+画面{build_msg_zh[9]},{build_msg_zh[10]},
+'''.strip()
         
-        tags =  build_msg_en[0] +","+ f','.join(build_msg_en)
+        tags = build_msg_en[0] +","+ f','.join(build_msg_en)
     
     try:
         message_data = await bot.send(event=event, 
@@ -1364,7 +1364,7 @@ async def _(bot: Bot,
         async with aiohttp.ClientSession() as session:
             logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
             async with session.get(img_url) as resp:
-                fifo.add_image(await resp.read(), control_net=True)
+                await fifo.add_image(await resp.read(), control_net=True)
     try:
         await fifo.load_balance_init()
         await fifo.post()
@@ -1384,14 +1384,23 @@ async def _(bot: Bot,
                 message_data = await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
         else:
             try:
-                message_data = await bot.send(event=event, 
-                            message=f"这是你的二次元形象,hso\n"+img_msg+f"\n{fifo.img_hash}"+f"\n生成耗费时间{fifo.spend_time}", 
-                            at_sender=True, reply_message=True)
+                message_data = await bot.send(
+                    event=event, 
+                    message=f"这是你的二次元形象,hso\n"+img_msg+f"\n{fifo.img_hash}"+f"\n生成耗费时间{fifo.spend_time}", 
+                    at_sender=True, 
+                    reply_message=True
+                )
             except ActionFailed:
-                message_data = await bot.send(event=event, 
-                            message=img_msg+f"\n{fifo.img_hash}", 
-                            at_sender=True, reply_message=True)
-            await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_todaygirl")
+                message_data = await bot.send(
+                    event=event, 
+                    message=img_msg+f"\n{fifo.img_hash}", 
+                    at_sender=True, reply_message=True
+                )
+            await save_img(
+                fifo=fifo, 
+                img_bytes=fifo.result[0], 
+                extra=fifo.group_id+"_todaygirl"
+            )
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
             await revoke_msg(message_data, bot, revoke)

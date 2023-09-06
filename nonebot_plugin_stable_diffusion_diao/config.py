@@ -72,6 +72,7 @@ class Config(BaseSettings):
     openpose = False  # 使用openpose dwopen生图，大幅度降低肢体崩坏
     sag = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
     negpip = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
+    zero_tags = False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
     '''
     模式选择
     '''

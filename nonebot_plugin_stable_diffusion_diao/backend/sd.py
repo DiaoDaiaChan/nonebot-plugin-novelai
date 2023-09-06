@@ -74,15 +74,17 @@ class AIDRAW(AIDRAW_BASE):
         post_api = (
             f"http://{site}/sdapi/v1/img2img" if self.img2img 
             else f"http://{site}/sdapi/v1/txt2img"
-        )
+        ) 
+        if self.outpaint:
+            post_api = f"http://{site}/sdapi/v1/txt2img" 
         
         parameters = {
             "prompt": self.tags,
             "seed": self.seed,
             "steps": self.steps,
             "cfg_scale": self.scale,
-            "width": self.width if not self.hr_fix else self.width * self.hiresfix_scale,
-            "height": self.height if not self.hr_fix else self.height * self.hiresfix_scale,
+            "width": self.width,
+            "height": self.height,
             "negative_prompt": self.ntags,
             "sampler_name": self.sampler,
             "denoising_strength": self.strength,
@@ -187,8 +189,8 @@ class AIDRAW(AIDRAW_BASE):
                 "resize_mode": 2,
                 "control_mode": 2
             }
-            controlnet_full_payload[0]["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
-            parameters.update(controlnet_full_payload[0])
+            controlnet_full_payload["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
+            parameters.update(controlnet_full_payload)
 
         logger.debug(str(parameters))        
         self.post_parms = parameters

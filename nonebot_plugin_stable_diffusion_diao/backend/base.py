@@ -19,7 +19,12 @@ from nonebot.permission import SUPERUSER
 from nonebot import logger
 from datetime import datetime
 from ..config import config, redis_client, superusers
-from ..utils import png2jpg, unload_and_reload, get_generate_info
+from ..utils import (
+    png2jpg, 
+    unload_and_reload, 
+    get_generate_info, 
+    pic_audit_standalone
+)
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
 from ..extension.daylimit import count
@@ -55,7 +60,7 @@ class AIDRAW_BASE:
         open_pose: bool = False,
         sag: bool = False,
         accept_ratio: str = None,
-        outpaint: int = None,
+        outpaint: bool = False,
         cutoff: str = None,
         **kwargs,
     ):
@@ -88,6 +93,7 @@ class AIDRAW_BASE:
         """
         self.event = event
         self.disable_hr = disable_hr
+        self.accept_ratio = None
         if accept_ratio:
             self.accept_ratio = accept_ratio
             self.width, self.height = self.extract_ratio()
@@ -141,6 +147,7 @@ class AIDRAW_BASE:
         self.backend_index: int = backend_index
         self.vram: str = ""
         self.hiresfix_scale: float = hiresfix_scale or config.novelai_hr_scale
+        self.img2img_hr = hiresfix_scale
         self.novelai_hr_payload = config.novelai_hr_payload
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix: bool = True if config.novelai_hr else False
@@ -153,7 +160,7 @@ class AIDRAW_BASE:
         self.backend_info: dict = None
         self.task_type: str = None
         self.img_hash = None
-        self.extra_info = f"后端:{self.backend_name}\n采样器:{self.sampler}\nCFG Scale:{self.scale}"
+        self.extra_info = ""
         self.audit_info = ""
         self.sr = sr
         self.model_index = model_index
@@ -165,8 +172,9 @@ class AIDRAW_BASE:
         self.open_pose = config.openpose or open_pose
         self.post_parms = None
         self.sag = config.sag or sag
-        self.outpaint = outpaint or 1
+        self.outpaint = outpaint
         self.cutoff = cutoff
+        self.read_tags = False
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
@@ -242,7 +250,7 @@ class AIDRAW_BASE:
         else:
             self.cost = 0
 
-    def add_image(self, image: bytes, control_net=None):
+    async def add_image(self, image: bytes, control_net=None):
         """
         向类中添加图片，将其转化为以图生图模式
         也可用于修改类中已经存在的图片
@@ -255,20 +263,29 @@ class AIDRAW_BASE:
         self.image = str(base64.b64encode(image), "utf-8")
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
-        if self.hr:
-            self.set_max_step()
-            hr_scale = self.hr or config.novelai_hr_scale
+        hr_scale = self.img2img_hr or 1
+        
+        if self.img2img_hr:
             self.width, self.height = self.width * hr_scale , self.height * hr_scale
+            
         if self.outpaint:
+            logger.info("outpaint模式启动")
             self.accept_ratio = self.accept_ratio or "1:1"
-            self.width, self.height = self.accept_ratio()
-            self.width, self.height = self.width * self.outpaint , self.height * self.outpaint
+            self.width, self.height = self.extract_ratio()
+            self.width, self.height = self.width * hr_scale , self.height * hr_scale
             self.control_net["control_net"] = True
+            if self.read_tags:
+                try:
+                    _, caption_tags = await pic_audit_standalone(self.image, True)
+                except Exception as e:
+                    pass
+                else:
+                    self.tags = ",".join(caption_tags)
         self.update_cost()
 
-    def set_max_step(self):
-        target_steps = 8
-        self.steps = int(target_steps / self.strength)
+    # def set_max_step(self):
+    #     target_steps = self.steps
+    #     self.steps = int(target_steps / self.strength)
 
     def shape_set(self, width: int, height: int, extra_limit=None):
         """
@@ -365,7 +382,7 @@ class AIDRAW_BASE:
                     user_spend_time = org_spend_time + int(spend_time)
                     counting[self.user_id] = user_spend_time
                     backend_info["spend_time"] = counting
-                self.extra_info += f"\n耗时{spend_time:.2f}秒\n"
+                self.extra_info += f"耗时{spend_time:.2f}秒\n"
                 r.set(day, str(backend_info))
             else:
                 filename = "data/novelai/day_limit_data.json"

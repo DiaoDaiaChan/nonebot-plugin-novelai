@@ -112,6 +112,7 @@ aidraw_parser.add_argument("-sag", "-SAG",
                            action="store_true", help="使用Self Attention Guidance生图", dest="sag")
 aidraw_parser.add_argument("-otp", "--outpaint",
                            action="store_true", help="扩图", dest="outpaint")
+aidraw_parser.add_argument("-co", "--cutoff", type=str, help="使用cutoff插件减少关键词颜色污染", dest="cutoff")
 
 
 async def get_message_at(data: str) -> int:
@@ -150,6 +151,10 @@ async def aidraw_get(
     style_tag = "" 
     style_ntag = ""
     message = ""
+    read_tags = False
+
+    if args.outpaint and len(args.tags) == 1:
+        read_tags = True
     
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
@@ -189,7 +194,7 @@ async def aidraw_get(
             cd[user_id] = nowtime
             
         # 如果prompt列表为0, 随机tags
-        if isinstance(args.tags, list) and len(args.tags) == 0:
+        if isinstance(args.tags, list) and len(args.tags) == 0 and config.zero_tags:
             args.disable_hr = True
             try:
                 random_tags = await get_random_tags(6)
@@ -235,8 +240,9 @@ async def aidraw_get(
         # 初始化实例
         args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
+        fifo.read_tags = read_tags
         fifo.extra_info += info_style
-        
+
         if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
         else:
@@ -442,7 +448,7 @@ async def aidraw_get(
                 async with aiohttp.ClientSession() as session:
                     logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
                     async with session.get(img_url) as resp:
-                        fifo.add_image(await resp.read(), args.control_net)
+                        await fifo.add_image(await resp.read(), args.control_net)
                     message = f"，已切换至以图生图"+message
             else:
                 await aidraw.finish(f"以图生图功能已禁用")
@@ -466,6 +472,7 @@ async def aidraw_get(
 async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
     # 创建队列
     message_data = None
+    extra_message = ''
     if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
         fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
         extra_message = f"已选择后端:{fifo.backend_name}"
@@ -598,7 +605,10 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             revoke = await config.get_value(fifo.group_id, "revoke")
             if revoke:
                 await revoke_msg(message_data, bot, revoke)
-            message_data = await bot.send(event=event, message=f"{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}")
+            message_data = await bot.send(
+                event=event, 
+                message=f"后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
+            )
             await revoke_msg(message_data, bot)
     if fifo:
         await generate(fifo)
