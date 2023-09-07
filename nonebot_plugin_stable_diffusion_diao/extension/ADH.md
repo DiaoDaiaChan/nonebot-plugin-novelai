@@ -1,22 +1,47 @@
-
-# 我是群Ai绘画{nickname}
 # 更多详细说明请看 https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao
 ### 快速画图: 绘画 白发,红色眼睛
 ### 请注意!!! 请用英文双引号把tags括起来 绘画"pink hair, red eye" 否则在带空格的情况下可能会意外解析
-## 以下是功能捏 "#"井号是备注!请忽略它!😡
+### 支持的插件和脚本
+有想要的插件或者脚本可以联系雕雕适配
+```
+adetailer
+https://github.com/Bing-su/adetailer
+negpip
+https://github.com/hako-mikan/sd-webui-negpip
+cutoff
+https://github.com/hnmr293/sd-webui-cutoff
+controlnet
+https://github.com/Mikubill/sd-webui-controlnet
+tagger
+https://github.com/toriato/stable-diffusion-webui-wd14-tagger
+rembg
+https://github.com/AUTOMATIC1111/stable-diffusion-webui-rembg
+Self Attention Guidance
+https://github.com/ashen-sensored/sd_webui_SAG
+DWPose
+https://github.com/IDEA-Research/DWPose
+Tiled Diffusion & VAE
+https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111
+```
+```
+xyz_plot_script
+https://github.com/xrpgame/xyz_plot_script
+ultimate-upscale-for-automatic1111
+https://github.com/Coyote-A/ultimate-upscale-for-automatic1111
+```
 ### 群管理功能  🥰
 发送 绘画设置 四个字查看本群绘画设置, 只有管理员和群主能更改设置
 ```text
 当前群的设置为
-novelai_cd:2 # 群聊画图cd, 单位为秒, 全局设置:{config.novelai_cd}, 当前群设置:{await config.get_value(event.group_id, "cd")}
+novelai_cd:2 # 群聊画图cd, 单位为秒
 novelai_tags: # 本群自带的正面提示词
 novelai_on:True # 是否打开本群AI绘画功能
 novelai_ntags: # 本群自带的负面提示词
-novelai_revoke:0 # 自动撤回? 0 为不撤回, 其余为撤回的时间, 单位秒 全局设置:{config.novelai_revoke}, 当前群设置:{await config.get_value(event.group_id, "revoke")}
-novelai_h:0 # 是否允许色图 0为不允许, 1为删除屏蔽词, 2为允许 全局设置:{config.novelai_h}, 当前群设置:{await config.get_value(event.group_id, "h")}
-novelai_htype:2 # 发现色图后的处理办法, 1为返回图片到私聊, 2为返回图片url, 3为不发送色图 全局设置:{config.novelai_htype}, 当前群设置:{await config.get_value(event.group_id, "htype")}
-novelai_picaudit:3 # 是否打开图片审核功能 1为百度云图片审核, 2为本地审核功能, 3为关闭 全局设置:{config.novelai_picaudit}, 当前群设置:{await config.get_value(event.group_id, "picaudit")}
-novelai_pure:False # 纯净模式, 开启后只返回图片, 不返回其他信息 全局设置:{config.novelai_pure}, 当前群设置:{await config.get_value(event.group_id, "pure")}
+novelai_revoke:0 # 自动撤回? 0 为不撤回, 其余为撤回的时间, 单位秒
+novelai_h:0 # 是否允许色图 0为不允许, 1为删除屏蔽词, 2为允许
+novelai_htype:2 # 发现色图后的处理办法, 1为返回图片到私聊, 2为返回图片url,3为发送二维码, 4为不发送色图
+novelai_picaudit:3 # 是否打开图片审核功能 1为百度云图片审核, 2为本地审核功能, 3为关闭,4为使用tagger插件审核
+novelai_pure:False # 纯净模式, 开启后只返回图片, 不返回其他信息
 novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 如何设置
 示例 novelai_ 后面的是需要更改的名称 例如 novelai_cd 为 cd , novelai_revoke 为 revoke
@@ -25,7 +50,7 @@ novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 绘画设置 revoke 10 # 开启10秒后撤回图片功能
 绘画设置 tags loli, white_hair # 设置群自带的正面提示词
 ```
-### 娱乐功能 
+### 娱乐功能
 ```text
 # 第一个单词为功能的触发命令捏
 二次元的我
@@ -113,11 +138,10 @@ lora
 绘图的时候at你的群友, 会用她的头像作为以图生图对象
 
 绘画 可爱的萝莉 
-约稿 可爱的萝莉 [图片] 
+约稿 可爱的萝莉 [图片] -hr 1.5  # 放大1.5倍
 .aidraw 可爱的萝莉 [图片] -cn
 ```
 ## 关键词 ✏️
-<div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 ```text
 使用关键词(tags, prompt)描述你想生成的图像
 绘画 白发, 红色眼睛, 萝莉
@@ -128,7 +152,7 @@ lora
 ## 设置分辨率/画幅 
 ```text
 随机画幅比例
-插件内置了几种画幅使用 -r 来指定
+插件内置了几种画幅使用 -r 来指定或者推荐使用--ar 1：3来指定画幅比例
 ----
 s 640x640 1:1方构图
 p 512x768 竖构图
@@ -139,6 +163,7 @@ uw 900x450 2:1横构图
 绘画 萝莉 -r l # 画一幅分辨率为768x512 横构图
 手动指定分辨率也是可以的, 例如
 绘画 超级可爱的萝莉 -r 640x960 # 画一幅分辨率为640x960的图
+绘画 miku --ar 21:9 # 画幅比例为21:9
 ```
 请注意, 如果开启了高清修复, 分辨率会再乘以高清修复的倍率, 所以不要太贪心,设置太高的分辨率!!!服务器可能会爆显存,导致生成失败, 建议使用默认预设即可
 ## 其它指令
@@ -156,11 +181,9 @@ uw 900x450 2:1横构图
 对输入的服从度, 当前默认值:{config.novelai_scale}
 -c
 # 绘画 miku -c 11
-```服从度较低时cd AI 有较大的自由发挥空间，服从度较高时 AI 则更倾向于遵守你的输入。但如果太高的话可能会产生反效果 (比如让画面变得难看)。更高的值也需要更多计算。
-
+服从度较低时cd AI 有较大的自由发挥空间，服从度较高时 AI 则更倾向于遵守你的输入。但如果太高的话可能会产生反效果 (比如让画面变得难看)。更高的值也需要更多计算。
 有时，越低的 scale 会让画面有更柔和，更有笔触感，反之会越高则会增加画面的细节和锐度
-```text
-强度, 仅在以图生图生效取值范围0-1
+强度, 仅在以图生图和高清修复生效取值范围0-1,即重绘幅度
 -e
 # 绘画 miku [图片] -e 0.7
 ```
@@ -197,7 +220,7 @@ uw 900x450 2:1横构图
 绘图并且更换模型
 -m 4
 # 绘画 miku -m 4 -sd 1
-绘图并且为2号后端更换4号模型
+绘图并且为2号后端更换4号模型(暂时替换)
 ```
 ```text
 关闭自动匹配
@@ -214,9 +237,9 @@ uw 900x450 2:1横构图
 设置高清修复倍率为1.5
 ```
 ```text
-本张图片绘图完成后进行再次超分
--sr
-使用 Tiled Diffusion 进行绘图, 降低显存使用, 已经低分辨率出大图
+本张图片绘图完成后进行再次超分,支持slow和fast， slow需要ultimate-upscale-for-automatic1111
+-sr slow -sr fast
+使用 Tiled Diffusion 进行绘图, 降低显存使用, 可用于低分辨率出大图
 -td
 ```
 ```
@@ -229,6 +252,24 @@ uw 900x450 2:1横构图
 第三位为元组, 当此项参数为可以由webui自动填写的时候填写, 例如采样器
 以上命令解释为
 绘画 x轴为采样器(第一位为9)轴, y轴为步数(第一位为4)轴的xyz图标, 不使用z轴(第一位为0)
+```
+```
+-ef
+使用adetailer进行修复,默认修复眼睛
+-op
+使用openpose的DWpose生图，能一定程度上降低手部和肢体崩坏
+-sag
+使用Self Attention Guidance生图,能一定程度上提高生图质量
+```
+```
+-otp
+使用controlnet inpaint进行扩图，图生图生效，推荐使用
+绘画[图片] -otp --ar 21:9 -hr 1.2
+扩图至21:9并且放大1.2倍
+-co
+cutoff插件减少关键词颜色污染
+绘画white hair,blue eye,red dress -co white,blue,red
+把出现在prompt中的颜色填到参数中即可
 ```
 ### 最后, 送你一个示例
 ```text

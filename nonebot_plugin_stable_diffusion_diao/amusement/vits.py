@@ -29,18 +29,19 @@ vits_ = on_shell_command(
 
 class VITS:
 
-    def __init__(self, 
-                 event: MessageEvent,  # 传递的事件对象
-                 text: str = "",  # 要转换为语音的文本
-                 id: str = "1",  # 语音文件的ID，默认为"1"
-                 format: str = "wav",  # 语音文件的格式，默认为"wav"
-                 lang: str = "auto",  # 文本语言，默认为"auto"（自动检测语言）
-                 length: int = 1,  
-                 noise: float = 0.667,  # 噪音水平，默认为0.667
-                 noisew: float = 0.8,  # 噪音权重，默认为0.8
-                 max: int = 50,  
-                 **kwargs,
-                 ):
+    def __init__(
+        self, 
+        event: MessageEvent,  # 传递的事件对象
+        text: str = "",  # 要转换为语音的文本
+        id: str = "1",  # 语音文件的ID，默认为"1"
+        format: str = "wav",  # 语音文件的格式，默认为"wav"
+        lang: str = "auto",  # 文本语言，默认为"auto"（自动检测语言）
+        length: int = 1,  
+        noise: float = 0.667,  # 噪音水平，默认为0.667
+        noisew: float = 0.8,  # 噪音权重，默认为0.8
+        max: int = 50,  
+        **kwargs,
+    ):
         
         self.event = event
         self.text = text
@@ -53,12 +54,13 @@ class VITS:
         self.max = max
         self.params = None
 
-    async def http_req(self,  
-                       payload = {}, 
-                       method = 1, 
-                       end_point = "/voice/speakers",
-                       params = {},
-                       read = False
+    async def http_req(
+        self,  
+        payload = {}, 
+        method = 1, 
+        end_point = "/voice/speakers",
+        params = {},
+        read = False
     ) -> aiohttp.ClientResponse or bytes:
         url = f"http://{config.vits_site}{end_point}"
         if method == 1:

@@ -2,33 +2,21 @@
 ## 感谢 sena喵 感谢 sena喵 感谢 sena喵
 因为懒得更改其他地方了，所以有不少nonebot-plugin-novelai的地方，凑合用就行(
 
-# 支持中文关键词的基于nonebot2的AI绘图插件
+# 支持中文关键词的基于nonebot2的stable-diffusion绘图插件支持多种webui插件和脚本以及更多玩法
 插件讨论反馈群：687904502  
 雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀  
-说明书：https://nb.novelai.dev
 
 # 简要说明
-## 由于雕雕比较菜，所以请时常检查更新(
-## 本插件不配置插件也能正常启动，自带后端配置即开即用 
-### 配置文件路径config/novelai/config.yaml,放弃.env配置方法
+```
+由于雕雕比较菜，所以请时常检查更新(
+本插件不配置插件也能正常启动，自带后端配置即开即用 
+配置文件路径config/novelai/config.yaml,放弃.env配置方法
+```
 
-## 指令示例
-.aidraw loli,cute --ntags big breast --seed 114514
-- 指令使用shell解析输入的参数
-- square为指定画幅，支持简写为s，其他画幅为portrait和landscape，同样支持简写，默认为portrait
-- seed若省略则为自动生成
-- 词条使用英文，使用逗号（中英都行，代码里有转换）分割，中文会自动机翻为英文，不支持其他语种
-- 如果你不想用.aidraw，可以用 **绘画** 、 **咏唱** 或 **召唤** 代替。
-- 在消息中添加图片或者回复带有图片的消息自动切换为以图生图模式
-
-.aidraw on/off
-- 启动/关闭本群的aidraw
-
-.tagget [图片]
-- 获取图片的TAG
-- 如果你不想用.tagget，可以用 **鉴赏** 或 **查书** 代替。
+## 指令示例, 快看快看快看, 一定要仔细看哦
+[各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)  
 ## 其他花里胡哨的功能
-VITS(https://github.com/Artrajz/vits-simple-api) # 正在编写
+VITS(https://github.com/Artrajz/vits-simple-api)
 ## 相比于原本的nonebot-plugin-novelai更新了甚么？
 删除批量生成功能  
 添加了sd负载均衡功能
@@ -56,19 +44,6 @@ lora
 设置 # 可以通过机器人更改webui的设置  
 后端  
 ![后端](./docs/main/images/help/backend.png)  
-###新的命令后缀
-
--sd 选择后端，数字索引从0开始 -sd 0   
--sp 选择采样器，可以通过发送 “采样器” 来获取后端支持的采样器  
--nt 不需要翻译的字符串，例如 绘画 miku,blushing -nt <lora:坤坤:0.5>  
--cn 仅在以图生图生效，使用controlnet生图，例如 绘画 miku [图片] -cn  
--hr_off 生成次图片的时候关闭高清修复功能  
--emb 使用的emb，数字索引，索引从1开始 -emb 1  
--lora 使用的lora，数字索引 -lora 1    
--m 1 指定模型  
--hr 2.5 or -hr 2 手动指定高清修复倍率 
--sr 参数可以手动打开图片生成后超分功能
--match_off 关闭prompt自动匹配功能 
 
 二次元的我at人会以他的头像生成图片  
 绘画@人也能生成那个人的头像的图片  
@@ -77,6 +52,25 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 9.6 0.4.5更新
+```
+支持了cutoff和negpip插件(设置打开常驻功能)
+cutoff插件减少关键词颜色污染
+绘画white hair,blue eye,red dress -co white,blue,red
+把出现在prompt中的颜色填到参数中即可
+negpip可以提高对prompt的控制
+绘画 1boy,(1girl:-1.8)  # 不生成女孩
+```
+```
+支持使用controlnet inpaint进行扩图
+绘画[图片] -otp --ar 21:9 -hr 1.2
+扩图至21:9并且放大1.2倍
+```
+```
+图生图现在可以使用放大了例如
+绘画 [图片] -hr 1.2
+放大1.2倍
+```
 ## 9.2 0.4.4更新
 分析@别人现在可以分析TA的头像了
 ```
