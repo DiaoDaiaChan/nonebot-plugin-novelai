@@ -148,6 +148,8 @@ class AIDRAW(AIDRAW_BASE):
             parameters["steps"] = 12
         if self.td or config.tiled_diffusion:
             parameters["alwayson_scripts"].update(config.custom_scripts[0])
+        if self.eye_fix:
+            parameters["alwayson_scripts"].update(config.custom_scripts[1])
         if self.sag or config.sag:
             parameters["alwayson_scripts"].update(config.custom_scripts[2]) 
         if self.custom_scripts is not None:

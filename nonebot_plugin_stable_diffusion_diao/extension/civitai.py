@@ -118,13 +118,13 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
     if args.search:
         all_msg_list = []
-        search_post_url = "https://meilisearch.civitai.com/multi-search"
+        search_post_url = "https://meilisearch-new.civitai.com/multi-search"
         key_word = args.search
         
         search_payload = {
             "queries": 
                 [{"q":key_word, 
-                "indexUid":"models",
+                "indexUid":"models_v2",
                 "facets":[],
                 "attributesToHighlight":["*"],
                 "highlightPreTag":"__ais-highlight__",
@@ -139,14 +139,18 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 json=search_payload, 
                 proxy=config.proxy_site
             ) as resp:
-                if resp.status == 200:
+                if resp.status not in [200, 201]:
+                    resp_text = await resp.text()
+                    logger.error(f"civitai搜索失败,错误码:{resp.status}\n错误信息{resp_text}")
+                    raise RuntimeError
+                else:
                     search_result = await resp.json()
                     models_page = search_result["results"][0]["hits"]
         try:
             for model in models_page:
                 text_msg = ""
                 model_type = model['type']
-                download_id = model['modelVersion']['id']
+                download_id = model['version']['id']
                 text_msg += f"模型名称: {model['name']}\n模型id: {model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
                 metrics_replace_list = ["评论总数", "喜欢次数", "下载次数", "评分", "评分总数", "加权评分"]
                 metrics_msg = ""

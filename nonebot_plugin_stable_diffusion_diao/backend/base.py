@@ -62,6 +62,7 @@ class AIDRAW_BASE:
         accept_ratio: str = None,
         outpaint: bool = False,
         cutoff: str = None,
+        eye_fix: bool = False,
         **kwargs,
     ):
         """
@@ -175,6 +176,7 @@ class AIDRAW_BASE:
         self.outpaint = outpaint
         self.cutoff = cutoff
         self.read_tags = False
+        self.eye_fix = eye_fix
         
         # 数值合法检查
         if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
