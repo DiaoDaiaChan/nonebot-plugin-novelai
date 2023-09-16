@@ -175,8 +175,9 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                     if byte_img is not None and config.novelai_extra_pic_audit:
                         if config.novelai_extra_pic_audit:
                             is_r18 = await pic_audit_standalone(byte_img, False, False, True)
-                            (pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n")) if is_r18 
-                            else pic_msg.append(MessageSegment.image(byte_img))
+                            (
+                                pic_msg.append(MessageSegment.text("这张图片太色了, 不准看!\n")) if is_r18 
+                                else pic_msg.append(MessageSegment.image(byte_img))
                             )
                         else:
                             pic_msg.append(MessageSegment.image(byte_img))

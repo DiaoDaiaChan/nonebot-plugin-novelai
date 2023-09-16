@@ -9,6 +9,7 @@ import hashlib
 import traceback
 import os
 import ast
+import math
 
 import aiohttp
 from nonebot import get_driver
@@ -18,6 +19,7 @@ from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
 from nonebot.permission import SUPERUSER
 from nonebot import logger
 from datetime import datetime
+from tqdm import tqdm
 from ..config import config, redis_client, superusers
 from ..utils import (
     png2jpg, 
@@ -177,10 +179,13 @@ class AIDRAW_BASE:
         self.cutoff = cutoff
         self.read_tags = False
         self.eye_fix = eye_fix
+        self.post_event = None
+        self.current_process = None
         
         # 数值合法检查
-        if self.steps <= 0 or self.steps > (36 if config.novelai_paid else 28):
-            self.steps = 28
+        max_steps = config.novelai_max_steps
+        if self.steps <= 0 or self.steps > (max_steps):
+            self.steps = max_steps
         if self.strength < 0 or self.strength > 1:
             self.strength = 0.7
         if self.noise < 0 or self.noise > 1:
@@ -188,7 +193,7 @@ class AIDRAW_BASE:
         if self.scale <= 0 or self.scale > 30:
             self.scale = 11
         # 多图时随机填充剩余seed
-        # for i in range(self.batch - 1):
+        # for i in range(senovelai_max_steps
         #     self.seed.append(random.randint(0, 4294967295))
         # 计算cost
         self.update_cost()
@@ -327,36 +332,27 @@ class AIDRAW_BASE:
         generate_info = get_generate_info(self, "开始生成")
         logger.info(
             f"{generate_info}")
-        async with aiohttp.ClientSession(
-                headers=header, 
-                timeout=aiohttp.ClientTimeout(total=1800)
-            ) as session:
-            # 向服务器发送请求
-            async with session.post(post_api, json=payload) as resp:
-                if resp.status not in [200, 201]:
-                    resp_dict = json.loads(await resp.text())
-                    logger.error(resp_dict)
-                    if resp_dict["error"] == "OutOfMemoryError":
-                        logger.info("检测到爆显存，执行自动模型释放并加载")
-                        await unload_and_reload(backend_site=self.backend_site)
-                img = await self.fromresp(resp)
-                logger.debug(f"获取到返回图片，正在处理")
-                # 收到图片后处理
-                if self.open_pose or config.openpose:
-                    img = await self.dwpose(img, header)
-                if config.novelai_SuperRes_generate:
-                    self.sr = ["fast"]
-                if self.sr is not None and isinstance(self.sr, list):
-                    way = "fast" if len(self.sr) == 0 else self.sr[0]
-                    img = await self.super_res(img, header, way)
-                spend_time = time.time() - self.start_time
-                self.spend_time = f"{spend_time:.2f}秒"
-                # 将图片转化为jpg
-                if config.novelai_save == 1:
-                    image_new = await png2jpg(img)
-                else:
-                    image_new = base64.b64decode(img)
-                self.img_hash = f"图片id:\n{hashlib.md5(image_new).hexdigest()}"
+        
+        self.post_event = asyncio.Event()
+        post_task = asyncio.create_task(self.post_request(header, post_api, payload))
+        
+        if config.show_progress_bar[0]:
+            while not self.post_event.is_set():
+                await self.show_progress_bar()
+                await asyncio.sleep(config.show_progress_bar[1])
+            
+        img = await post_task
+        periodic_task_task = asyncio.create_task(self.show_progress_bar())
+        await self.post_event.wait()
+        
+        spend_time = time.time() - self.start_time
+        self.spend_time = f"{spend_time:.2f}秒"
+        # 将图片转化为jpg
+        if config.novelai_save == 1:
+            image_new = await png2jpg(img)
+        else:
+            image_new = base64.b64decode(img)
+        self.img_hash = f"图片id:\n{hashlib.md5(image_new).hexdigest()}"
         current_date = datetime.now().date()
         day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
         try:
@@ -567,4 +563,49 @@ class AIDRAW_BASE:
 
         return width, height
 
-
+    async def show_progress_bar(self):
+        show_str = f"[{self.time}] 用户{self.user_id}: {self.seed}"
+        show_str = show_str.ljust(25, "-")
+        with tqdm(total=1, desc=show_str + "-->", bar_format="{l_bar}{bar}|{postfix}") as pbar:
+            while not self.post_event.is_set():
+                self.current_process, eta = await self.update_progress()
+                increment = self.current_process - pbar.n
+                pbar.update(increment)
+                pbar.set_postfix({"eta": f"预计{int(eta)}秒完成"})
+                await asyncio.sleep(config.show_progress_bar[1])
+                
+    async def post_request(self, header, post_api, payload):
+        async with aiohttp.ClientSession(
+                    headers=header, 
+                    timeout=aiohttp.ClientTimeout(total=1800)
+                ) as session:
+                # 向服务器发送请求
+                async with session.post(post_api, json=payload) as resp:
+                    if resp.status not in [200, 201]:
+                        resp_dict = json.loads(await resp.text())
+                        logger.error(resp_dict)
+                        if resp_dict["error"] == "OutOfMemoryError":
+                            logger.info("检测到爆显存，执行自动模型释放并加载")
+                            await unload_and_reload(backend_site=self.backend_site)
+                    img = await self.fromresp(resp)
+                    logger.debug(f"获取到返回图片，正在处理")
+                    # 收到图片后处理
+                    if self.open_pose or config.openpose:
+                        img = await self.dwpose(img, header)
+                    if config.novelai_SuperRes_generate:
+                        self.sr = ["fast"]
+                    if self.sr is not None and isinstance(self.sr, list):
+                        way = "fast" if len(self.sr) == 0 else self.sr[0]
+                        img = await self.super_res(img, header, way)
+        self.post_event.set()
+        return img
+    
+    async def update_progress(self):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url="http://" + self.backend_site + "/sdapi/v1/progress") as resp:
+                    resp_json = await resp.json()
+                    return resp_json["progress"], resp_json["eta_relative"]
+        except:
+            traceback.print_exc()
+            return 0.404

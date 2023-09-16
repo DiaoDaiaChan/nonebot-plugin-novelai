@@ -607,7 +607,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 await revoke_msg(message_data, bot, revoke)
             message_data = await bot.send(
                 event=event, 
-                message=f"后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
+                message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
             )
             await revoke_msg(message_data, bot)
     if fifo:

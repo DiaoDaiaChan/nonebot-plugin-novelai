@@ -39,6 +39,7 @@ openpose: false  # 使用openpose dwopen生图，大幅度降低肢体崩坏
 sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
 negpip: false  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
 zero_tags: False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
+show_progress_bar: [True, 2]  # 是否显示进度条
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -66,6 +67,7 @@ novelai_backend_url_dict:
 novelai_tags: ""  # 内置的tag
 novelai_ntags: ""  # 内置的反tag
 novelai_steps: null  # 默认步数
+novelai_max_steps: 36  # 默认最大步数
 novelai_scale: 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
 novelai_random_scale: false  # 是否开启随机CFG
 novelai_random_scale_list:

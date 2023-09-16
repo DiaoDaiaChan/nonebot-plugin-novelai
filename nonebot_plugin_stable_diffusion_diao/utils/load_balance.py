@@ -123,21 +123,28 @@ async def sd_LoadBalance():
         if len(idle_backend) >= 1:
             ava_url = random.choice(idle_backend)
     elif config.novelai_load_balance_mode == 2:
+        
         list_tuple = []
         weight_list = config.novelai_load_balance_weight
         backend_url_list = list(config.novelai_backend_url_dict.values())
         weight_list_len = len(weight_list)
         backend_url_list_len = len(backend_url_list)
-        normal_backend_len = len(normal_backend)
+        idle_backend_len = len(idle_backend)
+        
         if weight_list_len != backend_url_list_len:
             logger.warning("权重列表长度不一致, 请重新配置!")
             ava_url = random.choice(normal_backend)
+            
         else:
             from ..backend import AIDRAW
-            if weight_list_len != normal_backend_len:
-                multi = backend_url_list_len / normal_backend_len
+            if idle_backend_len == 0:
+                logger.info("所有后端都处于繁忙状态")
+                for backend, weight in zip(normal_backend, weight_list):
+                    list_tuple.append((backend, weight))
+            elif weight_list_len != idle_backend_len:
+                multi = backend_url_list_len / idle_backend_len
                 for weight, backend_site in zip(weight_list, backend_url_list):
-                    if backend_site in normal_backend:
+                    if backend_site in idle_backend:
                         list_tuple.append((backend_site, weight*multi))
             else:
                 for backend, weight in zip(normal_backend, weight_list):

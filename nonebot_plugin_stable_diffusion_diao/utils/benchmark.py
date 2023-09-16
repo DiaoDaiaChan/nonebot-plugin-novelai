@@ -4,8 +4,10 @@ from .load_balance import get_vram
 
 class backend():
 
-    def __init__(self, 
-                 backend_site) -> None:
+    def __init__(
+        self, 
+        backend_site
+    ) -> None:
         self.backend_site = backend_site
         self.gpu_model = ""
         self.gpu_vram = []

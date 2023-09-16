@@ -12,6 +12,12 @@
 本插件不配置插件也能正常启动，自带后端配置即开即用 
 配置文件路径config/novelai/config.yaml,放弃.env配置方法
 ```
+```
+需要redis来保证正常运行
+windows用户请看,下载msi安装即可
+https://github.com/MicrosoftArchive/redis/releases
+成熟的linux用户会自己安装（
+```
 
 ## 指令示例, 快看快看快看, 一定要仔细看哦
 [各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)  
@@ -52,6 +58,17 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 9.16 0.4.5.5更新
+![emb](./docs/main/images/help/progress.gif) 
+```
+新的特性，生图的时候会追踪生图进度
+可见设置show_progress_bar
+新增设置允许的最大步数
+novelai_max_steps
+```
+```
+即将更新后端跑分(自动设置后端权重)和图表功能（（
+```
 ## 9.6 0.4.5更新
 ```
 支持了cutoff和negpip插件(设置打开常驻功能)

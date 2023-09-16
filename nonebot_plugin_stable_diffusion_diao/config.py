@@ -73,6 +73,7 @@ class Config(BaseSettings):
     sag = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
     negpip = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
     zero_tags = False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
+    show_progress_bar = [True, 2]  # 是否显示进度条, 整数为刷新时间
     '''
     模式选择
     '''
@@ -89,13 +90,14 @@ class Config(BaseSettings):
     novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
     novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
-    novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521", "雕雕的后端3": "la.iamdiao.lol:1522"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     '''
     post参数设置
     '''
     novelai_tags: str = ""  # 内置的tag
     novelai_ntags: str = ""  # 内置的反tag
     novelai_steps: int = None  # 默认步数
+    novelai_max_steps:int = 36  # 默认最大步数
     novelai_scale: int = 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_random_scale: bool = False  # 是否开启随机CFG
     novelai_random_scale_list: list[Tuple[int, float]] = [(5, 0.4), (6, 0.4), (7, 0.2)]
@@ -587,4 +589,3 @@ def format_config(config: Config):
 
 logger.info(f"加载config完成\n{format_config(config)}")
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")
-
