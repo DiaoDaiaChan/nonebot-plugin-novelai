@@ -7,6 +7,10 @@
 雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀  
 
 # 简要说明
+推荐使用nonebot插件管理进行安装
+```
+nb plugin install nonebot-plugin-stable-diffusion-diao
+```
 ```
 由于雕雕比较菜，所以请时常检查更新(
 本插件不配置插件也能正常启动，自带后端配置即开即用 

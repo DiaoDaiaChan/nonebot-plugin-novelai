@@ -90,7 +90,13 @@ class Config(BaseSettings):
     novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
     novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
-    novelai_backend_url_dict: dict = {"雕雕的后端": "la.iamdiao.lol:5938", "雕雕的后端2": "la.iamdiao.lol:1521", "雕雕的后端3": "la.iamdiao.lol:1522"} # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    novelai_backend_url_dict: dict = {
+        "雕雕的后端": "la.iamdiao.lol:5938", 
+        "雕雕的后端2": "la.iamdiao.lol:1521", 
+        "雕雕的后端3": "la.iamdiao.lol:1522",
+        "雕雕的后端4": "la.iamdiao.lol:1523", 
+        "雕雕的后端5": "la.iamdiao.lol:1524"
+    } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     '''
     post参数设置
     '''
@@ -432,7 +438,7 @@ async def get_redis_client():
 
 async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as session:
             async with session.get(url=f"http://{site}{end_point}") as resp:
                 if resp.status in [200, 201]:
                     resp_json: list = await resp.json()
