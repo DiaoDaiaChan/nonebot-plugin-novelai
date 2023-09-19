@@ -76,11 +76,12 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                         
                     _ = await asyncio.gather(*task_list, return_exceptions=False)
                     model_name:str = resp['name']
-                    lora_ = model_name.split(".")[0]
+                    model_name = model_name.split(".")[0]
                     
                     if args.run_:
+                        prompt = f"<lora:{model_name}:0.7>" if model_type == "LORA" else model_name
                         fifo = AIDRAW(
-                            tags=f"<lora:{lora_}:0.7>", 
+                            tags=prompt, 
                             ntags=lowQuality, 
                             event=event,
                             backend_index=int(args.backend),
@@ -151,7 +152,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 text_msg = ""
                 model_type = model['type']
                 download_id = model['version']['id']
-                text_msg += f"模型名称: {model['name']}\n模型id: {model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
+                text_msg += f"模型名称: {model['name']}\n模型id: civitai.com/models/{model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
                 metrics_replace_list = ["评论总数", "喜欢次数", "下载次数", "评分", "评分总数", "加权评分"]
                 metrics_msg = ""
                 metrics_dict: dict = model['metrics']

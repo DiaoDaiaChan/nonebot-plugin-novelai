@@ -16,11 +16,11 @@ is_progress_bar = True
 
 
 def sha256_hash(data: bytes) -> str:
-   sha256 = hashlib.sha256()
-   sha256.update(data)
-   hash_digest = sha256.digest()
-   hash_hex = hash_digest.hex()
-   return hash_hex
+    sha256 = hashlib.sha256()
+    sha256.update(data)
+    hash_digest = sha256.digest()
+    hash_hex = hash_digest.hex()
+    return hash_hex
 
 
 def download_file_(download_url, proxy_url=None):

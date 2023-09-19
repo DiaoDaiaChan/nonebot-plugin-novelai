@@ -308,7 +308,7 @@ async def aidraw_get(
                                 tags_list.pop(org_tag_list.index(tag))
                                 break
                     # 判断列表长度
-                    if len(new_tags_list) >2:
+                    if len(new_tags_list) > 1:
                         new_tags_list = []
                         tags_list = org_list
                         fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
