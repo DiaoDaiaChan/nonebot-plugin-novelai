@@ -366,6 +366,7 @@ async def check_working_record(r3, day):
             today_dict["gpu"] = today_gpu_dict
             r3.set(day, str(today_dict))
 
+
 async def get_redis_client():
     
     redis_client = []
@@ -551,14 +552,18 @@ config.novelai_ControlNet_payload = [
             }
         }, 
         {"controlnet_units": 
-                [{"input_image": "", 
-                "module": config.control_net[0], 
-                "model": config.control_net[1], 
-                "weight": 1, 
-                "lowvram": False, 
-                "processor_res": config.novelai_size*1.5, 
-                "threshold_a": 100,
-                "threshold_b": 250}]
+                [
+                    {
+                    "input_image": "", 
+                    "module": config.control_net[0], 
+                    "model": config.control_net[1], 
+                    "weight": 1, 
+                    "lowvram": False, 
+                    "processor_res": config.novelai_size*1.5, 
+                    "threshold_a": 100,
+                    "threshold_b": 250
+                    }
+                ]
         }
     ]
 if config.novelai_hr:
@@ -586,12 +591,14 @@ if config.is_redis_enable:
         logger.warning(traceback.print_exc())
         logger.warning("redis初始化失败, 已经禁用redis")
 
+
 def format_config(config: Config):
     msg = ''
     config_dict = config.__dict__
     for key, value in config_dict.items():
         msg += f"[{key}: {value}]"
     return msg
+
 
 logger.info(f"加载config完成\n{format_config(config)}")
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")

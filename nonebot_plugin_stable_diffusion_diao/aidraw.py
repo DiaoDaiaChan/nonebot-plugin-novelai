@@ -24,6 +24,7 @@ from nonebot.adapters.onebot.v11 import (
     PrivateMessageEvent, 
     GroupMessageEvent
 )
+
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
@@ -37,82 +38,25 @@ from .config import (
     backend_lora, 
     get_
 )
+
+from .utils import aidraw_parser
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_check, anlas_set
 from .extension.daylimit import count
 from .extension.explicit_api import check_safe_method
-from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
 from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
 from .utils import revoke_msg
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
-from .extension.sd_extra_api_func import change_model, get_random_tags
+
+
 cd = {}
 user_models_dict = {}
 gennerating = False
 wait_list = deque([])
-
-aidraw_parser = ArgumentParser()
-aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
-aidraw_parser.add_argument("-r", "--resolution", "-形状",
-                           help="画布形状/分辨率", dest="man_shape")
-aidraw_parser.add_argument("-ar", "--ar", "--accept_ratio",
-                           help="画布比例", dest="accept_ratio")
-aidraw_parser.add_argument("-c", "--scale", "-服从",
-                           type=float, help="对输入的服从度", dest="scale")
-aidraw_parser.add_argument("-s", "--seed", "-种子", 
-                           type=int, help="种子", dest="seed")
-aidraw_parser.add_argument("-t", "--steps", "-步数",
-                           type=int, help="步数", dest="steps")
-aidraw_parser.add_argument("-u", "--ntags", "-排除",
-                           default=" ", nargs="*", help="负面标签", dest="ntags")
-aidraw_parser.add_argument("-e", "--strength", "-强度",
-                           type=float, help="修改强度", dest="strength")
-aidraw_parser.add_argument("-n", "--noise", "-噪声",
-                           type=float, help="修改噪声", dest="noise")
-aidraw_parser.add_argument("-o", "--override", "-不优化",
-                           action='store_true', help="不使用内置优化参数", dest="override")
-aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,metavar="backend_index",
-                           help="select backend", dest="backend_index")
-aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
-                           help="选择采样器", dest="sampler")
-aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译",type=str,
-                           help="不需要翻译的字符串", dest="no_trans")
-aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
-                           action='store_true', help="使用控制网以图生图", dest="control_net")
-aidraw_parser.add_argument("-hr_off",
-                           action='store_true', help="关闭高清修复", dest="disable_hr")
-aidraw_parser.add_argument("-emb",
-                           type=str, help="使用的embs", dest="emb")
-aidraw_parser.add_argument("-lora",
-                           type=str, help="使用的lora", dest="lora")
-aidraw_parser.add_argument("-hr",
-                           type=float, help="高清修复倍率", dest="hiresfix_scale")
-aidraw_parser.add_argument("-m",
-                           type=str, help="更换模型", dest="model_index")
-aidraw_parser.add_argument("-match_off","-match-off",
-                           action="store_true", help="关闭自动匹配", dest="match")
-aidraw_parser.add_argument("-sr",nargs="*",
-                           type=str, help="生成后超分", dest="sr")
-aidraw_parser.add_argument("-td", "--tiled-diffusion",
-                           action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
-aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
-                           type=int, help="启动自定义脚本生图", dest="custom_scripts")
-aidraw_parser.add_argument("-xyz", type=str, help="xyz生图", dest="xyz_plot")
-aidraw_parser.add_argument("-sc", "--script", "--scripts",
-                           type=int, help="脚本生图", dest="scripts")
-aidraw_parser.add_argument("-ef", "--eye_fix",
-                           action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
-aidraw_parser.add_argument("-op", "--openpose",
-                           action="store_true", help="使用openpose修复身体等", dest="open_pose")
-aidraw_parser.add_argument("-sag", "-SAG",
-                           action="store_true", help="使用Self Attention Guidance生图", dest="sag")
-aidraw_parser.add_argument("-otp", "--outpaint",
-                           action="store_true", help="扩图", dest="outpaint")
-aidraw_parser.add_argument("-co", "--cutoff", type=str, help="使用cutoff插件减少关键词颜色污染", dest="cutoff")
 
 
 async def get_message_at(data: str) -> int:
@@ -129,15 +73,6 @@ async def get_message_at(data: str) -> int:
         return None
 
 
-aidraw = on_shell_command(
-    ".aidraw",
-    aliases=config.novelai_command_start,
-    parser=aidraw_parser,
-    priority=5
-)
-
-
-@aidraw.handle()
 async def aidraw_get(
     bot: Bot, 
     event: MessageEvent, 
@@ -195,6 +130,7 @@ async def aidraw_get(
             
         # 如果prompt列表为0, 随机tags
         if isinstance(args.tags, list) and len(args.tags) == 0 and config.zero_tags:
+            from .extension.sd_extra_api_func import get_random_tags
             args.disable_hr = True
             try:
                 random_tags = await get_random_tags(6)
@@ -266,7 +202,7 @@ async def aidraw_get(
                     cur_backend_emb_list = all_backend_emb_list[fifo.backend_name]
                     
                     if fifo.backend_name in all_backend_lora_list and all_backend_lora_list[fifo.backend_name] is None:
-                        
+                        from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
                         logger.info("此后端没有lora数据,尝试重新载入")
                         cur_backend_lora_list, _ = await get_and_process_lora(fifo.backend_site, fifo.backend_name)
                         cur_backend_emb_list, _ = await get_and_process_emb(fifo.backend_site, fifo.backend_name)
@@ -442,6 +378,8 @@ async def aidraw_get(
         if reply:
             for seg in reply.message['image']:
                 img_url = seg.data["url"]
+        if args.pic_url:
+            img_url = args.pic_url
         
         if img_url:
             if config.novelai_paid:
@@ -605,11 +543,12 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             revoke = await config.get_value(fifo.group_id, "revoke")
             if revoke:
                 await revoke_msg(message_data, bot, revoke)
-            message_data = await bot.send(
-                event=event, 
-                message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
-            )
-            await revoke_msg(message_data, bot)
+            if not fifo.pure:
+                message_data = await bot.send(
+                    event=event,
+                    message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
+                )
+                await revoke_msg(message_data, bot)
     if fifo:
         await generate(fifo)
 
@@ -650,3 +589,12 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot):
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)
     return message
+
+
+aidraw = on_shell_command(
+    ".aidraw",
+    aliases=config.novelai_command_start,
+    parser=aidraw_parser,
+    priority=5,
+    handlers=[aidraw_get]
+)

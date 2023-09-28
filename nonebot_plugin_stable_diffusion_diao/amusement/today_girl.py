@@ -1,7 +1,8 @@
-from nonebot import on_command, logger
+from nonebot import on_shell_command, logger
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, Message
-from nonebot.params import CommandArg
+from nonebot.params import ShellCommandArgs
 from nonebot.permission import SUPERUSER
+from argparse import Namespace
 
 from ..backend import AIDRAW
 from ..backend.mj import AIDRAW as MJ_AIDRAW
@@ -10,14 +11,18 @@ from ..extension.daylimit import count
 from ..config import config
 from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
-from ..utils import revoke_msg
-from ..aidraw import get_message_at
+from ..utils import revoke_msg, aidraw_parser, tags_to_list
+from ..aidraw import get_message_at, aidraw_get
 from ..extension.explicit_api import check_safe_method
 
 import random, time, json, re, base64, aiohttp, aiofiles
 
 
-today_girl = on_command("二次元的")
+today_girl = on_shell_command(
+    "二次元的",
+    parser=aidraw_parser,
+    priority=5
+)
 
 prompt_dict = { # 来自https://github.com/pcrbot/ai_setu
     "画质": {
@@ -1258,10 +1263,10 @@ replace_dict = {
 @today_girl.handle()
 async def _(bot: Bot, 
             event: MessageEvent, 
-            msg: Message=CommandArg()
+            args: Namespace = ShellCommandArgs()
 ):  
     user_id = str(event.user_id)
-    message = msg.extract_plain_text()
+    message = args.tags[0]
     mj_mode = False
     if message.find('/mj') != -1 and hasattr(config, "novelai_mj_proxy") and config.novelai_mj_proxy:
         # 可以使用mj代理
@@ -1275,10 +1280,6 @@ async def _(bot: Bot,
             user_name = get_info["nickname"]
     else:
         user_name = message
-    if config.novelai_daylimit and not await SUPERUSER(bot, event):
-        left = await count(str(event.user_id), 1)
-        if left < 0:
-            await today_girl.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
     img_url = None
     random_int_str = str(random.randint(0, 65535))
 
@@ -1335,7 +1336,7 @@ async def _(bot: Bot,
 正在{build_msg_zh[8]},
 画面{build_msg_zh[9]},{build_msg_zh[10]},
 '''.strip()
-        
+
         tags = build_msg_en[0] +","+ f','.join(build_msg_en)
     
     try:
@@ -1344,63 +1345,49 @@ async def _(bot: Bot,
     except ActionFailed:
         message_data = await bot.send(event=event, 
                         message=f"风控了...不过图图我还是会画给你的...")
+
     await revoke_msg(message_data, bot)
-    tags = "" if tags is None else tags
-    tags = basetag + tags
-    ntags = lowQuality
-    fifo = AIDRAW(
-    tags=tags, 
-    ntags=ntags, 
-    event=event
-    )
+    args.match = True
+    args.pure = True
+    build_msg_en.append(build_msg_en[0])
+    args.tags = build_msg_en
+    if img_url:
+        args.pic_url = img_url
+        args.control_net = True
     if mj_mode:
+
         tags = 'cute girl, ' + tags
         fifo = MJ_AIDRAW(
-        tags=tags, 
-        ntags='', 
+        tags=tags,
+        ntags='',
         event=event
         )
-    if img_url:
-        async with aiohttp.ClientSession() as session:
-            logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
-            async with session.get(img_url) as resp:
-                await fifo.add_image(await resp.read(), control_net=True)
-    try:
-        await fifo.load_balance_init()
-        await fifo.post()
-    except Exception as e:
-        await today_girl.finish(f"服务端出错辣,{e.args}")
-    else:
-        img_msg = MessageSegment.image(fifo.result[0])
-        if mj_mode:
-            # MJ一次出四张图，进行切图，切无需审核
-            image_bytes = await MJ_AIDRAW.split_image(fifo.result[0])
-            img_msg = ''
-            for i in range(4):
-                img_msg += MessageSegment.image(image_bytes[i])
-        if config.novelai_extra_pic_audit:
-            result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_todaygirl")
-            if isinstance(result[1], MessageSegment):
-                message_data = await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
-        else:
-            try:
-                message_data = await bot.send(
-                    event=event, 
-                    message=f"这是你的二次元形象,hso\n"+img_msg+f"\n{fifo.img_hash}"+f"\n生成耗费时间{fifo.spend_time}", 
-                    at_sender=True, 
-                    reply_message=True
-                )
-            except ActionFailed:
-                message_data = await bot.send(
-                    event=event, 
-                    message=img_msg+f"\n{fifo.img_hash}", 
-                    at_sender=True, reply_message=True
-                )
-            await save_img(
-                fifo=fifo, 
-                img_bytes=fifo.result[0], 
-                extra=fifo.group_id+"_todaygirl"
-            )
+
+        # MJ一次出四张图，进行切图，切无需审核
+        image_bytes = await MJ_AIDRAW.split_image(fifo.result[0])
+        img_msg = ''
+        for i in range(4):
+            img_msg += MessageSegment.image(image_bytes[i])
+
+        message_data = await bot.send(
+            event=event,
+            message=img_msg + f"\n{fifo.img_hash}",
+            at_sender=True, reply_message=True
+        )
+
+        await save_img(
+            fifo=fifo,
+            img_bytes=fifo.result[0],
+            extra=fifo.group_id + "_todaygirl"
+        )
+
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
             await revoke_msg(message_data, bot, revoke)
+
+    else:
+        await aidraw_get(bot, event, args)
+
+
+
+

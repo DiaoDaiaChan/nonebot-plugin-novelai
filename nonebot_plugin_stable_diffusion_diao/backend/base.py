@@ -65,6 +65,7 @@ class AIDRAW_BASE:
         outpaint: bool = False,
         cutoff: str = None,
         eye_fix: bool = False,
+        pure: bool = False,
         **kwargs,
     ):
         """
@@ -181,6 +182,7 @@ class AIDRAW_BASE:
         self.eye_fix = eye_fix
         self.post_event = None
         self.current_process = None
+        self.pure = pure
         
         # 数值合法检查
         max_steps = config.novelai_max_steps

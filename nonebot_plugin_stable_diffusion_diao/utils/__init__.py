@@ -8,6 +8,69 @@ from nonebot import logger
 from ..config import config
 from asyncio import get_running_loop
 
+from nonebot.rule import ArgumentParser
+
+aidraw_parser = ArgumentParser()
+aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
+aidraw_parser.add_argument("-r", "--resolution", "-形状",
+                           help="画布形状/分辨率", dest="man_shape")
+aidraw_parser.add_argument("-ar", "--ar", "--accept_ratio",
+                           help="画布比例", dest="accept_ratio")
+aidraw_parser.add_argument("-c", "--scale", "-服从",
+                           type=float, help="对输入的服从度", dest="scale")
+aidraw_parser.add_argument("-s", "--seed", "-种子",
+                           type=int, help="种子", dest="seed")
+aidraw_parser.add_argument("-t", "--steps", "-步数",
+                           type=int, help="步数", dest="steps")
+aidraw_parser.add_argument("-u", "--ntags", "-排除",
+                           default=" ", nargs="*", help="负面标签", dest="ntags")
+aidraw_parser.add_argument("-e", "--strength", "-强度",
+                           type=float, help="修改强度", dest="strength")
+aidraw_parser.add_argument("-n", "--noise", "-噪声",
+                           type=float, help="修改噪声", dest="noise")
+aidraw_parser.add_argument("-o", "--override", "-不优化",
+                           action='store_true', help="不使用内置优化参数", dest="override")
+aidraw_parser.add_argument("-sd", "--backend", "-后端",type=int,metavar="backend_index",
+                           help="select backend", dest="backend_index")
+aidraw_parser.add_argument("-sp", "--sampler", "-采样器",type=str,
+                           help="选择采样器", dest="sampler")
+aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译",type=str,
+                           help="不需要翻译的字符串", dest="no_trans")
+aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
+                           action='store_true', help="使用控制网以图生图", dest="control_net")
+aidraw_parser.add_argument("-hr_off",
+                           action='store_true', help="关闭高清修复", dest="disable_hr")
+aidraw_parser.add_argument("-emb",
+                           type=str, help="使用的embs", dest="emb")
+aidraw_parser.add_argument("-lora",
+                           type=str, help="使用的lora", dest="lora")
+aidraw_parser.add_argument("-hr",
+                           type=float, help="高清修复倍率", dest="hiresfix_scale")
+aidraw_parser.add_argument("-m",
+                           type=str, help="更换模型", dest="model_index")
+aidraw_parser.add_argument("-match_off","-match-off",
+                           action="store_true", help="关闭自动匹配", dest="match")
+aidraw_parser.add_argument("-sr",nargs="*",
+                           type=str, help="生成后超分", dest="sr")
+aidraw_parser.add_argument("-td", "--tiled-diffusion",
+                           action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
+aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
+                           type=int, help="启动自定义脚本生图", dest="custom_scripts")
+aidraw_parser.add_argument("-xyz", type=str, help="xyz生图", dest="xyz_plot")
+aidraw_parser.add_argument("-sc", "--script", "--scripts",
+                           type=int, help="脚本生图", dest="scripts")
+aidraw_parser.add_argument("-ef", "--eye_fix",
+                           action="store_true", help="使用ad插件修复脸部", dest="eye_fix")
+aidraw_parser.add_argument("-op", "--openpose",
+                           action="store_true", help="使用openpose修复身体等", dest="open_pose")
+aidraw_parser.add_argument("-sag", "-SAG",
+                           action="store_true", help="使用Self Attention Guidance生图", dest="sag")
+aidraw_parser.add_argument("-otp", "--outpaint",
+                           action="store_true", help="扩图", dest="outpaint")
+aidraw_parser.add_argument("-co", "--cutoff", type=str, help="使用cutoff插件减少关键词颜色污染", dest="cutoff")
+aidraw_parser.add_argument("-pic", help="图片url", dest="pic_url")
+aidraw_parser.add_argument("-pure", action="store_true", help="不返回额外的消息", dest="pure")
+
 
 async def check_last_version(package: str):
     # 检查包的最新版本
@@ -101,11 +164,13 @@ async def pic_audit_standalone(
                 possibilities = {}
                 to_user_dict = {}
                 message = "这是审核结果:\n"
+
                 for i, to_user in zip(replace_list, to_user_list):
                     possibilities[i]=tags[i]
                     percent = f":{tags[i]*100:.2f}".rjust(6)
                     message += f"[{to_user}{percent}%]\n"
                     to_user_dict[to_user] = tags[i]
+
                 value = list(to_user_dict.values())
                 value.sort(reverse=True)
                 reverse_dict = {value: key for key, value in to_user_dict.items()}
@@ -174,5 +239,5 @@ async def revoke_msg(message_data, bot, time = None):
         recall_time,
         lambda: loop.create_task(
             bot.delete_msg(message_id=message_id)
-        ),
+        )
     )

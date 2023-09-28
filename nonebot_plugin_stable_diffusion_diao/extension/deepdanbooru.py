@@ -16,6 +16,7 @@ deepdanbooru = on_command(".gettag", aliases={"鉴赏", "查书", "分析"})
 async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
     h_ = None
     url = ""
+
     reply = event.reply
     for seg in event.message['image']:
         url = seg.data["url"]
@@ -42,6 +43,7 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 'general, sensitive, questionable, explicit, ', "", 1
             )
             tags = tags.replace("_", " ")
+
         else:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -56,8 +58,10 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                 tags = ""
                 for label in data['confidences']:
                     tags = tags+label["label"]+","
+
         tags_ch = await translate(tags, "zh")
         message_list = [MessageSegment.image(bytes_), tags, f"机翻结果:\n" + tags_ch]
+
         if h_:
             message_list = message_list + [h_]
         try: 
@@ -70,5 +74,6 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
             )  
         except ActionFailed:
             await risk_control(bot, event, [tags, tags_ch], False, True)
+
     else:
         await deepdanbooru.finish(f"未找到图片")

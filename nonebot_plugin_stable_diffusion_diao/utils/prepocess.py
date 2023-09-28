@@ -22,13 +22,22 @@ async def trans(taglist):
     return tags_
 
 
-async def prepocess_tags(tags: list[str], translation=True, only_trans=False):
+async def prepocess_tags(tags: list[str], translation=True, only_trans=False, return_img_url=False):
     if only_trans:
         trans_result = await trans(tags)
         return trans_result
     tags: str = "".join([i+" " for i in tags if isinstance(i,str)])
     # 去除CQ码
-    tags = re.sub("\[CQ[^\s]*?]", "", tags)
+    if return_img_url:
+        url_pattern = r'url=(https?://\S+)'
+        match = re.search(url_pattern, tags)
+        if match:
+            url = match.group(1)
+            return url
+        else:
+            return None
+    else:
+        tags = re.sub("\[CQ[^\s]*?]", "", tags)
     # 检测中文
     taglist = tags.split(",")
     if not translation:

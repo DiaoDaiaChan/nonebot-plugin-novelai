@@ -16,18 +16,20 @@ import traceback
 import random
 import ast
 
+from argparse import Namespace
 from ..config import config, redis_client, nickname
 from ..extension.translation import translate
 from ..extension.explicit_api import check_safe_method, check_safe
 from .translation import translate
 from ..backend import AIDRAW
-from ..utils import unload_and_reload, pic_audit_standalone
+from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser
 from ..utils.save import save_img
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils.prepocess import prepocess_tags
 from .safe_method import send_forward_msg, risk_control
 from ..extension.daylimit import count
+from ..aidraw import aidraw_get
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
@@ -37,6 +39,7 @@ from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot import logger
 from collections import Counter
+from copy import deepcopy
 
 
 async def func_init(event):
@@ -68,7 +71,12 @@ get_models = on_command(
 )
 superusr = SUPERUSER if config.only_super_user else None
 change_models = on_command("更换模型", priority=1, block=True, permission=superusr)
-control_net = on_command("以图绘图", aliases={"以图生图"})
+control_net = on_shell_command(
+    "以图绘图",
+    aliases={"以图生图"},
+    parser=aidraw_parser,
+    priority=5
+)
 control_net_list = on_command("controlnet", aliases={"控制网"})
 super_res = on_command("图片修复", aliases={"图片超分", "超分"})
 get_backend_status = on_command("后端", aliases={"查看后端"})
@@ -77,7 +85,13 @@ get_lora = on_command("lora", aliases={"loras"})
 get_sampler = on_command("采样器", aliases={"获取采样器"})
 translate_ = on_command("翻译")
 hr_fix = on_command("高清修复") # 欸，还没写呢，就是玩
-random_tags = on_command("随机tag")
+
+random_tags = on_shell_command(
+    "随机tag",
+    parser=aidraw_parser,
+    priority=5
+)
+
 find_pic = on_command("找图片")
 word_frequency_count = on_command("词频统计", aliases={"tag统计"})
 run_screen_shot = on_command("运行截图", aliases={"状态"}, block=False, priority=2)
@@ -131,7 +145,6 @@ class GET_API():
         pass
     
 
-
 async def get_random_tags(sample_num=12):
     try:
         if redis_client:
@@ -173,6 +186,7 @@ async def get_and_process_lora(site, site_, text_msg=None):
                 loras_list.append(f"{n}.{i}\t\n")
         else:
             loras_list.append(f"{n}.{i}\t\n")
+    new_lora_dict = deepcopy(lora_dict)
     if redis_client:
         r2 = redis_client[1]
         if r2.exists("lora"):
@@ -184,7 +198,7 @@ async def get_and_process_lora(site, site_, text_msg=None):
     else:
         async with aiofiles.open("data/novelai/loras.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(lora_dict))
-    return lora_dict, loras_list
+    return new_lora_dict, loras_list
 
 
 async def get_and_process_emb(site, site_, text_msg=None):
@@ -203,6 +217,7 @@ async def get_and_process_emb(site, site_, text_msg=None):
                 embs_list.append(f"{n}.{i}\t\n")
         else:
             embs_list.append(f"{n}.{i}\t\n")
+    new_emb_dict = deepcopy(emb_dict)
     if redis_client:
         r2 = redis_client[1]
         emb_dict_org = r2.get("emb")
@@ -213,7 +228,7 @@ async def get_and_process_emb(site, site_, text_msg=None):
     else:
         async with aiofiles.open("data/novelai/embs.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(emb_dict))
-    return emb_dict, embs_list 
+    return new_emb_dict, embs_list 
 
 
 async def download_img(url):
@@ -535,13 +550,16 @@ async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
 
 
 @control_net.handle()
-async def c_net(state: T_State, net: Message = CommandArg()):
+async def c_net(state: T_State, args: Namespace = ShellCommandArgs(), net: Message = CommandArg()):
+    state["args"] = args
     if net:
         if len(net) > 1:
             state["tag"] = net
             state["net"] = net
         elif net[0].type == "image":
             state["net"] = net
+            state["tag"] = net
+        elif len(net) == 1 and not net[0].type == "image":
             state["tag"] = net
     else:
         state["tag"] = net
@@ -553,53 +571,18 @@ async def __():
 
 
 @control_net.got("net", "你的图图呢？")
-async def _(event: MessageEvent, bot: Bot, tag: str = ArgPlainText("tag"), msg: Message = Arg("net")):
-    if config.novelai_daylimit and not await SUPERUSER(bot, event):
-        left = await count(str(event.user_id), 2)
-        if left < 0:
-            await control_net.finish(f"今天你的次数不够了哦，明天再来找我玩吧")
-    await func_init(event)
-    start = time.time()
-    tags_en = None
-    reply= event.reply
+async def _(
+        event: MessageEvent,
+        bot: Bot,
+        args: Namespace = Arg("args"),
+        msg: Message = Arg("net")
+):
+    for data in msg:
+        if data.data.get("url"):
+            args.pic_url = data.data.get("url")
+    args.control_net = True
     await bot.send(event=event, message=f"control_net以图生图中")
-    if msg[0].type == "image":
-            img_url = msg[0].data["url"]
-    else:
-        tag = msg[0].data["text"]
-        img_url = msg[1].data["url"]
-        tags_en = await translate(tag, "en")
-    if tags_en is None:
-        tags_en = ""
-    if reply:
-        for seg in reply.message['image']:
-            img_url = seg.data["url"]
-        for seg in event.message['image']:
-            img_url = seg.data["url"]
-    img = await download_img(img_url)
-    img_bytes = base64.b64decode(img[0])
-    tags = basetag + tags_en
-    try:
-        fifo = AIDRAW(
-            user_id=str(event.user_id), 
-            tags=tags,
-            ntags=lowQuality,
-            event=event
-        )
-        
-        await fifo.load_balance_init()
-        await fifo.add_image(image=img_bytes, control_net=True)
-        await fifo.post()
-        processed_pic = fifo.result[0]
-        message_ = await check_safe_method(fifo, [processed_pic], [""], None, True, "_controlnet")
-    except Exception as e:
-        logger.error(traceback.format_exc())
-        await control_net.finish(f"出现错误{e}")
-    if isinstance(message_[1], MessageSegment):
-        message = MessageSegment.image(processed_pic) + f"\n耗时{fifo.spend_time}\n" + fifo.img_hash
-        await bot.send(event=event, message=message)
-    else:
-        pass
+    await aidraw_get(bot, event, args)
 
 
 @get_models.handle()
@@ -750,46 +733,16 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 
 
 @random_tags.handle()
-async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
 
     chose_tags_list = await get_random_tags()
-    chose_tags = ', '.join(chose_tags_list)
+    await risk_control(bot, event, [f"以下是为你随机的tag:\n{''.join(chose_tags_list)}"])
 
-    fifo = AIDRAW(
-        user_id=event.user_id, 
-        tags=chose_tags, 
-        ntags=lowQuality, 
-        event=event
-    )
-    
-    await risk_control(bot, event, [chose_tags], True)
-    await fifo.load_balance_init()
-    await fifo.post()
-    if config.novelai_extra_pic_audit:
-        message_ = await check_safe_method(
-            fifo, 
-            [fifo.result[0]], 
-            [""], 
-            None, 
-            True, 
-            "_random_tags"
-        )
-        if isinstance(message_[1], MessageSegment):
-            await bot.send(
-                event, 
-                message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
-                at_sender=True, 
-                reply_message=True
-            )
-        else:
-            pass
-    else:
-        await bot.send(
-            event, 
-            message=MessageSegment.image(fifo.result[0])+fifo.img_hash,
-            at_sender=True, 
-            reply_message=True
-        )
+    args.tags = chose_tags_list
+    args.match = True
+    args.pure = True
+
+    await aidraw_get(bot, event, args)
 
 
 @find_pic.handle()
@@ -919,11 +872,12 @@ async def _(event: MessageEvent, bot: Bot):
                 img_msg = MessageSegment.image(fifo.result[0])
                 result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_agin")
                 if isinstance(result[1], MessageSegment):
-                    await bot.send(event=event,
-                                   message=f"{nickname}又给你画了一张哦!"+img_msg+f"\n{fifo.img_hash}",
-                                   at_sender=True,
-                                   reply_message=True
-                                   )
+                    await bot.send(
+                        event=event,
+                        message=f"{nickname}又给你画了一张哦!"+img_msg+f"\n{fifo.img_hash}",
+                        at_sender=True,
+                        reply_message=True
+                   )
                 await save_img(fifo=fifo, img_bytes=fifo.result[0],extra=fifo.group_id+"_agin")
         else:
             await genera_aging.finish("你还没画过图, 这个功能用不了哦!")
@@ -1108,11 +1062,13 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         tags = ", ".join(tags)
         if not tags:
             tags = "miku"
+
     init_dict["tags"] = tags
     _, __, normal_backend = await sd_LoadBalance()
     random_site = random.choice(normal_backend)
     index = config.backend_site_list.index(random_site)
     init_dict["backend_index"] = index
+
     fifo = AIDRAW(**init_dict)
     fifo.backend_site = random_site
     fifo.is_random_model = True
@@ -1120,6 +1076,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     fifo.ntags = lowQuality
     fifo.disable_hr = True
     fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
+
     await bot.send(event=event, message=f"{nickname}祈祷中...让我们看看随机了什么好模型\nprompts: {fifo.tags}")
     
     try:
@@ -1135,13 +1092,18 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                 await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
         else:
             try:
-                await bot.send(event=event, 
-                            message=to_user, 
-                            at_sender=True, reply_message=True)
+                await bot.send(
+                    event=event,
+                    message=to_user,
+                    at_sender=True,
+                    reply_message=True
+                )
             except ActionFailed:
-                await bot.send(event=event, 
-                            message=img_msg+f"\n{fifo.img_hash}", 
-                            at_sender=True, reply_message=True)
+                await bot.send(
+                    event=event,
+                    message=img_msg+f"\n{fifo.img_hash}",
+                    at_sender=True, reply_message=True
+                )
     await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model")
     
     
