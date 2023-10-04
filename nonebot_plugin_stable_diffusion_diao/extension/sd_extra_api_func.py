@@ -75,7 +75,8 @@ control_net = on_shell_command(
     "以图绘图",
     aliases={"以图生图"},
     parser=aidraw_parser,
-    priority=5
+    priority=5,
+    block=True
 )
 control_net_list = on_command("controlnet", aliases={"控制网"})
 super_res = on_command("图片修复", aliases={"图片超分", "超分"})
@@ -97,7 +98,7 @@ word_frequency_count = on_command("词频统计", aliases={"tag统计"})
 run_screen_shot = on_command("运行截图", aliases={"状态"}, block=False, priority=2)
 audit = on_command("审核")
 genera_aging = on_command("再来一张")
-reload_ = on_command("卸载模型", aliases={"释放显存"})
+reload_ = on_command("卸载模型", aliases={"释放显存"}, permission=superusr)
 style_ = on_command("预设")
 rembg = on_command("去背景", aliases={"rembg", "抠图"})
 read_png_info = on_command("读图", aliases={"读png", "读PNG"})
@@ -765,9 +766,10 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         await find_pic.finish("你要找的图不存在")
 
     if config.novelai_extra_pic_audit:
-        fifo = AIDRAW(user_id=event.get_user_id,
-                        event=event 
-                    )
+        fifo = AIDRAW(
+            user_id=event.get_user_id,
+            event=event
+        )
         await fifo.load_balance_init()
         message_ = await check_safe_method(fifo, [content], [""], None, False)
         if isinstance(message_[1], MessageSegment):
@@ -777,6 +779,10 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                 await risk_control(bot, event, msg_list, True)
         else:
             await bot.send(event, message="哼！想看涩图，自己看私聊去！")
+            try:
+                await bot.send_private_msg(event.user_id, MessageSegment.image(content))
+            except ActionFailed:
+                await bot.send(event, f"呜呜,{event.sender.nickname}你不加我好友我怎么发图图给你!")
     else:
         try:
             await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
@@ -937,7 +943,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
             if args.find_style_name == style["name"]:
                 name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
                 find_style = True
-                await risk_control(bot, event, [f"预设名称: {name}\n正面提示词: {tags}\n负面提示词: {ntags}\n"], True)
+                await risk_control(bot, event, [f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n"], True)
                 break
         if not find_style:
             await style_.finish(f"没有找到预设{args.find_style_name}")

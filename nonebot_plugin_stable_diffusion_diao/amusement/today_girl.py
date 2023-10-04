@@ -1,27 +1,26 @@
 from nonebot import on_shell_command, logger
 from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, Message
 from nonebot.params import ShellCommandArgs
-from nonebot.permission import SUPERUSER
 from argparse import Namespace
 
-from ..backend import AIDRAW
 from ..backend.mj import AIDRAW as MJ_AIDRAW
-from ..extension.translation import translate_deepl, translate
-from ..extension.daylimit import count
+from ..extension.translation import translate
 from ..config import config
-from ..utils.data import basetag, lowQuality
 from ..utils.save import save_img
-from ..utils import revoke_msg, aidraw_parser, tags_to_list
+from ..utils import revoke_msg, aidraw_parser, run_later
 from ..aidraw import get_message_at, aidraw_get
-from ..extension.explicit_api import check_safe_method
 
-import random, time, json, re, base64, aiohttp, aiofiles
+import random
+import time
+import re
+
 
 
 today_girl = on_shell_command(
     "二次元的",
     parser=aidraw_parser,
-    priority=5
+    priority=5,
+    block=True
 )
 
 prompt_dict = { # 来自https://github.com/pcrbot/ai_setu

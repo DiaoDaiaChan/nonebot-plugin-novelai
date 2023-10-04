@@ -14,18 +14,15 @@ import os
 
 
 async def get_progress(url):
-    first_get = "http://" + url + "/sdapi/v1/memory" 
     api_url = "http://" + url + "/sdapi/v1/progress"
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session1:
-        async with session1.get(url=first_get) as resp1:
-            resp_code2 = resp1.status
+    vram_usage, resp_code2 = await get_vram(url, True)
     async with aiohttp.ClientSession() as session:
         async with session.get(url=api_url) as resp:
             resp_json = await resp.json()
-            return resp_json, resp.status, url, resp_code2
+            return resp_json, resp.status, url, resp_code2, vram_usage
 
 
-async def get_vram(ava_url):
+async def get_vram(ava_url, get_code=False):
     get_mem = "http://" + ava_url + "/sdapi/v1/memory"        
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session1:
@@ -37,6 +34,8 @@ async def get_vram(ava_url):
                 vram_usage = f"显存占用{vram_used}M/{vram_total}M"
     except Exception:
         vram_usage = ""
+    if get_code:
+        return vram_usage, resp2.status
     return vram_usage
 
 
@@ -49,17 +48,21 @@ async def sd_LoadBalance():
     tasks = []
     is_avaiable = 0
     status_dict = {}
+    vram_dict = {}
     ava_url = None
     n = -1
     e = -1
     defult_eta = 20
     normal_backend = None
     idle_backend = []
+
     for url in backend_url_dict.values():
         tasks.append(get_progress(url))
     # 获取api队列状态
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
+
     for resp_tuple in all_resp:
+        vram_dict[resp_tuple[2]] = resp_tuple[4]
         e += 1 
         if isinstance(
             resp_tuple,
@@ -98,6 +101,7 @@ async def sd_LoadBalance():
             ) as pbar:
                 pbar.update(progress)
                 time.sleep(0.1)
+
     if config.novelai_load_balance_mode == 1:
         if is_avaiable == 0:
             n = -1
@@ -122,6 +126,7 @@ async def sd_LoadBalance():
                     ava_url = reverse_sta_dict[eta_list[0]]
         if len(idle_backend) >= 1:
             ava_url = random.choice(idle_backend)
+
     elif config.novelai_load_balance_mode == 2:
         
         list_tuple = []
@@ -152,7 +157,8 @@ async def sd_LoadBalance():
             print(list_tuple)
             fifo = AIDRAW()
             ava_url = fifo.weighted_choice(list_tuple)
+
     logger.info(f"已选择后端{reverse_dict[ava_url]}")
     ava_url_index = list(backend_url_dict.values()).index(ava_url)
-    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend))
+    ava_url_tuple = (ava_url, reverse_dict[ava_url], all_resp, len(normal_backend), vram_dict[ava_url])
     return ava_url_index, ava_url_tuple, normal_backend

@@ -56,11 +56,11 @@ class VITS:
 
     async def http_req(
         self,  
-        payload = {}, 
-        method = 1, 
-        end_point = "/voice/speakers",
-        params = {},
-        read = False
+        payload={},
+        method=1,
+        end_point="/voice/speakers",
+        params={},
+        read=False
     ) -> aiohttp.ClientResponse or bytes:
         url = f"http://{config.vits_site}{end_point}"
         if method == 1:
@@ -89,12 +89,14 @@ class VITS:
 
 
 @vits_.handle()
-async def _(event: MessageEvent, 
-            bot: Bot, 
-            args: Namespace = ShellCommandArgs()
-            ):
+async def _(
+        event: MessageEvent,
+        bot: Bot,
+        args: Namespace = ShellCommandArgs()
+):
     
     vits_instance = VITS(**vars(args), event=event)
+
     if args.get_list:
         to_user_list = ["-s参数指定音色, 例如 -s 10\n"]
         resp_ = await vits_instance.http_req()
@@ -107,6 +109,7 @@ async def _(event: MessageEvent,
             support_lang = speaker["lang"]
             to_user_list.append(f"音色名称: {speaker_name}, 音色id: {speaker_id}, 支持的语言: {support_lang}\n")
         await risk_control(bot, event, to_user_list, True)
+
     else:
         vits_instance.get_params()
         audio_resp = await vits_instance.http_req(end_point="/voice", params=vits_instance.params, read=True)

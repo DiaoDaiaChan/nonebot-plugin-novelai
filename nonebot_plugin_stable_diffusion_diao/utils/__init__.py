@@ -224,7 +224,7 @@ async def set_res(new_img: Image) -> str:
             width: float = height*ratio
         logger.info(f"图片尺寸已调整至{round(width)}x{round(height)}")
         new_img.resize((round(width), round(height)))
-    img_bytes =  BytesIO()
+    img_bytes = BytesIO()
     new_img.save(img_bytes, format="JPEG")
     img_bytes = img_bytes.getvalue()
     img_base64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -239,5 +239,15 @@ async def revoke_msg(message_data, bot, time = None):
         recall_time,
         lambda: loop.create_task(
             bot.delete_msg(message_id=message_id)
+        )
+    )
+
+
+async def run_later(func, delay=1):
+    loop = get_running_loop()
+    loop.call_later(
+        delay,
+        lambda: loop.create_task(
+            func
         )
     )

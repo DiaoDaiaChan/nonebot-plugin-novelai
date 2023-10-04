@@ -1,16 +1,18 @@
 from .base import AIDRAW_BASE
 from ..config import config
-import time
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils import get_generate_info
 from nonebot import logger
-from copy import deepcopy
-import json, aiofiles
+from PIL import Image
+from io import  BytesIO
+
 import asyncio
 import traceback
 import random
 import ast
-
+import time
+import json
+import re
 
 header = {
     "content-type": "application/json",
@@ -47,6 +49,7 @@ class AIDRAW(AIDRAW_BASE):
         resp_tuple = await sd_LoadBalance()
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
+        self.vram = resp_tuple[1][4]
         return resp_tuple
 
     async def post_parameters(self):
@@ -229,18 +232,19 @@ class AIDRAW(AIDRAW_BASE):
                         )
                     except Exception:
                         self.backend_name = ""
-                resp_list = await asyncio.gather(
-                    *[self.get_webui_config(self.backend_site), 
-                    get_vram(self.backend_site)], 
-                    return_exceptions=False
-                )
-                resp_json = resp_list[0]
-                try:
-                    if self.model is None:
-                        self.model = resp_json["sd_model_checkpoint"]
-                except Exception:
-                    self.model = ""
-                self.vram = resp_list[1]
+                byte_img = self.result[0]
+                new_img = Image.open(BytesIO(byte_img))
+                img_info = new_img.info
+                res_msg = f"分辨率:{new_img.width}x{new_img.height}\n"
+                pattern = r'Model:\s*(.*?),'
+                pattern2 = r'Model hash:\s*(.*?),'
+                match = re.search(pattern, img_info['parameters'])
+                match2 = re.search(pattern2, img_info['parameters'])
+                if match:
+                    model_name = match.group(1).strip()
+                    model_hash = match2.group(1).strip()
+                self.model = f"{model_name} {model_hash}"
+                self.extra_info = res_msg
                 break
         generate_info = get_generate_info(self, "生成完毕")
         logger.info(

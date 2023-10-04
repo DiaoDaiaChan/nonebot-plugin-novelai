@@ -1,3 +1,4 @@
+import asyncio
 import time
 import re
 import random
@@ -13,8 +14,6 @@ from copy import deepcopy
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from nonebot import get_bot, on_shell_command
-from PIL import Image
-from io import BytesIO
 
 from nonebot.adapters.onebot.v11 import (
     MessageEvent, 
@@ -25,29 +24,20 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent
 )
 
-from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
 from nonebot.params import ShellCommandArgs
 
-from .config import (
-    config, 
-    nickname, 
-    redis_client, 
-    backend_emb, 
-    backend_lora, 
-    get_
-)
+from .config import config, redis_client
 
 from .utils import aidraw_parser
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
-from .extension.anlas import anlas_check, anlas_set
+from .extension.anlas import anlas_set
 from .extension.daylimit import count
 from .extension.explicit_api import check_safe_method
-from .utils.save import save_img
 from .utils.prepocess import prepocess_tags
-from .utils import revoke_msg
+from .utils import revoke_msg, run_later
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
@@ -57,6 +47,18 @@ cd = {}
 user_models_dict = {}
 gennerating = False
 wait_list = deque([])
+
+
+async def record_prompts(fifo):
+    if redis_client:
+        tags_list_ = tags_to_list(fifo.tags)
+        r1 = redis_client[0]
+        pipe = r1.pipeline()
+        pipe.rpush("prompts", str(tags_list_))
+        pipe.rpush(fifo.user_id, str(dict(fifo)))
+        pipe.execute()
+    else:
+        logger.warning("没有连接到redis, prompt记录功能不完整")
 
 
 async def get_message_at(data: str) -> int:
@@ -149,9 +151,10 @@ async def aidraw_get(
         tags_list = tags_to_list(tags_str)
         # 匹配预设
         r = redis_client[1]
-        if (redis_client 
-            and config.auto_match 
-            and args.match is False 
+        if (
+            redis_client
+            and config.auto_match
+            and args.match is False
             and r.exists("style")
         ):
             info_style = ""
@@ -168,7 +171,7 @@ async def aidraw_get(
                         if tag in style["name"]:
                             style_ = style["name"]
                             info_style += f"自动找到的预设: {style_}\n"
-                            style_tag += str(style["prompt"])  + ","
+                            style_tag += str(style["prompt"]) + ","
                             style_ntag += str(style["negative_prompt"]) + ","
                             tags_list.pop(org_tag_list.index(tag))
                             logger.info(info_style)
@@ -188,6 +191,7 @@ async def aidraw_get(
         org_list = deepcopy(tags_list)
         new_tags_list = []
         if config.auto_match and not args.match and redis_client:
+            turn_off_match = False
             r2 = redis_client[1]
             try:
                 tag = ""
@@ -216,6 +220,9 @@ async def aidraw_get(
                     # 匹配lora模型
                     tag_index = -1
                     for tag in org_tag_list:
+                        if len(new_tags_list) > 1:
+                            turn_off_match = True
+                            break
                         tag_index += 1
                         index = -1
                         for lora in list(cur_backend_lora_list.values()):
@@ -231,6 +238,9 @@ async def aidraw_get(
                     # 匹配emb模型
                     tag_index = -1
                     for tag in org_tag_list:
+                        if len(new_tags_list) > 1:
+                            turn_off_match = True
+                            break
                         tag_index += 1
                         index = -1
                         for emb in list(cur_backend_emb_list.values()):
@@ -244,7 +254,7 @@ async def aidraw_get(
                                 tags_list.pop(org_tag_list.index(tag))
                                 break
                     # 判断列表长度
-                    if len(new_tags_list) > 1:
+                    if turn_off_match:
                         new_tags_list = []
                         tags_list = org_list
                         fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
@@ -257,7 +267,8 @@ async def aidraw_get(
                 logger.warning(str(traceback.print_exc()))
                 new_tags_list = []
                 tags_list = org_list
-                logger.warning(f"tag自动匹配失效,出现问题的: {tag}\n或者是prompt里自动匹配到的模型过多")
+                logger.warning(f"tag自动匹配失效,出现问题的: {tag}, 或者是prompt里自动匹配到的模型过多")
+
         # 检查翻译API是否失效
         try: 
             tags_list: str = await prepocess_tags(tags_list, False, True)
@@ -340,6 +351,7 @@ async def aidraw_get(
             for i, w in zip(emb_index, emb_weight):
                 emb_msg += f"({emb_dict[int(i)]:{w}})"
             logger.info(f"使用的emb:{emb_msg}")
+
         tags_list += lora_msg + emb_msg
         # 不希望翻译的tags
         if args.no_trans:  
@@ -356,15 +368,7 @@ async def aidraw_get(
         fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
         fifo.ntags = pre_ntags + "," + fifo.ntags + str(style_ntag)
         # 记录prompt
-        if redis_client:
-            tags_list_ = tags_to_list(fifo.tags)
-            r1 = redis_client[0]
-            pipe = r1.pipeline()
-            pipe.rpush("prompts", str(tags_list_))
-            pipe.rpush(fifo.user_id, str(dict(fifo)))
-            pipe.execute()
-        else:
-            logger.warning("没有连接到redis, prompt记录功能不完整")
+        await run_later(record_prompts(fifo))
 
         # 以图生图预处理
         img_url = ""
@@ -391,85 +395,8 @@ async def aidraw_get(
             else:
                 await aidraw.finish(f"以图生图功能已禁用")
         logger.debug(fifo)
-        # 初始化队列
-        if fifo.cost > 0:
-            anlascost = fifo.cost
-            hasanlas = await anlas_check(fifo.user_id)
-            if hasanlas >= anlascost:
-                await wait_fifo(fifo, event, anlascost, hasanlas - anlascost, message=message, bot=bot,)
-            else:
-                await aidraw.finish(f"你的点数不足，你的剩余点数为{hasanlas}")
-        else:
-            try:
-                await wait_fifo(fifo, event, message=message, bot=bot)
-            except ActionFailed:
-                logger.error(traceback.format_exc())
-                logger.info("风控了,额外消息发不出来捏")
-
-
-async def wait_fifo(fifo, event, anlascost=None, anlas=None, message="", bot=None):
-    # 创建队列
-    message_data = None
-    extra_message = ''
-    if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
-        fifo.backend_name = list(config.novelai_backend_url_dict.keys())[fifo.backend_index]
-        extra_message = f"已选择后端:{fifo.backend_name}"
-        
-    list_len = wait_len()
-    
-    no_wait_list = [
-    f"服务器正在全力绘图中，{nickname}也在努力哦！",
-    f"请稍等片刻哦，{nickname}已经和服务器约定好了快快完成",
-    f"{nickname}正在和服务器密谋，请稍等片刻哦！",
-    f"不要急不要急，{nickname}已经在努力让服务器完成绘图",
-    f"{nickname}正在跟服务器斗智斗勇，请耐心等待哦！",
-    f"正在全力以赴绘制您的图像，{nickname}会尽快完成，稍微等一下哦！",
-    f"别急别急，{nickname}正在和服务器",
-    f"{nickname}会尽快完成你的图像QAQ",
-    f"✨服务器正在拼命绘图中，请稍等一下呀！✨",
-    f"(*^▽^*) 服务器在进行绘图，这需要一些时间，稍等片刻就好了~", 
-    f"（＾∀＾）ノ服务器正在全力绘图，请耐心等待哦",
-    f"（￣▽￣）/ 你的图马上就好了，等等就来",
-    f"╮(╯_╰)╭ 不要着急，我会加速的",
-    f"φ(≧ω≦*)♪ 服务器正在加速绘图中，请稍等哦",
-    f"o(*￣▽￣*)o 我们一起倒数等待吧！",
-    f"\\(￣︶￣*\\)) 服务器疯狂绘图中，请耐心等待哦",
-    f"┗|｀O′|┛ 嗷~~ 服务器正在绘图，请等一会",
-    f"(/≧▽≦)/ 你的图正在生成中，请稍等片刻",
-    f"(/￣▽￣)/ 服务器正在用心绘图，很快就能看到啦",
-    f"(*^ω^*) 别急，让{nickname}来给你唠嗑，等图就好了",
-    f"(*＾-＾*) 服务器正在加速，你的图即将呈现！",
-    f"(=^-^=) 服务器正在拼尽全力绘图，请稍安勿躁！",
-    f"ヾ(≧∇≦*)ゝ 服务器正在加班加点，等你的图呢",
-    f"(✿◡‿◡) 别紧张，等一下就能看到你的图啦！",
-    f"~(≧▽≦)/~啦啦啦，你的图正在生成，耐心等待哦",
-    f"≧ ﹏ ≦ 服务器正在拼命绘图中，请不要催促我",
-    f"{nickname}正在全力绘图", 
-    f"我知道你很急, 但你先别急", 
-    ]
-
-    has_wait = f"排队中，你的前面还有{list_len}人"+message
-    no_wait = f"{random.choice(no_wait_list)}, {extra_message}"+message
-    if anlas:
-        has_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
-        no_wait += f"\n本次生成消耗点数{anlascost},你的剩余点数为{anlas}"
-    if config.novelai_limit:
-        try:
-            message_data =  await aidraw.send(has_wait if list_len > 0 else no_wait)
-        except ActionFailed:
-            logger.info("被风控了")
-        finally:
-            wait_list.append(fifo)
-            await fifo_gennerate(event, bot=bot) 
-    else:
-        try:
-            message_data = await aidraw.send(no_wait)
-        except ActionFailed:
-            logger.info("被风控了")
-        finally:
-            await fifo_gennerate(event, fifo, bot)
-    if message_data:
-        await revoke_msg(message_data, bot)
+        await run_later(bot.send(event, "在画了喵"), 2)
+        await fifo_gennerate(event, fifo, bot)
 
 
 def wait_len():
@@ -508,15 +435,12 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             )
         else:
             pic_message = im[1]
-            byte_img = fifo.result[0]
-            new_img = Image.open(BytesIO(byte_img))
-            res_msg = f"分辨率:{new_img.width}x{new_img.height}"
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
                 message_data = await bot.send(
                     event=event, 
-                    message=pic_message+f"模型:{os.path.basename(fifo.model)}\n{fifo.img_hash}",
+                    message=pic_message+f"模型:{fifo.model}\n{fifo.img_hash}",
                     reply_message=True, 
                     at_sender=True, 
                 ) if (
@@ -546,26 +470,12 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             if not fifo.pure:
                 message_data = await bot.send(
                     event=event,
-                    message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{res_msg}\n{fifo.audit_info}"
+                    message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{fifo.audit_info}"
                 )
                 await revoke_msg(message_data, bot)
-    if fifo:
-        await generate(fifo)
 
-    if not gennerating:
-        logger.info("队列开始")
-        gennerating = True
-
-        while len(wait_list) > 0:
-            fifo = wait_list.popleft()
-            try:
-                await generate(fifo)
-            except:
-                pass
-
-        gennerating = False
-        logger.info("队列结束")
-        await version.check_update()
+    await generate(fifo)
+    await version.check_update()
 
 
 async def _run_gennerate(fifo: AIDRAW, bot: Bot):
@@ -596,5 +506,6 @@ aidraw = on_shell_command(
     aliases=config.novelai_command_start,
     parser=aidraw_parser,
     priority=5,
-    handlers=[aidraw_get]
+    handlers=[aidraw_get],
+    block=True
 )

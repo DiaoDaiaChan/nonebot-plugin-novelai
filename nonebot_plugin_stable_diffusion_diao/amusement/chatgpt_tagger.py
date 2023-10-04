@@ -1,20 +1,14 @@
-import os, random, asyncio, aiohttp
+import aiohttp
 
-from ..backend import AIDRAW
 from ..config import config
-from ..utils.save import save_img
 
 from nonebot import on_shell_command
-from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, Message, ActionFailed
+from nonebot.adapters.onebot.v11 import MessageEvent, Bot
 from nonebot.params import ShellCommandArgs
-from nonebot.permission import SUPERUSER
 from argparse import Namespace
 
-from ..extension.daylimit import count
-from ..extension.explicit_api import check_safe_method
 from ..extension.safe_method import risk_control
-from ..utils.data import basetag, lowQuality
-from ..utils import aidraw_parser, tags_to_list
+from ..utils import aidraw_parser, tags_to_list, run_later
 from ..aidraw import aidraw_get
 
 sys_text = f'''
@@ -40,7 +34,8 @@ chatgpt = on_shell_command(
     "帮我画",
     aliases={"帮我画画"},
     parser=aidraw_parser,
-    priority=5
+    priority=5,
+    block=True
 )
 
 api_key = config.openai_api_key
@@ -92,25 +87,10 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     to_openai = user_msg + "prompt"
     prompt = await get_user_session(event.get_session_id()).main(to_openai)
 
-    await risk_control(bot, event, ["这是chatgpt为你生成的prompt: \n"+prompt])
+    await run_later(risk_control(bot, event, ["这是chatgpt为你生成的prompt: \n"+prompt]), 2)
 
     args.match = True
     args.pure = True
     args.tags = tags_to_list(prompt)
 
     await aidraw_get(bot, event, args)
-
-
-    #
-    # await fifo.load_balance_init()
-    # await fifo.post()
-    # img_msg = MessageSegment.image(fifo.result[0])
-    # if config.novelai_extra_pic_audit:
-    #     result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_chatgpt")
-    #     if isinstance(result[1], MessageSegment):
-    #         await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
-    #     else:
-    #         pass
-    # else:
-    #     await bot.send(event=event, message=img_msg+f"\n{fifo.img_hash}", at_sender=True, reply_message=True)
-    #     await save_img(fifo, fifo.result[0], str(fifo.group_id)+"_chatgpt")

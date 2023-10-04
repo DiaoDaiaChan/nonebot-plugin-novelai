@@ -43,9 +43,9 @@ class Config(BaseSettings):
     bing_key: str = None  # bing的翻译key
     deepl_key: str = None  # deepL的翻译key
     baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
-    novelai_tagger_site: str = "la.iamdiao.lol:6884"  # 分析功能的地址 例如 127.0.0.1:7860
+    novelai_tagger_site: str = "diao.kirby.moe:6884"  # 分析功能的地址 例如 127.0.0.1:7860
     tagger_model: str = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
-    vits_site: str = "la.iamdiao.lol:587"
+    vits_site: str = "diao.kirby.moe:587"
     novelai_pic_audit_api_key: dict = {
         "SECRET_KEY": "",
         "API_KEY": ""
@@ -53,7 +53,7 @@ class Config(BaseSettings):
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
     openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
     proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-    trans_api = "la.iamdiao.lol:5000"  # 自建翻译API
+    trans_api = "diao.kirby.moe:5000"  # 自建翻译API
     '''
     开关设置
     '''
@@ -82,7 +82,7 @@ class Config(BaseSettings):
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_picaudit: int = 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    novelai_picaudit: int = 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
     '''
     负载均衡设置
@@ -91,11 +91,11 @@ class Config(BaseSettings):
     novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
     novelai_backend_url_dict: dict = {
-        "雕雕的后端": "la.iamdiao.lol:5938", 
-        "雕雕的后端2": "la.iamdiao.lol:1521", 
-        "雕雕的后端3": "la.iamdiao.lol:1522",
-        "雕雕的后端4": "la.iamdiao.lol:1523", 
-        "雕雕的后端5": "la.iamdiao.lol:1524"
+        "雕雕的后端": "diao.kirby.moe:5938", 
+        "雕雕的后端2": "diao.kirby.moe:1521", 
+        "雕雕的后端3": "diao.kirby.moe:1522",
+        "雕雕的后端4": "diao.kirby.moe:1523", 
+        "雕雕的后端5": "diao.kirby.moe:1524"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     '''
     post参数设置
@@ -137,7 +137,7 @@ class Config(BaseSettings):
     '''
     novelai_command_start: set = {"绘画", "咏唱", "召唤", "约稿", "aidraw", "画", "绘图", "AI绘图", "ai绘图"}
     novelai_retry: int = 4  # post失败后重试的次数
-    novelai_site: str = "la.iamdiao.lol:5938"
+    novelai_site: str = "diao.kirby.moe:5938"
     novelai_daylimit: int = 24  # 每日次数限制，0为禁用
     # 可运行更改的设置
     novelai_cd: int = 60  # 默认的cd

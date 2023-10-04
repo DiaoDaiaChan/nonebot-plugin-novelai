@@ -1,3 +1,5 @@
+import traceback
+
 from ..config import config, nickname
 from ..utils import revoke_msg
 from ..utils.save import save_img
@@ -29,6 +31,7 @@ async def send_qr_code(bot, fifo, img_url):
     os.remove(file_name)
     return message_data
 
+
 async def add_qr_code(img_url, message: list):
     img_id = time.time()
     img = qrcode.make(img_url[0])
@@ -40,6 +43,13 @@ async def add_qr_code(img_url, message: list):
     os.remove(file_name)
     return message
 
+
+async def get_img_url(message_data, bot):
+    message_id = message_data["message_id"]
+    message_all = await bot.get_msg(message_id=message_id)
+    url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    img_url = re.findall(url_regex, str(message_all["message"]))
+    return img_url
 
 async def check_safe_method(
     fifo, 
@@ -61,13 +71,6 @@ async def check_safe_method(
     for i in img_bytes:
         # try:
         if isinstance(fifo.event, PrivateMessageEvent):
-            # if fifo.sr:
-            #     try:
-            #         from ..extension.sd_extra_api_func import super_res_api_func
-            #         resp_tuple = await super_res_api_func(i, 3)
-            #         i = resp_tuple[0]
-            #     except:
-            #         logger.debug("超分API失效")
             if save_img_:
                 await save_img(fifo, i, fifo.group_id)
             message.append(MessageSegment.image(i))
@@ -75,30 +78,30 @@ async def check_safe_method(
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
             try:
                 label, h_value, fifo.audit_info = await check_safe(i, fifo)
-            except RuntimeError as e:
-                logger.error(f"NSFWAPI调用失败，错误代码为{e.args}")
+            except Exception as e:
+                logger.warning(f"审核调用失败，错误代码为{traceback.format_exc()}，为了安全期间转为二维码发送图片")
                 label = "unknown"
+                message_data = await sendtosuperuser(
+                    f"审核失败惹！{MessageSegment.image(i)}",
+                    bot_id
+                )
+                img_url = await get_img_url(message_data, bot)
+                message_data = await send_qr_code(bot, fifo, img_url)
+                if revoke:
+                    await revoke_msg(message_data, bot, revoke)
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
-                # if fifo.sr:
-                #     try:
-                #         from ..extension.sd_extra_api_func import super_res_api_func
-                #         resp_tuple = await super_res_api_func(i, 3)
-                #         for i in resp_tuple:
-                #             i = resp_tuple[0]
-                #     except:
-                #         pass
                 message.append(MessageSegment.image(i))
+            elif label == "unknown":
+                message.append("审核失败\n")
+                return message
             else:
                 label = "_explicit"
                 message.append(f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n")
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
-                message_id = message_data["message_id"]
-                message_all = await bot.get_msg(message_id=message_id)
-                url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-                img_url = re.findall(url_regex, str(message_all["message"]))
+                img_url = await get_img_url(message_data, bot)
                 if htype == 1:
                     try:
                         message_data = await bot.send_private_msg(
@@ -137,19 +140,17 @@ async def check_safe_method(
                 elif htype == 4:
                     await bot.send_group_msg(
                         group_id=fifo.group_id, 
-                        message="太色了, 不准看"
+                        message=f"太色了, 不准看"
                     )
+                    try:
+                        await bot.send_private_msg(fifo.user_id, MessageSegment.image(i))
+                    except ActionFailed:
+                        await bot.send_group_msg(fifo.group_id, f"呜呜,你不加我好友我怎么发图图给你!")
+
                 revoke = await config.get_value(fifo.group_id, "revoke")
                 if revoke:
                     await revoke_msg(message_data, bot, revoke)
         else:
-            # if fifo.sr:
-            #     try:
-            #         from ..extension.sd_extra_api_func import super_res_api_func
-            #         resp_tuple = await super_res_api_func(i, 3)
-            #         i = resp_tuple[0]
-            #     except:
-            #         logger.debug("超分API失效")
             if save_img_:
                 await save_img(fifo, i, fifo.group_id+extra_lable)
             message.append(MessageSegment.image(i))
@@ -162,7 +163,6 @@ async def check_safe_method(
 
 
 async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
-
     headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'
@@ -214,6 +214,7 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
         return reverse_dict[value[0]], value[0] * 100, ""
     
     elif picaudit == 4:
+        message = "N/A"
         img_base64 = base64.b64encode(img_bytes).decode()
         possibilities, message = await pic_audit_standalone(img_base64, False, True)
         value = list(possibilities.values())
