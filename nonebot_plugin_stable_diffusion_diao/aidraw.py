@@ -16,11 +16,11 @@ from argparse import Namespace
 from nonebot import get_bot, on_shell_command
 
 from nonebot.adapters.onebot.v11 import (
-    MessageEvent, 
-    MessageSegment, 
-    Bot, 
-    ActionFailed, 
-    PrivateMessageEvent, 
+    MessageEvent,
+    MessageSegment,
+    Bot,
+    ActionFailed,
+    PrivateMessageEvent,
     GroupMessageEvent
 )
 
@@ -41,7 +41,6 @@ from .utils import revoke_msg, run_later
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
 from .extension.safe_method import send_forward_msg
-
 
 cd = {}
 user_models_dict = {}
@@ -76,26 +75,26 @@ async def get_message_at(data: str) -> int:
 
 
 async def aidraw_get(
-    bot: Bot, 
-    event: MessageEvent, 
-    args: Namespace = ShellCommandArgs()
+        bot: Bot,
+        event: MessageEvent,
+        args: Namespace = ShellCommandArgs()
 ):
     logger.debug(args.tags)
     tags_list = []
     model_info_ = ""
     random_tags = ""
     info_style = ""
-    style_tag = "" 
+    style_tag = ""
     style_ntag = ""
     message = ""
     read_tags = False
 
     if args.outpaint and len(args.tags) == 1:
         read_tags = True
-    
+
     user_id = str(event.user_id)
     if isinstance(event, PrivateMessageEvent):
-        group_id = str(event.user_id)+"_private"
+        group_id = str(event.user_id) + "_private"
     else:
         group_id = str(event.group_id)
     # 判断是否禁用，若没禁用，进入处理流程
@@ -110,7 +109,7 @@ async def aidraw_get(
                 else:
                     message_ = f"，今天你还能够生成{left}张"
                 message += message_
-                
+
         # 判断cd
         nowtime = time.time()
         # 群组CD
@@ -122,14 +121,14 @@ async def aidraw_get(
             else:
                 cd[group_id] = nowtime
         # 个人CD
-        
+
         deltatime = nowtime - cd.get(user_id, 0)
         cd_ = int(await config.get_value(group_id, "cd"))
         if deltatime < cd_:
             await aidraw.finish(f"你冲的太快啦，请休息一下吧，剩余CD为{cd_ - int(deltatime)}s")
         else:
             cd[user_id] = nowtime
-            
+
         # 如果prompt列表为0, 随机tags
         if isinstance(args.tags, list) and len(args.tags) == 0 and config.zero_tags:
             from .extension.sd_extra_api_func import get_random_tags
@@ -138,25 +137,26 @@ async def aidraw_get(
                 random_tags = await get_random_tags(6)
                 random_tags = ", ".join(random_tags)
                 message_data = await bot.send(
-                    event=event, 
+                    event=event,
                     message=f"你想要画什么呢?不知道的话发送  绘画帮助  看看吧\n雕雕帮你随机了一些tags?: {random_tags}"
                 )
             except ActionFailed:
                 logger.info("被风控了")
             else:
                 await revoke_msg(message_data, bot)
-                
+
         # tags初处理
         tags_str = await prepocess_tags(args.tags, False)
         tags_list = tags_to_list(tags_str)
         # 匹配预设
-        r = redis_client[1]
+
         if (
-            redis_client
-            and config.auto_match
-            and args.match is False
-            and r.exists("style")
+                redis_client
+                and config.auto_match
+                and args.match is False
+                and r.exists("style")
         ):
+            r = redis_client[1]
             info_style = ""
             style_list: list[bytes] = r.lrange("style", 0, -1)
             style_list_: list[bytes] = r.lrange("user_style", 0, -1)
@@ -175,8 +175,8 @@ async def aidraw_get(
                             style_ntag += str(style["negative_prompt"]) + ","
                             tags_list.pop(org_tag_list.index(tag))
                             logger.info(info_style)
-                            break   
-        # 初始化实例
+                            break
+                            # 初始化实例
         args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
         fifo.read_tags = read_tags
@@ -184,9 +184,12 @@ async def aidraw_get(
 
         if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
             fifo.backend_name = config.backend_name_list[fifo.backend_index]
+        elif args.user_backend:
+            fifo.backend_name = '手动后端'
+            fifo.backend_site = args.user_backend
         else:
             await fifo.load_balance_init()
-            
+
         org_tag_list = fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
@@ -196,7 +199,7 @@ async def aidraw_get(
             try:
                 tag = ""
                 if r2.exists("lora"):
-                    
+
                     model_info = ""
                     all_lora_dict = r2.get("lora")
                     all_emb_dict = r2.get("emb")
@@ -204,13 +207,13 @@ async def aidraw_get(
                     all_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))
                     cur_backend_lora_list = all_backend_lora_list[fifo.backend_name]
                     cur_backend_emb_list = all_backend_emb_list[fifo.backend_name]
-                    
+
                     if fifo.backend_name in all_backend_lora_list and all_backend_lora_list[fifo.backend_name] is None:
                         from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
                         logger.info("此后端没有lora数据,尝试重新载入")
                         cur_backend_lora_list, _ = await get_and_process_lora(fifo.backend_site, fifo.backend_name)
                         cur_backend_emb_list, _ = await get_and_process_emb(fifo.backend_site, fifo.backend_name)
-                        
+
                         pipe_ = r2.pipeline()
                         all_backend_lora_list[fifo.backend_name] = cur_backend_lora_list
                         all_backend_emb_list[fifo.backend_name] = cur_backend_emb_list
@@ -228,7 +231,6 @@ async def aidraw_get(
                         for lora in list(cur_backend_lora_list.values()):
                             index += 1
                             if re.search(tag, lora, re.IGNORECASE):
-                                
                                 model_info_ += f"自动找到的lora模型: {lora}\n"
                                 model_info += model_info_
                                 logger.info(model_info_)
@@ -246,7 +248,6 @@ async def aidraw_get(
                         for emb in list(cur_backend_emb_list.values()):
                             index += 1
                             if re.search(tag, emb, re.IGNORECASE):
-                                
                                 new_tags_list.append(emb)
                                 model_info_ += f"自动找到的嵌入式模型: {emb}, \n"
                                 model_info += model_info_
@@ -260,9 +261,9 @@ async def aidraw_get(
                         fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
                         model_info = ""
                         raise RuntimeError("匹配到很多lora")
-                    
+
                     fifo.extra_info += f"{model_info}\n"
-                    
+
             except Exception as e:
                 logger.warning(str(traceback.print_exc()))
                 new_tags_list = []
@@ -270,7 +271,7 @@ async def aidraw_get(
                 logger.warning(f"tag自动匹配失效,出现问题的: {tag}, 或者是prompt里自动匹配到的模型过多")
 
         # 检查翻译API是否失效
-        try: 
+        try:
             tags_list: str = await prepocess_tags(tags_list, False, True)
         except Exception as e:
             logger.error(traceback.format_exc())
@@ -283,13 +284,13 @@ async def aidraw_get(
             logger.info("私聊, 此图片不进行审核")
         else:
             hway = await config.get_value(fifo.group_id, "h")
-            
+
             if hway is None:
                 hway = config.novelai_h
-                
+
             if hway == 0 and re.search(htags, tags_list, re.IGNORECASE):
                 await aidraw.finish(f"H是不行的!")
-                
+
             elif hway == 1:
                 re_list = pattern.findall(tags_list)
                 h_words = ""
@@ -297,11 +298,11 @@ async def aidraw_get(
                     for i in re_list:
                         h_words += f"{i},"
                         tags_list = tags_list.replace(i, "")
-                        
+
                     try:
                         await bot.send(
-                            event=event, 
-                            message=f"H是不行的!已经排除掉以下单词{h_words}", 
+                            event=event,
+                            message=f"H是不行的!已经排除掉以下单词{h_words}",
                             reply_message=True
                         )
                     except ActionFailed:
@@ -319,7 +320,7 @@ async def aidraw_get(
                 async with aiofiles.open("data/novelai/loras.json", "r", encoding="utf-8") as f:
                     content = await f.read()
                     lora_dict = json.loads(content)[fifo.backend_name]
-            
+
             if "_" in args.lora:
                 lora_ = args.lora.split(",")
                 lora_index, lora_weight = zip(*(i.split("_") for i in lora_))
@@ -329,7 +330,7 @@ async def aidraw_get(
             for i, w in zip(lora_index, lora_weight):
                 lora_msg += f"<lora:{lora_dict[int(i)]}:{w}>"
             logger.info(f"使用的lora:{lora_msg}")
-        
+
         if args.emb:
             emb_index, emb_weight = [args.emb], ["0.8"]
             if redis_client:
@@ -341,7 +342,7 @@ async def aidraw_get(
                 async with aiofiles.open("data/novelai/embs.json", "r", encoding="utf-8") as f:
                     content = await f.read()
                     emb_dict = json.loads(content)[fifo.backend_name]
-            
+
             if "_" in args.emb:
                 emb_ = args.emb.split(",")
                 emb_index, emb_weight = zip(*(i.split("_") for i in emb_))
@@ -354,7 +355,7 @@ async def aidraw_get(
 
         tags_list += lora_msg + emb_msg
         # 不希望翻译的tags
-        if args.no_trans:  
+        if args.no_trans:
             tags_list = tags_list + args.no_trans
         # 不使用默认参数优化
         if not args.override:
@@ -384,14 +385,14 @@ async def aidraw_get(
                 img_url = seg.data["url"]
         if args.pic_url:
             img_url = args.pic_url
-        
+
         if img_url:
             if config.novelai_paid:
                 async with aiohttp.ClientSession() as session:
                     logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
                     async with session.get(img_url) as resp:
                         await fifo.add_image(await resp.read(), args.control_net)
-                    message = f"，已切换至以图生图"+message
+                    message = f"，已切换至以图生图" + message
             else:
                 await aidraw.finish(f"以图生图功能已禁用")
         logger.debug(fifo)
@@ -430,7 +431,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             for i in e.args:
                 message += str(i)
             await bot.send(
-                event=event, 
+                event=event,
                 message=message,
             )
         else:
@@ -438,30 +439,31 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
+                extra_info = '' if fifo.pure else f"模型:{fifo.model}\n{fifo.img_hash}"
                 message_data = await bot.send(
-                    event=event, 
-                    message=pic_message+f"模型:{fifo.model}\n{fifo.img_hash}",
-                    reply_message=True, 
-                    at_sender=True, 
+                    event=event,
+                    message=pic_message + extra_info,
+                    reply_message=True,
+                    at_sender=True,
                 ) if (
-                    await config.get_value(fifo.group_id, "pure")
-                    ) or (
-                    await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
-                    ) else (
+                         await config.get_value(fifo.group_id, "pure")
+                     ) or (
+                             await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
+                     ) else (
                     await send_forward_msg(
-                        bot=bot, 
-                        event=event, 
-                        name=nickname, 
-                        uin=id, 
+                        bot=bot,
+                        event=event,
+                        name=nickname,
+                        uin=id,
                         msgs=im)
                 )
 
             except ActionFailed:
                 message_data = await bot.send(
-                    event=event, 
+                    event=event,
                     message=pic_message,
-                    reply_message=True, 
-                    at_sender=True, 
+                    reply_message=True,
+                    at_sender=True,
                 )
             # 撤回图片
             revoke = await config.get_value(fifo.group_id, "revoke")

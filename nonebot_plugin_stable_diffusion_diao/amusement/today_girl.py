@@ -7,7 +7,7 @@ from ..backend.mj import AIDRAW as MJ_AIDRAW
 from ..extension.translation import translate
 from ..config import config
 from ..utils.save import save_img
-from ..utils import revoke_msg, aidraw_parser, run_later
+from ..utils import revoke_msg, aidraw_parser, run_later, tags_to_list
 from ..aidraw import get_message_at, aidraw_get
 
 import random
@@ -1273,7 +1273,7 @@ async def _(bot: Bot,
         message = message.replace('/mj', '')
     if message == "我":
         if isinstance(event, PrivateMessageEvent):
-         user_name = event.sender.nickname
+            user_name = event.sender.nickname
         else:
             get_info = await bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
             user_name = get_info["nickname"]
@@ -1290,6 +1290,8 @@ async def _(bot: Bot,
             await today_girl.finish(f"以图生图功能已禁用")
     user_name += random_int_str
     user_id_random = user_id + random_int_str
+    build_msg_en = []
+    build_msg_zh = []
     if config.novelai_todaygirl == 2 or mj_mode:
         # MJ需要传统模式，否则大概率不过机审
         inst = Choicer(data_dict)
@@ -1312,18 +1314,20 @@ async def _(bot: Bot,
             to_ai = to_ai.replace(f"二次元少女的{user_name}", "")
             logger.debug(to_ai)
             tags = await translate(to_ai, "en")
+            args.tags = [tags]
         except:
             await today_girl.finish("翻译API出错辣")
+            
     else:
         user_name = user_name.replace(random_int_str, "")
         choice_list = ["类型", "发色", "头发", "衣服", "鞋子", "装饰", "胸",  "表情", "动作", "天气", "环境", "优秀实践"]
-        build_msg_zh = []
-        build_msg_en = []
         for i in choice_list:
             zh = random.choice(list(prompt_dict[i].keys()))
             en = prompt_dict[i][zh]
             build_msg_zh.append(zh)
             build_msg_en.append(en)
+            tags = build_msg_en[0] +","+ f','.join(build_msg_en)
+            args.tags = [tags]
 
         to_user = f'''
 二次元的{user_name},
@@ -1335,9 +1339,7 @@ async def _(bot: Bot,
 正在{build_msg_zh[8]},
 画面{build_msg_zh[9]},{build_msg_zh[10]},
 '''.strip()
-
-        tags = build_msg_en[0] +","+ f','.join(build_msg_en)
-    
+        
     try:
         message_data = await bot.send(event=event, 
                         message=f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
@@ -1348,11 +1350,11 @@ async def _(bot: Bot,
     await revoke_msg(message_data, bot)
     args.match = True
     args.pure = True
-    build_msg_en.append(build_msg_en[0])
-    args.tags = build_msg_en
+
     if img_url:
         args.pic_url = img_url
         args.control_net = True
+        
     if mj_mode:
 
         tags = 'cute girl, ' + tags

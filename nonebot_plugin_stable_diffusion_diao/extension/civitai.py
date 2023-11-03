@@ -38,7 +38,7 @@ civitai_ = on_shell_command(
 async def download_img(url: str) -> bytes or None:
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
+            async with session.get(url, proxy=config.proxy_site) as resp:
                 content = await resp.read()
                 await asyncio.sleep(random.randint(1, 10) / 10)
                 return content

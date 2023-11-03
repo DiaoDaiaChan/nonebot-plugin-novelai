@@ -4,7 +4,7 @@ from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils import get_generate_info
 from nonebot import logger
 from PIL import Image
-from io import  BytesIO
+from io import BytesIO
 
 import asyncio
 import traceback
@@ -13,6 +13,7 @@ import ast
 import time
 import json
 import re
+import math
 
 header = {
     "content-type": "application/json",
@@ -20,21 +21,68 @@ header = {
 }
 
 
+def process_hr_scale_to_fit_64(data):
+    adjusted_data = []
+
+    for a, b in data:
+        c = a * b
+
+        remainder = c % 64
+
+        if remainder != 0:
+            adjustment = 64 - remainder
+            b = b + (adjustment / a)
+
+        adjusted_data.append((a, b))
+
+    w = adjusted_data[0][0]
+    x = adjusted_data[0][1]
+    y = adjusted_data[1][0]
+    z = adjusted_data[1][1]
+
+    x = z
+    adjusted_data[0] = (w, x)
+    adjusted_data[1] = (y, z)
+
+    return adjusted_data
+
+
+def set_res_to_fit_64(res):
+    ceil_value = math.ceil(res / 64) * 64
+    floor_value = math.floor(res / 64) * 64
+
+    if abs(res - ceil_value) < abs(res - floor_value):
+        return ceil_value
+    else:
+        return floor_value
+
+
+def get_value(org_res: list, org_hr_scale):
+    calc_list = []
+
+    for x in org_res:
+        new_res = set_res_to_fit_64(org_res)
+        calc_list.append((new_res, org_hr_scale))
+
+    new_res_and_scale = process_hr_scale_to_fit_64(calc_list)
+    return new_res_and_scale[0][0], new_res_and_scale[1][0], new_res_and_scale[0][1]
+
+
 class AIDRAW(AIDRAW_BASE):
     """队列中的单个请求"""
     max_resolution: int = 32
-    
+
     async def get_model_index(self, model_name, models_dict):
         reverse_dict = {value: key for key, value in models_dict.items()}
         for model in list(models_dict.values()):
             if model_name in model:
                 model_index = reverse_dict[model]
                 return model_index
-    
+
     async def fromresp(self, resp):
         img: dict = await resp.json()
         return img["images"][0]
-    
+
     async def load_balance_init(self):
         '''
         负载均衡初始化
@@ -65,22 +113,23 @@ class AIDRAW(AIDRAW_BASE):
         else:
             if config.novelai_load_balance:
                 await self.load_balance_init()
-                site = self.backend_site or defult_site 
+                site = self.backend_site or defult_site
             else:
                 site = (
-                    defult_site 
-                    or await config.get_value(self.group_id, "site") 
-                    or config.novelai_site 
-                    or "127.0.0.1:7860"
+                        defult_site
+                        or await config.get_value(self.group_id, "site")
+                        or config.novelai_site
+                        or "127.0.0.1:7860"
                 )
 
         post_api = (
-            f"http://{site}/sdapi/v1/img2img" if self.img2img 
+            f"http://{site}/sdapi/v1/img2img" if self.img2img
             else f"http://{site}/sdapi/v1/txt2img"
-        ) 
+        )
+
         if self.outpaint:
-            post_api = f"http://{site}/sdapi/v1/txt2img" 
-        
+            post_api = f"http://{site}/sdapi/v1/txt2img"
+
         parameters = {
             "prompt": self.tags,
             "seed": self.seed,
@@ -96,6 +145,7 @@ class AIDRAW(AIDRAW_BASE):
             "script_args": [],
             "script_name": ""
         }
+
         if config.negpip:
             parameters["alwayson_scripts"].update(config.custom_scripts[4])
         # 如果手动指定了模型
@@ -103,25 +153,35 @@ class AIDRAW(AIDRAW_BASE):
             from ..extension.sd_extra_api_func import sd
             model_dict = (
                 await sd(
-                    self.backend_index or 
-                    config.backend_site_list.index(self.backend_site), 
+                    self.backend_index or
+                    config.backend_site_list.index(self.backend_site),
                     True
                 )
             )
             self.model_index = (
-                self.model_index 
-                if str(self.model_index).isdigit() 
+                self.model_index
+                if str(self.model_index).isdigit()
                 else await self.get_model_index(self.model_index, model_dict)
             )
             if self.is_random_model:
                 from ..extension.sd_extra_api_func import sd
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
+
             self.model = model_dict[int(self.model_index)]
             parameters.update(
                 {
-                    "override_settings": {"sd_model_checkpoint": self.model}, 
+                    "override_settings": {"sd_model_checkpoint": self.model},
                     "override_settings_restore_afterwards": "true"
                 }
+            )
+        # 处理TensorRT分辨率问题
+        if config.is_trt_backend:
+            self.width, self.height, self.novelai_hr_payload["hr_scale"] = get_value(
+                [
+                    self.width,
+                    self.height
+                ],
+                self.hiresfix_scale
             )
         # 图生图
         if self.img2img:
@@ -129,15 +189,17 @@ class AIDRAW(AIDRAW_BASE):
                 parameters.update(self.novelai_hr_payload)
             parameters.update(
                 {
-                    "init_images": ["data:image/jpeg;base64,"+self.image],
+                    "init_images": ["data:image/jpeg;base64," + self.image],
                     "denoising_strength": self.strength,
                 }
-            ) 
+            )
         else:
             if config.novelai_hr and self.disable_hr is False:
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
+
+        # 脚本以及插件
         if self.xyz_plot:
             input_str_replaced = self.xyz_plot.replace('""', 'None')
             try:
@@ -154,13 +216,13 @@ class AIDRAW(AIDRAW_BASE):
         if self.eye_fix:
             parameters["alwayson_scripts"].update(config.custom_scripts[1])
         if self.sag or config.sag:
-            parameters["alwayson_scripts"].update(config.custom_scripts[2]) 
+            parameters["alwayson_scripts"].update(config.custom_scripts[2])
         if self.custom_scripts is not None:
             parameters["alwayson_scripts"].update(config.custom_scripts[self.custom_scripts])
         if self.scripts is not None:
             parameters.update(
                 {
-                    "script_name": config.scripts[self.scripts]["name"], 
+                    "script_name": config.scripts[self.scripts]["name"],
                     "script_args": config.scripts[self.scripts]["args"]
                 }
             )
@@ -168,13 +230,14 @@ class AIDRAW(AIDRAW_BASE):
             cutoff_payload = config.custom_scripts[3]
             cutoff_payload["Cutoff"]["args"][1] = self.cutoff
             parameters["alwayson_scripts"].update(cutoff_payload)
+
         # controlnet相关
         if self.control_net["control_net"] == True and config.novelai_hr:
             if config.hr_off_when_cn:
                 parameters.update({"enable_hr": False})
             else:
                 org_scale = parameters["hr_scale"]
-                parameters.update({"hr_scale": org_scale * 0.75}) # control较吃显存, 高清修复倍率恢复为1.5
+                parameters.update({"hr_scale": org_scale * 0.75})  # control较吃显存, 高清修复倍率恢复为1.5
             del parameters["init_images"]
 
             if config.novelai_ControlNet_post_method == 0:
@@ -185,6 +248,7 @@ class AIDRAW(AIDRAW_BASE):
                 post_api = f"http://{site}/controlnet/txt2img"
                 parameters.update(config.novelai_ControlNet_payload[1])
                 parameters["controlnet_units"][0]["input_image"] = self.image
+
         if self.outpaint:
             controlnet_full_payload = config.novelai_ControlNet_payload[0]
             rewrite_controlnet = {
@@ -197,14 +261,14 @@ class AIDRAW(AIDRAW_BASE):
             controlnet_full_payload["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
             parameters.update(controlnet_full_payload)
 
-        logger.debug(str(parameters))        
+        logger.debug(str(parameters))
         self.post_parms = parameters
         return header, post_api, parameters
 
     async def post(self):
         global defult_site
-        defult_site = None # 所有后端失效后, 尝试使用默认后端
-        # 失效自动重试 
+        defult_site = None  # 所有后端失效后, 尝试使用默认后端
+        # 失效自动重试
         for retry_times in range(config.novelai_retry):
             try:
                 self.start_time = time.time()
@@ -215,23 +279,28 @@ class AIDRAW(AIDRAW_BASE):
                 logger.info(f"第{retry_times + 1}次尝试")
                 logger.error(traceback.format_exc())
                 await asyncio.sleep(2)
-                if retry_times >= 1: # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+                # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+                if retry_times >= 1:
                     defult_site = config.novelai_site
                     self.backend_index = None
                     self.backend_site = None
-                    await asyncio.sleep(30) 
+                    await asyncio.sleep(30)
+
                 if retry_times > config.novelai_retry:
                     raise RuntimeError(f"重试{config.novelai_retry}次后仍然发生错误, 请检查服务器")
             else:
                 if config.novelai_load_balance is False:
                     try:
                         self.backend_name = (
-                            list(config.novelai_backend_url_dict.keys())[self.backend_index] 
-                            if self.backend_index 
+                            list(config.novelai_backend_url_dict.keys())[self.backend_index]
+                            if self.backend_index
                             else self.backend_name
                         )
                     except Exception:
                         self.backend_name = ""
+
+                model_name = ''
+                model_hash = ''
                 byte_img = self.result[0]
                 new_img = Image.open(BytesIO(byte_img))
                 img_info = new_img.info
@@ -240,12 +309,14 @@ class AIDRAW(AIDRAW_BASE):
                 pattern2 = r'Model hash:\s*(.*?),'
                 match = re.search(pattern, img_info['parameters'])
                 match2 = re.search(pattern2, img_info['parameters'])
+
                 if match:
                     model_name = match.group(1).strip()
                     model_hash = match2.group(1).strip()
                 self.model = f"{model_name} {model_hash}"
                 self.extra_info = res_msg
                 break
+
         generate_info = get_generate_info(self, "生成完毕")
         logger.info(
             f"{generate_info}")

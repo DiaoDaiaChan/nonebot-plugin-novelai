@@ -62,7 +62,6 @@ async def sd_LoadBalance():
     all_resp = await asyncio.gather(*tasks, return_exceptions=True)
 
     for resp_tuple in all_resp:
-        vram_dict[resp_tuple[2]] = resp_tuple[4]
         e += 1 
         if isinstance(
             resp_tuple,
@@ -78,6 +77,7 @@ async def sd_LoadBalance():
                     n += 1
                     status_dict[resp_tuple[2]] = resp_tuple[0]["eta_relative"]
                     normal_backend = (list(status_dict.keys()))
+                    vram_dict[resp_tuple[2]] = resp_tuple[4]
                 else:
                     raise RuntimeError
             except RuntimeError or TypeError:

@@ -9,9 +9,9 @@ baidu_translate_key:
     SECRET_KEY: ""
     API_KEY: ""
 # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
-novelai_tagger_site: diao.kirby.moe:6884  # 分析功能的地址 例如 127.0.0.1:7860
+novelai_tagger_site: api.diaodiao.online:7865  # 分析功能的地址 例如 127.0.0.1:7860
 tagger_model: wd14-vit-v2-git  # 分析功能, 审核功能使用的模型
-vits_site: diao.kirby.moe:587
+vits_site: api.diaodiao.online:5877
 novelai_pic_audit_api_key:
     SECRET_KEY: ""
     API_KEY: ""
@@ -19,7 +19,7 @@ novelai_pic_audit_api_key:
 openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
 openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填写这里
 proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-trans_api: diao.kirby.moe:5000  # 自建翻译API
+trans_api: api.diaodiao.online:50000  # 自建翻译API
 # --------------------------------
 # 开关设置
 # --------------------------------
@@ -58,11 +58,9 @@ novelai_load_balance_mode: 1  # 负载均衡模式, 1为随机, 2为加权随机
 novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
 # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
 novelai_backend_url_dict:
-    "雕雕的后端": "diao.kirby.moe:5938"
-    "雕雕的后端2": "diao.kirby.moe:1521"
-    "雕雕的后端3": "diao.kirby.moe:1522"
-    "雕雕的后端4": "diao.kirby.moe:1523"
-    "雕雕的后端5": "diao.kirby.moe:1524"
+    "雕雕的后端": "api.diaodiao.online:7860"
+    "雕雕的后端2": "api.diaodiao.online:7863"
+    "雕雕的后端3": "api.diaodiao.online:7864"
 # --------------------------------
 # post参数设置
 # --------------------------------
@@ -132,7 +130,7 @@ novelai_command_start:
     - "AI绘图"
     - "ai绘图"
 novelai_retry: 4  # post失败后重试的次数
-novelai_site: "diao.kirby.moe:5938"
+novelai_site: "api.diaodiao.online:7863"
 novelai_daylimit: 24  # 每日次数限制，0为禁用
 # 可运行更改的设置
 novelai_cd: 60  # 默认的cd

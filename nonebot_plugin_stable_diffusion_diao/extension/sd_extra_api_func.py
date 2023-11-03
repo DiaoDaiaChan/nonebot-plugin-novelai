@@ -961,7 +961,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     else:
         for style in style_list:
             name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
-            message_list.append(f"预设名称: {name}\n正面提示词: {tags}\n负面提示词: {ntags}\n")
+            message_list.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
         await risk_control(bot, event, message_list, True)
     
 
