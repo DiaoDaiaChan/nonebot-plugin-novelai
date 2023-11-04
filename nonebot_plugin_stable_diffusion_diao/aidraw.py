@@ -74,6 +74,11 @@ async def get_message_at(data: str) -> int:
         return None
 
 
+async def send_msg_and_revoke(bot, event, message):
+    message_data = await bot.send(event, message)
+    await revoke_msg(message_data, bot)
+
+
 async def aidraw_get(
         bot: Bot,
         event: MessageEvent,
@@ -88,6 +93,12 @@ async def aidraw_get(
     style_ntag = ""
     message = ""
     read_tags = False
+
+    if args.ai:
+        from .amusement.chatgpt_tagger import get_user_session
+        to_openai = f"{str(args.tags)}+prompts"
+        # 直接使用random_tags变量接收chatgpt的tags
+        random_tags = await get_user_session(event.get_session_id()).main(to_openai)
 
     if args.outpaint and len(args.tags) == 1:
         read_tags = True
@@ -151,32 +162,32 @@ async def aidraw_get(
         # 匹配预设
 
         if (
-                redis_client
-                and config.auto_match
-                and args.match is False
-                and r.exists("style")
+            redis_client
+            and config.auto_match
+            and args.match is False
         ):
             r = redis_client[1]
-            info_style = ""
-            style_list: list[bytes] = r.lrange("style", 0, -1)
-            style_list_: list[bytes] = r.lrange("user_style", 0, -1)
-            style_list += style_list_
-            pop_index = -1
-            if isinstance(args.tags, list) and len(args.tags) > 0:
-                org_tag_list = tags_list
-                for style in style_list:
-                    style = ast.literal_eval(style.decode("utf-8"))
-                    for tag in tags_list:
-                        pop_index += 1
-                        if tag in style["name"]:
-                            style_ = style["name"]
-                            info_style += f"自动找到的预设: {style_}\n"
-                            style_tag += str(style["prompt"]) + ","
-                            style_ntag += str(style["negative_prompt"]) + ","
-                            tags_list.pop(org_tag_list.index(tag))
-                            logger.info(info_style)
-                            break
-                            # 初始化实例
+            if r.exists("style"):
+                info_style = ""
+                style_list: list[bytes] = r.lrange("style", 0, -1)
+                style_list_: list[bytes] = r.lrange("user_style", 0, -1)
+                style_list += style_list_
+                pop_index = -1
+                if isinstance(args.tags, list) and len(args.tags) > 0:
+                    org_tag_list = tags_list
+                    for style in style_list:
+                        style = ast.literal_eval(style.decode("utf-8"))
+                        for tag in tags_list:
+                            pop_index += 1
+                            if tag in style["name"]:
+                                style_ = style["name"]
+                                info_style += f"自动找到的预设: {style_}\n"
+                                style_tag += str(style["prompt"]) + ","
+                                style_ntag += str(style["negative_prompt"]) + ","
+                                tags_list.pop(org_tag_list.index(tag))
+                                logger.info(info_style)
+                                break
+        # 初始化实例
         args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
         fifo.read_tags = read_tags
@@ -265,7 +276,7 @@ async def aidraw_get(
                     fifo.extra_info += f"{model_info}\n"
 
             except Exception as e:
-                logger.warning(str(traceback.print_exc()))
+                logger.warning(str(traceback.format_exc()))
                 new_tags_list = []
                 tags_list = org_list
                 logger.warning(f"tag自动匹配失效,出现问题的: {tag}, 或者是prompt里自动匹配到的模型过多")
@@ -395,8 +406,10 @@ async def aidraw_get(
                     message = f"，已切换至以图生图" + message
             else:
                 await aidraw.finish(f"以图生图功能已禁用")
+
+        build_msg = f"{random.choice(config.no_wait_list)}, {message}"
         logger.debug(fifo)
-        await run_later(bot.send(event, "在画了喵"), 2)
+        await run_later(send_msg_and_revoke(bot, event, build_msg), 2)
         await fifo_gennerate(event, fifo, bot)
 
 
@@ -439,17 +452,17 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
-                extra_info = '' if fifo.pure else f"模型:{fifo.model}\n{fifo.img_hash}"
+                extra_info = '' if config.is_return_hash_info else f"模型:{fifo.model}\n{fifo.img_hash}"
                 message_data = await bot.send(
                     event=event,
                     message=pic_message + extra_info,
                     reply_message=True,
                     at_sender=True,
                 ) if (
-                         await config.get_value(fifo.group_id, "pure")
-                     ) or (
-                             await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
-                     ) else (
+                    await config.get_value(fifo.group_id, "pure")
+                    ) or (
+                        await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
+                    ) else (
                     await send_forward_msg(
                         bot=bot,
                         event=event,

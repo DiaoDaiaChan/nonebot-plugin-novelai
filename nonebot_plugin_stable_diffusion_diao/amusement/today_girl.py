@@ -8,7 +8,7 @@ from ..extension.translation import translate
 from ..config import config
 from ..utils.save import save_img
 from ..utils import revoke_msg, aidraw_parser, run_later, tags_to_list
-from ..aidraw import get_message_at, aidraw_get
+from ..aidraw import get_message_at, aidraw_get, send_msg_and_revoke
 
 import random
 import time
@@ -1339,15 +1339,8 @@ async def _(bot: Bot,
 正在{build_msg_zh[8]},
 画面{build_msg_zh[9]},{build_msg_zh[10]},
 '''.strip()
-        
-    try:
-        message_data = await bot.send(event=event, 
-                        message=f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
-    except ActionFailed:
-        message_data = await bot.send(event=event, 
-                        message=f"风控了...不过图图我还是会画给你的...")
 
-    await revoke_msg(message_data, bot)
+    await run_later(send_msg_and_revoke(bot, event, f"锵锵~~~{to_user}\n正在为你生成二次元图像捏"))
     args.match = True
     args.pure = True
 
@@ -1375,11 +1368,12 @@ async def _(bot: Bot,
             message=img_msg + f"\n{fifo.img_hash}",
             at_sender=True, reply_message=True
         )
-
-        await save_img(
+        await run_later(
+            save_img(
             fifo=fifo,
             img_bytes=fifo.result[0],
             extra=fifo.group_id + "_todaygirl"
+            )
         )
 
         revoke = await config.get_value(fifo.group_id, "revoke")

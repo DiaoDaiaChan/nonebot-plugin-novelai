@@ -25,7 +25,7 @@ async def translate(text: str, to: str):
                 is_translate = False
         else:
             is_translate = True
-            return result
+            return text if result is None else result
     if is_translate == False:
         return text
 

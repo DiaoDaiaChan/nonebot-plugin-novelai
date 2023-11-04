@@ -22,7 +22,7 @@ from ..extension.translation import translate
 from ..extension.explicit_api import check_safe_method, check_safe
 from .translation import translate
 from ..backend import AIDRAW
-from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser
+from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later
 from ..utils.save import save_img
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance, get_vram
@@ -883,8 +883,12 @@ async def _(event: MessageEvent, bot: Bot):
                         message=f"{nickname}又给你画了一张哦!"+img_msg+f"\n{fifo.img_hash}",
                         at_sender=True,
                         reply_message=True
-                   )
-                await save_img(fifo=fifo, img_bytes=fifo.result[0],extra=fifo.group_id+"_agin")
+                    )
+                await run_later(
+                    save_img(
+                        fifo, fifo.result[0], fifo.group_id
+                    )
+                )
         else:
             await genera_aging.finish("你还没画过图, 这个功能用不了哦!")
     else:
@@ -1110,8 +1114,12 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                     message=img_msg+f"\n{fifo.img_hash}",
                     at_sender=True, reply_message=True
                 )
-    await save_img(fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model")
-    
+    await run_later(
+        save_img(
+            fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model"
+        )
+    )
+
     
 @refresh_models.handle()
 async def _():

@@ -54,6 +54,7 @@ class Config(BaseSettings):
     openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里 
     proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
     trans_api = "api.diaodiao.online:50000"  # 自建翻译API
+    redis_host = ["127.0.0.1", 6379]  # redis地址和端口
     '''
     开关设置
     '''
@@ -73,7 +74,9 @@ class Config(BaseSettings):
     sag = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
     negpip = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
     zero_tags = False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
-    show_progress_bar = [True, 2]  # 是否显示进度条, 整数为刷新时间
+    show_progress_bar = [False, 2]  # 是否显示进度条, 整数为刷新时间
+    is_trt_backend = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
+    is_return_hash_info = False  # 是否返回图片哈希信息（避免被q群管家撤回）
     '''
     模式选择
     '''
@@ -144,12 +147,43 @@ class Config(BaseSettings):
     novelai_size_org: int = 640  # 最大分辨率
     novelai_size: int = 0
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
+    no_wait_list = [
+    f"服务器正在全力绘图中，{nickname}也在努力哦！",
+    f"请稍等片刻哦，{nickname}已经和服务器约定好了快快完成",
+    f"{nickname}正在和服务器密谋，请稍等片刻哦！",
+    f"不要急不要急，{nickname}已经在努力让服务器完成绘图",
+    f"{nickname}正在跟服务器斗智斗勇，请耐心等待哦！",
+    f"正在全力以赴绘制您的图像，{nickname}会尽快完成，稍微等一下哦！",
+    f"别急别急，{nickname}正在和服务器",
+    f"{nickname}会尽快完成你的图像QAQ",
+    f"✨服务器正在拼命绘图中，请稍等一下呀！✨",
+    f"(*^▽^*) 服务器在进行绘图，这需要一些时间，稍等片刻就好了~", 
+    f"（＾∀＾）ノ服务器正在全力绘图，请耐心等待哦",
+    f"（￣▽￣）/ 你的图马上就好了，等等就来",
+    f"╮(╯_╰)╭ 不要着急，我会加速的",
+    f"φ(≧ω≦*)♪ 服务器正在加速绘图中，请稍等哦",
+    f"o(*￣▽￣*)o 我们一起倒数等待吧！",
+    f"\\(￣︶￣*\\)) 服务器疯狂绘图中，请耐心等待哦",
+    f"┗|｀O′|┛ 嗷~~ 服务器正在绘图，请等一会",
+    f"(/≧▽≦)/ 你的图正在生成中，请稍等片刻",
+    f"(/￣▽￣)/ 服务器正在用心绘图，很快就能看到啦",
+    f"(*^ω^*) 别急，让{nickname}来给你唠嗑，等图就好了",
+    f"(*＾-＾*) 服务器正在加速，你的图即将呈现！",
+    f"(=^-^=) 服务器正在拼尽全力绘图，请稍安勿躁！",
+    f"ヾ(≧∇≦*)ゝ 服务器正在加班加点，等你的图呢",
+    f"(✿◡‿◡) 别紧张，等一下就能看到你的图啦！",
+    f"~(≧▽≦)/~啦啦啦，你的图正在生成，耐心等待哦",
+    f"≧ ﹏ ≦ 服务器正在拼命绘图中，请不要催促我",
+    f"{nickname}正在全力绘图", 
+    f"我知道你很急, 但你先别急", 
+    ]
     '''
     脚本设置
     '''
     custom_scripts = [{
         "Tiled Diffusion": {
-            "args": [True, "MultiDiffusion", False, True, 1024, 1024, 96, 96, 48, 1, "None", 2, False, 10, 1, []]}
+            "args": [True, "MultiDiffusion", False, True, 1024, 1024, 96, 96, 48, 1, "None", 2, False, 10, 1, []]
+        }
         ,
         "Tiled VAE": {
             "args": [True, 1536, 96, False, True, True]
@@ -368,9 +402,10 @@ async def check_working_record(r3, day):
 async def get_redis_client():
     
     redis_client = []
-    r1 = redis.Redis(host='localhost', port=6379, db=7)
-    r2 = redis.Redis(host='localhost', port=6379, db=8)
-    r3 = redis.Redis(host='localhost', port=6379, db=9)
+    # 孩子不懂事，乱d放着玩 
+    r1 = redis.Redis(host=config.redis_host[0], port=config.redis_host[1], db=7)
+    r2 = redis.Redis(host=config.redis_host[0], port=config.redis_host[1], db=8)
+    r3 = redis.Redis(host=config.redis_host[0], port=config.redis_host[1], db=9)
     redis_client = [r1, r2, r3]
     logger.info("redis连接成功")
     current_date = datetime.now().date()
@@ -445,7 +480,7 @@ async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
                 else:
                     return None
     except Exception:
-        logger.warning(traceback.print_exc())
+        logger.warning(traceback.format_exc())
         return None
     
 
@@ -586,7 +621,7 @@ if config.is_redis_enable:
         redis_client = asyncio.run(get_redis_client())
     except Exception:
         redis_client = None
-        logger.warning(traceback.print_exc())
+        logger.warning(traceback.format_exc())
         logger.warning("redis初始化失败, 已经禁用redis")
 
 

@@ -61,7 +61,7 @@ def get_value(org_res: list, org_hr_scale):
     calc_list = []
 
     for x in org_res:
-        new_res = set_res_to_fit_64(org_res)
+        new_res = set_res_to_fit_64(x)
         calc_list.append((new_res, org_hr_scale))
 
     new_res_and_scale = process_hr_scale_to_fit_64(calc_list)
@@ -130,6 +130,17 @@ class AIDRAW(AIDRAW_BASE):
         if self.outpaint:
             post_api = f"http://{site}/sdapi/v1/txt2img"
 
+        # 处理TensorRT分辨率问题
+        if config.is_trt_backend:
+            self.width, self.height, self.novelai_hr_payload["hr_scale"] = get_value(
+                [
+                    self.width,
+                    self.height
+                ],
+                self.hiresfix_scale
+            )
+            logger.info(f"因设置TRT后端自动处理分辨率: {self.width, self.height, self.novelai_hr_payload['hr_scale']}")
+
         parameters = {
             "prompt": self.tags,
             "seed": self.seed,
@@ -171,17 +182,8 @@ class AIDRAW(AIDRAW_BASE):
             parameters.update(
                 {
                     "override_settings": {"sd_model_checkpoint": self.model},
-                    "override_settings_restore_afterwards": "true"
+                    "override_settings_restore_afterwards": True
                 }
-            )
-        # 处理TensorRT分辨率问题
-        if config.is_trt_backend:
-            self.width, self.height, self.novelai_hr_payload["hr_scale"] = get_value(
-                [
-                    self.width,
-                    self.height
-                ],
-                self.hiresfix_scale
             )
         # 图生图
         if self.img2img:
@@ -270,12 +272,11 @@ class AIDRAW(AIDRAW_BASE):
         defult_site = None  # 所有后端失效后, 尝试使用默认后端
         # 失效自动重试
         for retry_times in range(config.novelai_retry):
+            self.start_time = time.time()
             try:
-                self.start_time = time.time()
                 parameters_tuple = await self.post_parameters()
                 await self.post_(*parameters_tuple)
             except Exception:
-                self.start_time: float = time.time()
                 logger.info(f"第{retry_times + 1}次尝试")
                 logger.error(traceback.format_exc())
                 await asyncio.sleep(2)

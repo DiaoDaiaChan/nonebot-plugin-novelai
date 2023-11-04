@@ -20,6 +20,7 @@ openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的O
 openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填写这里
 proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
 trans_api: api.diaodiao.online:50000  # 自建翻译API
+redis_host: ["127.0.0.1", 6379]  # redis地址和端口
 # --------------------------------
 # 开关设置
 # --------------------------------
@@ -40,6 +41,8 @@ sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程
 negpip: false  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
 zero_tags: false  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
 show_progress_bar: [false, 2]  # 是否显示进度条
+is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
+is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -138,6 +141,7 @@ novelai_group_cd: 3  # 默认的群共享cd
 novelai_revoke: 0  # 是否自动撤回，该值不为0时，则为撤回时间
 novelai_size_org: 640  # 最大分辨率
 # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
+no_wait_list: []
 # --------------------------------
 # 脚本设置
 # --------------------------------

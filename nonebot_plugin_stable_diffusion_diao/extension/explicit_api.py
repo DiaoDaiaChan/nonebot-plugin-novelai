@@ -3,7 +3,7 @@ import traceback
 from ..config import config, nickname
 from ..utils import revoke_msg
 from ..utils.save import save_img
-from ..utils import sendtosuperuser, pic_audit_standalone
+from ..utils import sendtosuperuser, pic_audit_standalone, run_later
 from io import BytesIO
 import base64
 import aiohttp, aiofiles
@@ -51,6 +51,7 @@ async def get_img_url(message_data, bot):
     img_url = re.findall(url_regex, str(message_all["message"]))
     return img_url
 
+
 async def check_safe_method(
     fifo, 
     img_bytes, 
@@ -67,12 +68,17 @@ async def check_safe_method(
     label = ""
     # 判读是否进行图片审核
     h = await config.get_value(fifo.group_id, "h")
+    revoke = await config.get_value(fifo.group_id, "revoke")
     nsfw_count = 0
     for i in img_bytes:
         # try:
         if isinstance(fifo.event, PrivateMessageEvent):
             if save_img_:
-                await save_img(fifo, i, fifo.group_id)
+                await run_later(
+                    save_img(
+                        fifo, i, fifo.group_id
+                    )
+                )
             message.append(MessageSegment.image(i))
             return message
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
@@ -94,6 +100,12 @@ async def check_safe_method(
                 message.append(MessageSegment.image(i))
             elif label == "unknown":
                 message.append("审核失败\n")
+                if save_img_:
+                    await run_later(
+                        save_img(
+                            fifo, i, fifo.group_id
+                        )
+                )
                 return message
             else:
                 label = "_explicit"
@@ -152,11 +164,19 @@ async def check_safe_method(
                     await revoke_msg(message_data, bot, revoke)
         else:
             if save_img_:
-                await save_img(fifo, i, fifo.group_id+extra_lable)
+                await run_later(
+                    save_img(
+                        fifo, i, fifo.group_id+extra_lable
+                    )
+                )
             message.append(MessageSegment.image(i))
             return message
         if save_img_:
-            await save_img(fifo, i, fifo.group_id+extra_lable+label)
+            await run_later(
+            save_img(
+                fifo, i, fifo.group_id+extra_lable+label
+            )
+        )
     if nsfw_count:
         message.append(f"有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
     return message

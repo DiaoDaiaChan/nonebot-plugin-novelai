@@ -100,7 +100,6 @@ async def sd_LoadBalance():
                 bar_format="{l_bar}{bar}|"
             ) as pbar:
                 pbar.update(progress)
-                time.sleep(0.1)
 
     if config.novelai_load_balance_mode == 1:
         if is_avaiable == 0:

@@ -38,7 +38,7 @@ aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译", type=str,
                            help="不需要翻译的字符串", dest="no_trans")
 aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
                            action='store_true', help="使用控制网以图生图", dest="control_net")
-aidraw_parser.add_argument("-hr_off",
+aidraw_parser.add_argument("-hr_off", "--hr-off", "-ho",
                            action='store_true', help="关闭高清修复", dest="disable_hr")
 aidraw_parser.add_argument("-emb",
                            type=str, help="使用的embs", dest="emb")
@@ -48,7 +48,7 @@ aidraw_parser.add_argument("-hr",
                            type=float, help="高清修复倍率", dest="hiresfix_scale")
 aidraw_parser.add_argument("-m",
                            type=str, help="更换模型", dest="model_index")
-aidraw_parser.add_argument("-match_off", "-match-off",
+aidraw_parser.add_argument("-match_off", "-match-off", "--match-off", "-mo",
                            action="store_true", help="关闭自动匹配", dest="match")
 aidraw_parser.add_argument("-sr", nargs="*",
                            type=str, help="生成后超分", dest="sr")

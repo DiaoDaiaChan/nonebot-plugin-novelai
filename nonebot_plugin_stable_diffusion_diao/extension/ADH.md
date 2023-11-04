@@ -271,6 +271,12 @@ cutoff插件减少关键词颜色污染
 绘画white hair,blue eye,red dress -co white,blue,red
 把出现在prompt中的颜色填到参数中即可
 ```
+```
+-bs 本张图片使用指定的后端地址生图，例如：
+绘画reimu -bs api.diaodiao.online:7860
+-ai 使用chatgpt辅助生成tags
+绘画海边的少女 -ai
+```
 ### 最后, 送你一个示例
 ```text
 绘画 plaid_skirt,looking back ，bare shoulders -t 20 -sd 0 -sp UniPC -c 8 -b 3 -u nsfw

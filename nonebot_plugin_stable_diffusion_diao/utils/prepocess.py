@@ -22,7 +22,12 @@ async def trans(taglist):
     return tags_
 
 
-async def prepocess_tags(tags: list[str], translation=True, only_trans=False, return_img_url=False):
+async def prepocess_tags(
+        tags: list[str], 
+        translation=True, 
+        only_trans=False, 
+        return_img_url=False
+):
     if only_trans:
         trans_result = await trans(tags)
         return trans_result

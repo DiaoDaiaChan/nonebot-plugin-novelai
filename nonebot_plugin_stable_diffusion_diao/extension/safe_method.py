@@ -80,6 +80,7 @@ async def risk_control(
             new_list.append(message)
     # 如果指定图片发送
     if md_temple:
+        img_list = []
         for img in new_list:
             msg_list = (
                 "".join(img) 
@@ -88,7 +89,19 @@ async def risk_control(
             )
             markdown = await markdown_temple(bot, msg_list)
             img = await md_to_pic(md=markdown, width=width)
-            await bot.send(event, MessageSegment.image(img))
+            if len(new_list) == 1:
+                await bot.send(event, MessageSegment.image(img))
+            else:
+                img_list.append(MessageSegment.image(img))
+
+        if len(img_list) != 0:
+            await send_forward_msg(
+                bot, 
+                event, 
+                event.sender.nickname, 
+                event.user_id, 
+                img_list
+            )        
     
     if isinstance(message, list):
         # 转发消息

@@ -22,7 +22,7 @@ The first paragraph: the preposition, which determines the details of the pictur
 The second paragraph: describes the composition of the shot, the appearance of the character, the character's costume, the character's costume decoration, the character's costume action, the character's expression, etc., the weight is generally given to about 1.3
 The third paragraph: additional other details of the picture, such as: "background blur, foreground blur, floating flower petals, etc." The third paragraph please feel free to play, generally do not need to add weight
 The following are examples
-Here are a few examples of prompts:7
+Here are a few examples of prompts:
 "extremely detailed CG unity 8k wallpaper,best quality,noon,beautiful detailed water,long black hair,beautiful detailed girl,view straight on, eyeball,hair flower,retro artstyle, (masterpiece:1.3),illustration,mature,small breast,beautiful detailed eyes,long sleeves, bright skin,( Good light:1.2)"
 Second example:
 "Detailed CG illustration, (best quality), (mid-shot), (masterpiece:1.5), beautiful detailed girl, full body, (1 girl:1.2), long flowing hair, ( stunning eyes:1.3), (beautiful face:1.3), (feminine figure:1.3), (romantic setting:1.3), (soft lighting:1.2), (delicate features:1.2)"
