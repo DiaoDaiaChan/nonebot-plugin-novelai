@@ -62,6 +62,17 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 11.9 0.4.7.3更新
+修复了C站模型搜索问题
+```
+新的命令参数
+-bing 使用bing dalle3生图，需要获取cookie以及最好设置代理 proxy_site
+bing_cookie：
+- xxxxx
+- xxxxxxxx2
+```
+bing cookie获取方式
+https://github.com/acheong08/BingImageCreator
 ## 11.3 0.4.7更新
 雕雕的api换地址辣
 ```

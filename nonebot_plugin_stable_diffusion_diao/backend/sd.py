@@ -315,7 +315,7 @@ class AIDRAW(AIDRAW_BASE):
                     model_name = match.group(1).strip()
                     model_hash = match2.group(1).strip()
                 self.model = f"{model_name} {model_hash}"
-                self.extra_info = res_msg
+                self.extra_info += res_msg
                 break
 
         generate_info = get_generate_info(self, "生成完毕")

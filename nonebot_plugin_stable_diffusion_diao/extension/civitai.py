@@ -125,7 +125,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         search_payload = {
             "queries": 
                 [{"q":key_word, 
-                "indexUid":"models_v2",
+                "indexUid":"models_v3",
                 "facets":[],
                 "attributesToHighlight":["*"],
                 "highlightPreTag":"__ais-highlight__",

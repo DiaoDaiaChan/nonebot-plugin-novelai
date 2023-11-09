@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-stable-diffusion-diao"
-version = "0.4.7"
+version = "0.4.7.3"
 description = "主要面对stable-diffusion-webui-api的nonebot2插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
@@ -15,7 +15,8 @@ dependencies = [
     "qrcode>=7.4.2",
     "tqdm",
     "redis",
-    "ruamel.yaml"
+    "ruamel.yaml",
+    "BingImageCreator==0.5.0"
 ]
 
 [tool.pdm.dependencies]

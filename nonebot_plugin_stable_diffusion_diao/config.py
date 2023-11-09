@@ -55,6 +55,7 @@ class Config(BaseSettings):
     proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
     trans_api = "api.diaodiao.online:50000"  # 自建翻译API
     redis_host = ["127.0.0.1", 6379]  # redis地址和端口
+    bing_cookie = []  # bing的cookie们
     '''
     开关设置
     '''

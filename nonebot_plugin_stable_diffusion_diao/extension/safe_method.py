@@ -101,7 +101,8 @@ async def risk_control(
                 event.sender.nickname, 
                 event.user_id, 
                 img_list
-            )        
+            )
+        return
     
     if isinstance(message, list):
         # 转发消息

@@ -382,7 +382,6 @@ class AIDRAW_BASE:
                     user_spend_time = org_spend_time + int(spend_time)
                     counting[self.user_id] = user_spend_time
                     backend_info["spend_time"] = counting
-                self.extra_info += f"耗时{spend_time:.2f}秒\n"
                 r.set(day, str(backend_info))
             else:
                 filename = "data/novelai/day_limit_data.json"
@@ -397,6 +396,7 @@ class AIDRAW_BASE:
             logger.warning("记录后端工作数量出错")
             logger.warning(traceback.format_exc())
         self.result.append(image_new)
+        self.extra_info += f"耗时{spend_time:.2f}秒\n"
         return image_new
 
     async def fromresp(self, resp):

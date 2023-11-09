@@ -479,7 +479,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                 text_msg = msg
     site_, site = config.backend_name_list[index], config.backend_site_list[index]
     emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
-    await risk_control(bot, event, embs_list, True)
+    await risk_control(bot, event, embs_list, True, True)
 
 @get_lora.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
@@ -496,7 +496,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
                 text_msg = msg
     site_, site = config.backend_name_list[index], config.backend_site_list[index]
     lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
-    await risk_control(bot, event, loras_list, True)
+    await risk_control(bot, event, loras_list, True, True)
 
 
 @super_res.handle()

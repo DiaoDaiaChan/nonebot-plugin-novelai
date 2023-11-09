@@ -72,6 +72,7 @@ aidraw_parser.add_argument("-pic", help="图片url", dest="pic_url")
 aidraw_parser.add_argument("-pure", action="store_true", help="不返回额外的消息", dest="pure")
 aidraw_parser.add_argument("-ai", "--ai", action="store_true", help="使用chatgpt生成prompt", dest="ai")
 aidraw_parser.add_argument("-bs", "--backed-site", type=str, help="指定后端生图", dest="user_backend")
+aidraw_parser.add_argument("-bing", "--bing", action="store_true", help="bing DALL-E3生图", dest="bing")
 
 
 async def check_last_version(package: str):

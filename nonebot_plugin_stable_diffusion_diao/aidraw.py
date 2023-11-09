@@ -32,7 +32,8 @@ from .config import config, redis_client
 
 from .utils import aidraw_parser
 from .utils.data import lowQuality, basetag, htags
-from .backend import AIDRAW
+from .backend import AIDRAW, bing
+from .backend.bing import GetBingImageFailed
 from .extension.anlas import anlas_set
 from .extension.daylimit import count
 from .extension.explicit_api import check_safe_method
@@ -93,6 +94,14 @@ async def aidraw_get(
     style_ntag = ""
     message = ""
     read_tags = False
+
+    if args.bing:
+        await bot.send(event, "bing正在为你生成图像")
+        try:
+            message_data = await bing.get_and_send_bing_img(bot, event, args.tags)
+        except GetBingImageFailed as e:
+            await bot.send(event, f"bing生成失败{e}")
+        return
 
     if args.ai:
         from .amusement.chatgpt_tagger import get_user_session

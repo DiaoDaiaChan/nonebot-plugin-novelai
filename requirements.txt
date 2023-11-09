@@ -8,3 +8,4 @@ qrcode>=7.4.2
 ruamel.yaml
 redis
 tqdm
+BingImageCreator
