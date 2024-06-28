@@ -44,6 +44,7 @@ zero_tags: false  # 发送绘画命令不添加prompt的时候自动随机prompt
 show_progress_bar: [false, 2]  # 是否显示进度条
 is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
 is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
+enalbe_xl: False # 是否默认使用xl模式
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -120,6 +121,10 @@ novelai_ControlNet_post_method: 0
 control_net: 
     - "lineart_anime"
     - "control_v11p_sd15s2_lineart_anime [3825e83e]"  # 处理器和模型
+xl_config:
+    sd_vae: "sdxl_vae.safetensors"
+    prompt: ""
+    negative_prompt: ""
 # --------------------------------
 # 插件设置
 # --------------------------------
@@ -190,6 +195,18 @@ custom_scripts:
     args": [True, "prompt here", 2 , True, False]
 - "NegPiP": 
     args: [True]
+- "DanTagGen":
+    args:
+      - true
+      - "Before applying other prompt processings"
+      - -1
+      - "long"
+      - "eye"
+      - "<|special|>, <|characters|>, <|copyrights|>,\n<|artist|>,\n\n<|general|>,\n\n<|quality|>, <|meta|>, <|rating|>"
+      - 1
+      - 0.55
+      - 100
+      - "KBlueLeaf/DanTagGen-delta-rev2 | ggml-model-Q6_ K.gguf"
 
 scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制大小）和最后一个参数（放大倍率）
 - name: "x/y/z plot"

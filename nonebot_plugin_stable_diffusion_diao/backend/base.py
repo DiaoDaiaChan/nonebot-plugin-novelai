@@ -66,6 +66,9 @@ class AIDRAW_BASE:
         cutoff: str = None,
         eye_fix: bool = False,
         pure: bool = False,
+        xl: bool = True if config.enalbe_xl else False,
+        vae: str = None,
+        dtg: bool = False,
         **kwargs,
     ):
         """
@@ -151,6 +154,9 @@ class AIDRAW_BASE:
         self.backend_index: int = backend_index
         self.vram: str = ""
         self.hiresfix_scale: float = hiresfix_scale or config.novelai_hr_scale
+        self.man_hr_scale: bool = True if hiresfix_scale else False
+        self.xl = xl
+        self.dtg = dtg
         self.img2img_hr = hiresfix_scale
         self.novelai_hr_payload = config.novelai_hr_payload
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale

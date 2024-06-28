@@ -14,7 +14,7 @@ from ..aidraw import aidraw_get
 sys_text = f'''
 You can output a prompt based on the input given by the user,
 The prompts are used to guide the AI drawing model in creating images.
-They contain various details about the image, such as the composition, the distance of the shot, the appearance of the character, the character's clothing, the decoration, the background, the color and lighting effects, and the theme and style of the image.
+They contain various details about the image, such as the composition, ,the pose, the distance of the shot, the appearance of the character, the character's clothing, the decoration, the background, the color and lighting effects, and the theme and style of the image.
 The more forward words have a greater impact on the composition of the image, and the format of these prompts often includes weighted numbers in parentheses to specify the importance or emphasis of certain details, with a default weight of 1.0. Values greater than 1.0 prove an increase in weight, and values less than 1.0 prove a decrease in weight. For example, "(masterpiece:1.5)" means that the word is weighted 1.5 times as much as a masterpiece, and multiple parentheses serve a similar purpose.
 Describe in as much detail as possible the composition, the distance of the shot, the appearance of the people, their costumes, decorations, backgrounds, colors and lighting effects, and the theme and style of the image.
 When describing the prompt, please follow a three-part format
@@ -65,7 +65,7 @@ class Session(): # 这里来自nonebot-plugin-gpt3
 
         async with aiohttp.ClientSession(headers=header) as session:
             async with session.post(
-                url=f"https://{config.openai_proxy_site}/v1/chat/completions", 
+                url=f"http://{config.openai_proxy_site}/v1/chat/completions", 
                 json=payload, proxy=config.proxy_site
             ) as resp:
                 all_resp = await resp.json()

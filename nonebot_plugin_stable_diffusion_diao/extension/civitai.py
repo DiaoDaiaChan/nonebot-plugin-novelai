@@ -119,13 +119,13 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
     if args.search:
         all_msg_list = []
-        search_post_url = "https://meilisearch-new.civitai.com/multi-search"
+        search_post_url = "https://meilisearch-v1-6.civitai.com/multi-search"
         key_word = args.search
         
         search_payload = {
             "queries": 
                 [{"q":key_word, 
-                "indexUid":"models_v3",
+                "indexUid":"models_v9",
                 "facets":[],
                 "attributesToHighlight":["*"],
                 "highlightPreTag":"__ais-highlight__",
@@ -152,7 +152,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 text_msg = ""
                 model_type = model['type']
                 download_id = model['version']['id']
-                text_msg += f"模型名称: {model['name']}\n模型id: civitai.com/models/{model['id']}\n模型类型: {model_type}\n是否为R18: {model['nsfw']}\n"
+                text_msg += f"模型名称: {model['name']}\n模型id: civitai.com/models/{model['id']}\n模型类型: {model_type}\n"
                 metrics_replace_list = ["评论总数", "喜欢次数", "下载次数", "评分", "评分总数", "加权评分"]
                 metrics_msg = ""
                 metrics_dict: dict = model['metrics']

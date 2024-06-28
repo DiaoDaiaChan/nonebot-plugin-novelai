@@ -62,6 +62,24 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 2024.06.28 0.5.0 更新
+```
+本插件适配SDXL
+可以使用  模型列表vae_后端编号  来获取vae模型
+修复了 新版controlnet的适配问题， civitai搜索问题
+```
+```
+新的配置项目：
+enalbe_xl 默认启用XL（不推荐开启）
+xl_config 当使用XL生图时，使用的prompt和negative prompt以及vae模型
+```
+```
+新的命令参数
+-xl
+-dtg 使用dtg插件补全tag https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
+
+```
+
 ## 11.9 0.4.7.3更新
 修复了C站模型搜索问题
 ```

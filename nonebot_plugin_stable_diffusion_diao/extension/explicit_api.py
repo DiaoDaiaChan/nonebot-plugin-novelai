@@ -155,7 +155,11 @@ async def check_safe_method(
                         message=f"太色了, 不准看"
                     )
                     try:
-                        await bot.send_private_msg(fifo.user_id, MessageSegment.image(i))
+                        await bot.call_api(
+                            "send_private_msg",
+                           {"user_id": fifo.user_id,
+                            "message": MessageSegment.image(i)}
+                        )
                     except ActionFailed:
                         await bot.send_group_msg(fifo.group_id, f"呜呜,你不加我好友我怎么发图图给你!")
 

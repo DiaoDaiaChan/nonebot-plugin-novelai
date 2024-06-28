@@ -19,7 +19,7 @@ header = {
     "content-type": "application/json",
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
 }
-
+2
 
 def process_hr_scale_to_fit_64(data):
     adjusted_data = []
@@ -154,7 +154,9 @@ class AIDRAW(AIDRAW_BASE):
             "save_images": config.save_img,
             "alwayson_scripts": {},
             "script_args": [],
-            "script_name": ""
+            "script_name": "",
+            "override_settings": {},
+            "override_settings_restore_afterwards": False
         }
 
         if config.negpip:
@@ -179,12 +181,8 @@ class AIDRAW(AIDRAW_BASE):
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
 
             self.model = model_dict[int(self.model_index)]
-            parameters.update(
-                {
-                    "override_settings": {"sd_model_checkpoint": self.model},
-                    "override_settings_restore_afterwards": True
-                }
-            )
+            parameters["override_settings_restore_afterwards"] = True
+            parameters["override_settings"].update({"sd_model_checkpoint": self.model})
         # 图生图
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
@@ -200,6 +198,23 @@ class AIDRAW(AIDRAW_BASE):
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
+        # XL模式
+        if self.xl:
+            # 图像宽高改为高清修复的倍率
+            parameters.update(
+                {
+                    "width": self.width*self.hiresfix_scale, 
+                    "height": self.height*self.hiresfix_scale
+                }
+            )
+            # 如果没有设置手动高清修复倍率，关闭高清修复
+            if self.man_hr_scale is False:
+                parameters.update({"enable_hr": "false"})
+            else:
+                self.td = True
+            # 使用XL VAE
+            parameters["override_settings_restore_afterwards"] = True
+            parameters["override_settings"].update({"sd_vae": config.xl_config["sd_vae"]})
 
         # 脚本以及插件
         if self.xyz_plot:
@@ -219,6 +234,8 @@ class AIDRAW(AIDRAW_BASE):
             parameters["alwayson_scripts"].update(config.custom_scripts[1])
         if self.sag or config.sag:
             parameters["alwayson_scripts"].update(config.custom_scripts[2])
+        if self.dtg:
+            parameters["alwayson_scripts"].update(config.custom_scripts[5])
         if self.custom_scripts is not None:
             parameters["alwayson_scripts"].update(config.custom_scripts[self.custom_scripts])
         if self.scripts is not None:

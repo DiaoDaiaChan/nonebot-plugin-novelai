@@ -112,11 +112,13 @@ more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
 more_func_parser.add_argument("-i", "--index", type=int, help="设置索引", dest="index")
 more_func_parser.add_argument("-v", "--value", type=str, help="设置值", dest="value")
 more_func_parser.add_argument("-s", "--search", type=str, help="搜索设置名", dest="search")
+more_func_parser.add_argument("-bs", "--backend_site", type=int, help="后端地址", dest="backend_site")
 style_parser.add_argument("tags", type=str, nargs="*", help="正面提示词")
 style_parser.add_argument("-f", "--find", type=str, help="寻找预设", dest="find_style_name")
 style_parser.add_argument("-n", "--name", type=str, help="预设名", dest="style_name")
 style_parser.add_argument("-u", type=str, help="负面提示词", dest="ntags")
 style_parser.add_argument("-d", type=str, help="删除指定预设", dest="delete")
+
 
 set_sd_config = on_shell_command(
     "config",
@@ -297,19 +299,21 @@ async def super_res_api_func(
                 return bytes_img, msg, resp.status, resp_img
 
 
-async def sd(backend_site_index, return_models=False):
+async def sd(backend_site_index, return_models=False, vae=False):
     site = config.backend_site_list[int(backend_site_index)]
     dict_model = {}
     all_models_list = []
     message = []
     message1 = []
     n = 1
-    resp_ = await aiohttp_func("get", "http://"+site+"/sdapi/v1/options")
-    currents_model = resp_[0]["sd_model_checkpoint"]
+    resp_ = await aiohttp_func("get", f"http://{site}/sdapi/v1/options")
+    currents_model = resp_[0]["sd_vae"] if vae else resp_[0]["sd_model_checkpoint"]
     message1.append("当前使用模型:" + currents_model + ",\t\n\n")
-    models_info_dict = await aiohttp_func("get", "http://"+site+"/sdapi/v1/sd-models")
+    models_info_dict = await aiohttp_func(
+        "get", f"http://{site}/sdapi/v1/sd-vae" if vae else f"http://{site}/sdapi/v1/sd-models"
+    )
     for x in models_info_dict[0]:
-        models_info_dict = x['title']
+        models_info_dict = x['model_name'] if vae else x['title']
         all_models_list.append(models_info_dict)
         dict_model[n] = models_info_dict
         num = str(n) + ". "
@@ -319,7 +323,11 @@ async def sd(backend_site_index, return_models=False):
     message_all = message1 + message
     if return_models:
         return dict_model
-    with open("data/novelai/models.json", "w", encoding='utf-8') as f:
+    with open(
+        "data/novelai/vae.json" if vae else "data/novelai/models.json", 
+        "w", 
+        encoding='utf-8'
+    ) as f:
         f.write(json.dumps(dict_model, indent=4))
     return message_all
 
@@ -434,6 +442,10 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     await func_init(event)
     msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
     n = 0
+    if args.backend_site is None and not isinstance(args.backend_site, int):
+        await set_sd_config.finish("请指定一个后端")
+    else:
+        site = config.backend_site_list[args.backend_site]
     get_config_site = "http://" + site + "/sdapi/v1/options"
     resp_dict = await aiohttp_func("get", get_config_site)
     index_list = list(resp_dict[0].keys())
@@ -590,12 +602,18 @@ async def _(
 async def get_sd_models(event: MessageEvent, 
                         bot: Bot, 
                         msg: Message = CommandArg()
-                    ):  
-    if msg:
-        backend_site_index = msg.extract_plain_text()
+                    ):
+    vae = False
+    plain_text = msg.extract_plain_text()
+    if "_" and "vae" in plain_text:
+        backend_site_index = plain_text.split("_")[1]
+        vae = True
     else:
-        backend_site_index = 0
-    final_message = await sd(backend_site_index)
+        if msg:
+            backend_site_index = int(plain_text)
+        else:
+            backend_site_index = 0
+    final_message = await sd(backend_site_index, False, vae)
     await risk_control(bot, event, final_message, True, False)
 
 

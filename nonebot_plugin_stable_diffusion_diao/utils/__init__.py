@@ -14,7 +14,7 @@ aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
 aidraw_parser.add_argument("-r", "--resolution", "-形状",
                            help="画布形状/分辨率", dest="man_shape")
-aidraw_parser.add_argument("-ar", "--ar", "--accept_ratio",
+aidraw_parser.add_argument("-ar", "--ar", "--accept_ratio", "-比例",
                            help="画布比例", dest="accept_ratio")
 aidraw_parser.add_argument("-c", "--scale", "-服从",
                            type=float, help="对输入的服从度", dest="scale")
@@ -46,13 +46,13 @@ aidraw_parser.add_argument("-lora",
                            type=str, help="使用的lora", dest="lora")
 aidraw_parser.add_argument("-hr",
                            type=float, help="高清修复倍率", dest="hiresfix_scale")
-aidraw_parser.add_argument("-m",
+aidraw_parser.add_argument("-m", "-模型",
                            type=str, help="更换模型", dest="model_index")
 aidraw_parser.add_argument("-match_off", "-match-off", "--match-off", "-mo",
                            action="store_true", help="关闭自动匹配", dest="match")
 aidraw_parser.add_argument("-sr", nargs="*",
                            type=str, help="生成后超分", dest="sr")
-aidraw_parser.add_argument("-td", "--tiled-diffusion",
+aidraw_parser.add_argument("-td", "--",
                            action="store_true", help="使用tiled-diffusion来生成图片", dest="td")
 aidraw_parser.add_argument("-acs", "--activate_custom_scripts",
                            type=int, help="启动自定义脚本生图", dest="custom_scripts")
@@ -73,6 +73,9 @@ aidraw_parser.add_argument("-pure", action="store_true", help="不返回额外�
 aidraw_parser.add_argument("-ai", "--ai", action="store_true", help="使用chatgpt生成prompt", dest="ai")
 aidraw_parser.add_argument("-bs", "--backed-site", type=str, help="指定后端生图", dest="user_backend")
 aidraw_parser.add_argument("-bing", "--bing", action="store_true", help="bing DALL-E3生图", dest="bing")
+aidraw_parser.add_argument("-xl", "-XL", "--xl", action="store_true", help="xl模式", dest="xl")
+aidraw_parser.add_argument("-vae", "--vae", type=str, help="使用指定vae生图", dest="vae")
+aidraw_parser.add_argument("-dtg", "--dtg", action="store_true", help="使用lm补充tag", dest="dtg")
 
 
 async def check_last_version(package: str):

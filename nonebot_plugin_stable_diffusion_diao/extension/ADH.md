@@ -22,6 +22,8 @@ DWPose
 https://github.com/IDEA-Research/DWPose
 Tiled Diffusion & VAE
 https://github.com/pkuliyi2015/multidiffusion-upscaler-for-automatic1111
+DTG
+https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 ```
 ```
 xyz_plot_script
@@ -62,6 +64,7 @@ novelai_site:192.168.5.197:7860 # 使用的后端, 不清楚就不用改它
 ```text
 模型列表1 
 # 查看2号后端的所有模型, 以及他们的索引
+模型列表vae_后端编号  来获取vae模型
 更换模型 
 # 更换绘画模型, 更换模型数字索引, 例如, 更换模型1_2  为2号后端更换2号模型
 以图绘图 
@@ -276,6 +279,12 @@ cutoff插件减少关键词颜色污染
 绘画reimu -bs api.diaodiao.online:7860
 -ai 使用chatgpt辅助生成tags
 绘画海边的少女 -ai
+```
+```
+-xl XL生图模式
+```
+```
+-dtg 使用语言模型补全tag
 ```
 ### 最后, 送你一个示例
 ```text

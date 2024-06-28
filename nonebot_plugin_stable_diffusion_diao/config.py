@@ -78,6 +78,7 @@ class Config(BaseSettings):
     show_progress_bar = [False, 2]  # 是否显示进度条, 整数为刷新时间
     is_trt_backend = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
     is_return_hash_info = False  # 是否返回图片哈希信息（避免被q群管家撤回）
+    enalbe_xl = False # 是否默认使用xl模式
     '''
     模式选择
     '''
@@ -134,6 +135,11 @@ class Config(BaseSettings):
     } # 以上为个人推荐值
     novelai_ControlNet_post_method: int = 0
     control_net = ["lineart_anime", "control_v11p_sd15s2_lineart_anime [3825e83e]"]  # 处理器和模型
+    xl_config = {
+        "sd_vae": "sdxl_vae.safetensors",
+        "prompt": "", 
+        "negative_prompt": ""
+    } # XL使用参数
     '''
     插件设置
     '''
@@ -176,7 +182,27 @@ class Config(BaseSettings):
     f"~(≧▽≦)/~啦啦啦，你的图正在生成，耐心等待哦",
     f"≧ ﹏ ≦ 服务器正在拼命绘图中，请不要催促我",
     f"{nickname}正在全力绘图", 
-    f"我知道你很急, 但你先别急", 
+    f"我知道你很急, 但你先别急",
+    '-r 雕雕内置了几种画幅使用 -r 来指定或者推荐使用 --ar 1:3 来指定画幅比例: s 1:1方构图; p 竖构图 l ; 横构图; uwp 1:2竖构图; uw 2:1横构图 绘画1girl -r l',
+    '-t 迭代步数 一般来说步数越高画面质量可能会更好， 绘画1girl -t 28',
+    '-c cfg scale 有时，越低的 scale 会让画面有更柔和，更有笔触感，反之会越高则会增加画面的细节和锐度， 绘画1girl -c 11',
+    '-e 强度，或者说重绘幅度 图生图或者高清修复的时候生效 绘画1girl -e 0.3',
+    '-o 清除掉主人提前设置好的tags和ntags 绘画1girl -o',
+    '-sp 使用指定的采样器进行绘图, 可以提前通过 采样器 指令来获取支持的采样器 有空格的采样器记得使用 ""括起来,例如 "Euler a" 绘画1girl -sp ""Euler a""',
+    '-sd 使用指定的后端进行绘图(索引从0开始), 可以提前通过 后端 指令来获取后端工作状态 绘画1girl -sd 0 （使用1号后端）',
+    '-nt 不希望翻译的字符, 绘画 -nt 芝士雪豹 "芝士雪豹"将不会被翻译',
+    '-m 生成的本张图暂时使用指定的模型进行绘图，画完后会切回之前使用的模型, 绘画1girl -m 2 -sd 1 使用2号后端序号为2的模型进行暂时生图，当然，使用模型的名字也是可行的，绘画1girl -m cute -sd 1 使用2号后端名字里带有cute的模型进行生图',
+    '-hr 高清修复倍率，不要超过2，超过2的时候推荐和Tiled Diffusion一起使用，来避免爆显存，例如, 绘画1girl -hr 2.2 -td',
+    '-sr 本张图片绘图完成后进行再次超分, 绘画1girl -sr',
+    '-ef 生成的图使用adetailer进行修复绘,画1girl -ef',
+    '-op 使用openpose的DWpose生图，能一定程度上降低手部和肢体崩坏 画1girl -op',
+    '-sag 使用Self Attention Guidance生图,能一定程度上提高生图质量 绘画1gilr -sag',
+    '-otp 使用controlnet inpaint进行扩图，图生图生效，推荐使用：绘画[图片]/@别人 -otp --ar 21:9 -hr 1.2 扩图至21:9并且放大1.2倍',
+    '-bs 本张图片使用指定的后端地址生图，例如：绘画reimu -bs api.diaodiao.online:7860',
+    '-td 使用 Tiled Diffusion 进行绘图, 降低显存使用, 可用于低分辨率出大图 画1girl -td',
+    '-ai 使用chatgpt辅助生成tags，绘画海边的少女 -ai',
+    '-bing 使用dall-e3模型进行生图，绘画海边的少女 -bing',
+    '-dtg 使用dtg插件补充tag,请按照以下格式"<|special|>, <|characters|>, <|artist|>, <|quality|>, <|rating|>",'
     ]
     '''
     脚本设置
@@ -228,19 +254,35 @@ class Config(BaseSettings):
             }
         },
         {
-            "Self Attention Guidance":{
+        "Self Attention Guidance":{
                 "args": [True, 0.75, 1.5]
             }
         },
         {
-            "Cutoff": {
+        "Cutoff": {
                 "args": [True, "prompt here", 2 , True, False]
             }
         },
         {
-            "NegPiP": {
+        "NegPiP": {
                 "args": [True]
             }
+        },
+        {
+        "DanTagGen": {
+            "args": [
+            True,
+            "Before applying other prompt processings",
+            -1,
+            "long",
+            "negative prompt here",
+            "<|special|>, <|characters|>, <|artist|>, <|quality|>, <|rating|>",
+            1,
+            0.55,
+            100,
+            "KBlueLeaf/DanTagGen-delta-rev2 | ggml-model-Q6_K.gguf"
+            ]
+        }
         }
     ]
     scripts = [
@@ -570,15 +612,15 @@ config.novelai_ControlNet_payload = [
                     "module": config.control_net[0],
                     "model": config.control_net[1],
                     "weight": 1.5,
-                    "image": "",
-                    "resize_mode": 1,
-                    "lowvram": False,
+                    "input_image": "",
+                    "resize_mode": "Crop and Resize",
+                    "low_vram": False,
                     "processor_res": config.novelai_size*1.5,
                     "threshold_a": 64,
                     "threshold_b": 64,
                     "guidance_start": 0.0,
                     "guidance_end": 1.0,
-                    "control_mode": 0,
+                    "control_mode": "Balanced",
                     "pixel_perfect": True
                 }
             ]
