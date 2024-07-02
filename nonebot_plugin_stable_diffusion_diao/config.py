@@ -79,13 +79,14 @@ class Config(BaseSettings):
     is_trt_backend = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
     is_return_hash_info = False  # 是否返回图片哈希信息（避免被q群管家撤回）
     enalbe_xl = False # 是否默认使用xl模式
+    auto_dtg = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
     '''
     模式选择
     '''
     novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
     novelai_daylimit_type = 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
-    novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图
+    novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图, 5为直接发送！爆了！
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_picaudit: int = 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     novelai_todaygirl = 1  # 可选值 1 和 2 两种不同的方式
@@ -138,8 +139,16 @@ class Config(BaseSettings):
     xl_config = {
         "sd_vae": "sdxl_vae.safetensors",
         "prompt": "", 
-        "negative_prompt": ""
-    } # XL使用参数
+        "negative_prompt": "",
+        "hr_config": {        
+        "denoising_strength": 0.4,  # 重绘幅度
+        "hr_scale": novelai_hr_scale,  # 高清修复比例, 1.5为长宽分辨率各X1.5
+        "hr_upscaler": "Lanczos",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
+        "hr_second_pass_steps": 6,  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错}
+        },
+        "xl_base_factor": None # xl生图倍率 此倍率为基础分辨率的倍率
+    }# XL使用参数 
+    xl_sd_model_checkpoint = "" # 默认xl模型
     '''
     插件设置
     '''
@@ -275,8 +284,8 @@ class Config(BaseSettings):
             "Before applying other prompt processings",
             -1,
             "long",
-            "negative prompt here",
-            "<|special|>, <|characters|>, <|artist|>, <|quality|>, <|rating|>",
+            ".*eye.*,.*hair.*,.*character doll,mutilple.*,.*background.*",
+            "<|special|>, <|characters|>, <|copyrights|>,\n<|artist|>,\n\n<|general|>,\n\n<|quality|>, <|meta|>, <|rating|>",
             1,
             0.55,
             100,

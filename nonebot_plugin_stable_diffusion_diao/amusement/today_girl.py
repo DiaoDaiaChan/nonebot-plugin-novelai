@@ -1343,6 +1343,8 @@ async def _(bot: Bot,
     await run_later(send_msg_and_revoke(bot, event, f"锵锵~~~{to_user}\n正在为你生成二次元图像捏"))
     args.match = True
     args.pure = True
+    args.dtg = True
+    args.tags = ["(solo:1.1),"] + args.tags
 
     if img_url:
         args.pic_url = img_url
@@ -1379,7 +1381,7 @@ async def _(bot: Bot,
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
             await revoke_msg(message_data, bot, revoke)
-
+    
     else:
         await aidraw_get(bot, event, args)
 

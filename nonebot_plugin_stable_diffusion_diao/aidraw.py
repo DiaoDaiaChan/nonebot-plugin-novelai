@@ -382,6 +382,7 @@ async def aidraw_get(
         if fifo.xl:
             basetag = config.xl_config["prompt"]
             lowQuality = config.xl_config["negative_prompt"]
+        # 默认参数优化
             pre_tags = basetag
             pre_ntags = lowQuality
         else:
@@ -393,8 +394,24 @@ async def aidraw_get(
                 pre_tags = ""
                 pre_ntags = ""
         # 拼接最终prompt
-        fifo.tags = pre_tags + "," + tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
+        raw_tag = tags_list+ ","+",".join(new_tags_list)+str(style_tag)+random_tags
+        # 自动dtg
+        def check_tag_length(raw_tag):
+            raw_tag = raw_tag.replace('，', ',')
+            parts = [part.strip() for part in raw_tag.split(',') if part.strip()]
+            if len(parts) > 10:
+                return True
+            else:
+                return False
+
+        if check_tag_length(raw_tag) is False and config.auto_dtg and fifo.xl:
+            fifo.dtg = True
+    
+        fifo.tags = pre_tags + "," + raw_tag
         fifo.ntags = pre_ntags + "," + fifo.ntags + str(style_ntag)
+        fifo.pre_tags = [basetag, lowQuality, raw_tag]
+        if fifo.dtg:
+            await fifo.get_dtg_pre_prompt()
         # 记录prompt
         await run_later(record_prompts(fifo))
 

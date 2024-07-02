@@ -157,11 +157,18 @@ async def check_safe_method(
                     try:
                         await bot.call_api(
                             "send_private_msg",
-                           {"user_id": fifo.user_id,
-                            "message": MessageSegment.image(i)}
+                            {
+                                "user_id": fifo.user_id,
+                                "message": MessageSegment.image(i)
+                            }
                         )
                     except ActionFailed:
                         await bot.send_group_msg(fifo.group_id, f"呜呜,你不加我好友我怎么发图图给你!")
+                elif htype == 5:
+                    await bot.send_group_msg(
+                        group_id=fifo.group_id, 
+                        message=f"是好康{MessageSegment.image(i)}\n{fifo.img_hash}"
+                    )
 
                 revoke = await config.get_value(fifo.group_id, "revoke")
                 if revoke:

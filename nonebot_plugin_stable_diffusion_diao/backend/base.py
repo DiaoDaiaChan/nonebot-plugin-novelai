@@ -155,7 +155,7 @@ class AIDRAW_BASE:
         self.vram: str = ""
         self.hiresfix_scale: float = hiresfix_scale or config.novelai_hr_scale
         self.man_hr_scale: bool = True if hiresfix_scale else False
-        self.xl = xl
+        self.xl = xl or config.enalbe_xl
         self.dtg = dtg
         self.img2img_hr = hiresfix_scale
         self.novelai_hr_payload = config.novelai_hr_payload
@@ -189,6 +189,7 @@ class AIDRAW_BASE:
         self.post_event = None
         self.current_process = None
         self.pure = pure
+        self.pre_tags = None
         
         # 数值合法检查
         max_steps = config.novelai_max_steps
@@ -349,7 +350,10 @@ class AIDRAW_BASE:
                 await self.show_progress_bar()
                 await asyncio.sleep(config.show_progress_bar[1])
             
-        img = await post_task
+        img, info = await post_task
+        info = info.strip().strip("'").strip('"')
+        info = json.loads(info)
+        self.tags = info["prompt"]
         periodic_task_task = asyncio.create_task(self.show_progress_bar())
         await self.post_event.wait()
         
@@ -589,8 +593,8 @@ class AIDRAW_BASE:
                 ) as session:
                 # 向服务器发送请求
                 async with session.post(post_api, json=payload) as resp:
+                    resp_dict = json.loads(await resp.text())
                     if resp.status not in [200, 201]:
-                        resp_dict = json.loads(await resp.text())
                         logger.error(resp_dict)
                         if resp_dict["error"] == "OutOfMemoryError":
                             logger.info("检测到爆显存，执行自动模型释放并加载")
@@ -606,7 +610,7 @@ class AIDRAW_BASE:
                         way = "fast" if len(self.sr) == 0 else self.sr[0]
                         img = await self.super_res(img, header, way)
         self.post_event.set()
-        return img
+        return img, resp_dict["info"]
     
     async def update_progress(self):
         try:
@@ -617,3 +621,11 @@ class AIDRAW_BASE:
         except:
             traceback.print_exc()
             return 0.404
+        
+    async def get_dtg_pre_prompt(self):
+        new_tags = f'''
+        {self.pre_tags[2]}
+        \n
+        {self.pre_tags[0]}
+        '''
+        self.tags = new_tags

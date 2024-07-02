@@ -44,7 +44,8 @@ zero_tags: false  # 发送绘画命令不添加prompt的时候自动随机prompt
 show_progress_bar: [false, 2]  # 是否显示进度条
 is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
 is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
-enalbe_xl: False # 是否默认使用xl模式
+enalbe_xl: false # 是否默认使用xl模式
+auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -125,6 +126,13 @@ xl_config:
     sd_vae: "sdxl_vae.safetensors"
     prompt: ""
     negative_prompt: ""
+    hr_config:         
+      denoising_strength: 0.3
+      hr_scale: 1.5
+      hr_upscaler: "Lanczos"
+      hr_second_pass_steps: 6
+    xl_base_factor: null
+xl_sd_model_checkpoint: ""
 # --------------------------------
 # 插件设置
 # --------------------------------
@@ -201,12 +209,14 @@ custom_scripts:
       - "Before applying other prompt processings"
       - -1
       - "long"
-      - "eye"
+      - ".*eye.*,.*hair.*,.*character doll,mutilple.*,.*background.*"
       - "<|special|>, <|characters|>, <|copyrights|>,\n<|artist|>,\n\n<|general|>,\n\n<|quality|>, <|meta|>, <|rating|>"
       - 1
       - 0.55
       - 100
-      - "KBlueLeaf/DanTagGen-delta-rev2 | ggml-model-Q6_ K.gguf"
+      - "KBlueLeaf/DanTagGen-delta-rev2 | ggml-model-Q6_K.gguf"
+      - false
+      - false
 
 scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制大小）和最后一个参数（放大倍率）
 - name: "x/y/z plot"

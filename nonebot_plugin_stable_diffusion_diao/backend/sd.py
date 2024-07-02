@@ -201,20 +201,24 @@ class AIDRAW(AIDRAW_BASE):
         # XL模式
         if self.xl:
             # 图像宽高改为高清修复的倍率
+            factor = config.novelai_hr_scale if config.xl_config["xl_base_factor"] is None else config.xl_config["xl_base_factor"]
             parameters.update(
                 {
-                    "width": self.width*self.hiresfix_scale, 
-                    "height": self.height*self.hiresfix_scale
+                    "width": self.width*factor, 
+                    "height": self.height*factor
                 }
             )
             # 如果没有设置手动高清修复倍率，关闭高清修复
             if self.man_hr_scale is False:
                 parameters.update({"enable_hr": "false"})
             else:
-                self.td = True
+                config.xl_config['hr_config']["hr_scale"] = self.hiresfix_scale
+                parameters.update(config.xl_config['hr_config'])
             # 使用XL VAE
             parameters["override_settings_restore_afterwards"] = True
-            parameters["override_settings"].update({"sd_vae": config.xl_config["sd_vae"]})
+            parameters["override_settings"].update(
+                {"sd_vae": config.xl_config["sd_vae"], "sd_model_checkpoint": config.xl_sd_model_checkpoint}
+            )
 
         # 脚本以及插件
         if self.xyz_plot:
@@ -274,8 +278,8 @@ class AIDRAW(AIDRAW_BASE):
                 "module": "inpaint_only",
                 "model": "control_v11p_sd15_inpaint [ebff9138]",
                 "input_image": self.image,
-                "resize_mode": 2,
-                "control_mode": 2
+                "resize_mode": "Resize and Fill",
+                "control_mode": "ControlNet is more important"
             }
             controlnet_full_payload["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
             parameters.update(controlnet_full_payload)
