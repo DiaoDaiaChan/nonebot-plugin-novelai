@@ -285,7 +285,7 @@ async def super_res_api_func(
     payload.update(config.novelai_SuperRes_generate_payload)
     if upscale:
         payload["upscaling_resize"] = upscale
-    backend_site = site or await sd_LoadBalance()
+    backend_site = site or await sd_LoadBalance(None)
     backend_site = backend_site if isinstance(backend_site, str) else backend_site[1][0]
     async with aiohttp.ClientSession() as session:
         api_url = "http://" + backend_site + "/sdapi/v1/extra-single-image"
@@ -1074,7 +1074,7 @@ async def __(event: MessageEvent, bot: Bot):
         if info == "":
             await read_png_info.finish("图片里面没有元数据信息欸\n是不是没有发送原图")
         else:
-            parameters = resp_data["items"]["parameters"]
+            parameters = ""
             await risk_control(bot, event, [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"], True)
     else:
         await read_png_info.reject("请重新发送图片")
@@ -1092,7 +1092,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
             tags = "miku"
 
     init_dict["tags"] = tags
-    _, __, normal_backend = await sd_LoadBalance()
+    _, __, normal_backend = await sd_LoadBalance(None)
     random_site = random.choice(normal_backend)
     index = config.backend_site_list.index(random_site)
     init_dict["backend_index"] = index

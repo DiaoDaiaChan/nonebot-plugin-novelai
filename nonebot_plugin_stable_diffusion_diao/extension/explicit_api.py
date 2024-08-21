@@ -120,7 +120,7 @@ async def check_safe_method(
                             user_id=fifo.user_id, 
                             message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
                         )
-                    except ActionFailed:
+                    except:
                         message_data = await bot.send_group_msg(
                             group_id=fifo.group_id, 
                             message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
@@ -131,13 +131,13 @@ async def check_safe_method(
                             group_id=fifo.group_id, 
                             message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
                         )
-                    except ActionFailed:
+                    except:
                         try:
                             message_data = await bot.send_private_msg(
                                 user_id=fifo.user_id, 
                                 message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
                             )
-                        except ActionFailed:
+                        except:
                             try:
                                 message_data = await bot.send_group_msg(
                                     group_id=fifo.group_id, 
@@ -158,7 +158,7 @@ async def check_safe_method(
                         await bot.call_api(
                             "send_private_msg",
                             {
-                                "user_id": fifo.user_id,
+                                "user_id": fifo.users_id,
                                 "message": MessageSegment.image(i)
                             }
                         )

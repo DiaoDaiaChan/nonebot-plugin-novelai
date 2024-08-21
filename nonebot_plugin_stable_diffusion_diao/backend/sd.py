@@ -94,7 +94,7 @@ class AIDRAW(AIDRAW_BASE):
         else:
             self.task_type = "txt2img"
         logger.info(f"任务类型:{self.task_type}")
-        resp_tuple = await sd_LoadBalance()
+        resp_tuple = await sd_LoadBalance(self)
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
         self.vram = resp_tuple[1][4]

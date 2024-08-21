@@ -1343,7 +1343,7 @@ async def _(bot: Bot,
     await run_later(send_msg_and_revoke(bot, event, f"锵锵~~~{to_user}\n正在为你生成二次元图像捏"))
     args.match = True
     args.pure = True
-    args.dtg = True
+    args.dtg = False
     args.tags = ["(solo:1.1),"] + args.tags
 
     if img_url:
