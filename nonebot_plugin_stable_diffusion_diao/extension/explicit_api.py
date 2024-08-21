@@ -110,6 +110,7 @@ async def check_safe_method(
             else:
                 label = "_explicit"
                 message.append(f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n")
+                fifo.video = None
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
@@ -120,7 +121,7 @@ async def check_safe_method(
                             user_id=fifo.user_id, 
                             message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
                         )
-                    except ActionFailed:
+                    except:
                         message_data = await bot.send_group_msg(
                             group_id=fifo.group_id, 
                             message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
@@ -131,13 +132,13 @@ async def check_safe_method(
                             group_id=fifo.group_id, 
                             message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
                         )
-                    except ActionFailed:
+                    except:
                         try:
                             message_data = await bot.send_private_msg(
                                 user_id=fifo.user_id, 
                                 message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
                             )
-                        except ActionFailed:
+                        except:
                             try:
                                 message_data = await bot.send_group_msg(
                                     group_id=fifo.group_id, 
@@ -158,7 +159,7 @@ async def check_safe_method(
                         await bot.call_api(
                             "send_private_msg",
                             {
-                                "user_id": fifo.user_id,
+                                "user_id": fifo.users_id,
                                 "message": MessageSegment.image(i)
                             }
                         )

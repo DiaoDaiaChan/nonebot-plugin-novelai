@@ -14,6 +14,7 @@ from copy import deepcopy
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from nonebot import get_bot, on_shell_command
+from pathlib import Path
 
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
@@ -94,6 +95,9 @@ async def aidraw_get(
     style_ntag = ""
     message = ""
     read_tags = False
+
+    if args.pu:
+        await bot.send(event, "正在为你生成视频，请注意耗时较长")
 
     if args.bing:
         await bot.send(event, "bing正在为你生成图像")
@@ -521,6 +525,8 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                     message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{fifo.audit_info}"
                 )
                 await revoke_msg(message_data, bot)
+            if fifo.video:
+                await bot.send(event=event, message=MessageSegment.video(Path(fifo.video)))
 
     await generate(fifo)
     await version.check_update()
