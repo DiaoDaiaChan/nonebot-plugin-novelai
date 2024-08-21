@@ -30,6 +30,7 @@ from ..utils import (
 from ..utils.data import shapemap
 from ..utils.load_balance import sd_LoadBalance
 from ..extension.daylimit import count
+from ..utils.gradio_ import paints_undo
 
 
 class AIDRAW_BASE:
@@ -69,6 +70,8 @@ class AIDRAW_BASE:
         xl: bool = True if config.enalbe_xl else False,
         vae: str = None,
         dtg: bool = False,
+        pu: bool = False,
+        ni: bool = False,
         **kwargs,
     ):
         """
@@ -190,7 +193,11 @@ class AIDRAW_BASE:
         self.current_process = None
         self.pure = pure
         self.pre_tags = None
-        
+        self.pu = pu
+        self.result_img = None
+        self.video = None
+        self.ni = ni
+
         # 数值合法检查
         max_steps = config.novelai_max_steps
         if self.steps <= 0 or self.steps > (max_steps):
@@ -600,6 +607,7 @@ class AIDRAW_BASE:
                             logger.info("检测到爆显存，执行自动模型释放并加载")
                             await unload_and_reload(backend_site=self.backend_site)
                     img = await self.fromresp(resp)
+                    self.result_img = img
                     logger.debug(f"获取到返回图片，正在处理")
                     # 收到图片后处理
                     if self.open_pose or config.openpose:
@@ -609,6 +617,13 @@ class AIDRAW_BASE:
                     if self.sr is not None and isinstance(self.sr, list):
                         way = "fast" if len(self.sr) == 0 else self.sr[0]
                         img = await self.super_res(img, header, way)
+                    if self.pu:
+                        try:
+                            pu_instance = paints_undo(self)
+                            self.video = await asyncio.get_event_loop().run_in_executor(None, pu_instance.process)
+                        except:
+                            logger.error("paints undo 处理失败")
+                            traceback.print_exc()
         self.post_event.set()
         return img, resp_dict["info"]
     
@@ -629,3 +644,6 @@ class AIDRAW_BASE:
         {self.pre_tags[0]}
         '''
         self.tags = new_tags
+
+    async def process_pu_video(self):
+        pass

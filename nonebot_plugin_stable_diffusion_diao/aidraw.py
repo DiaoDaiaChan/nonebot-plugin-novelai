@@ -14,6 +14,7 @@ from copy import deepcopy
 from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from nonebot import get_bot, on_shell_command
+from pathlib import Path
 
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
@@ -94,6 +95,9 @@ async def aidraw_get(
     style_ntag = ""
     message = ""
     read_tags = False
+
+    if args.pu:
+        await bot.send(event, "正在为你生成视频，请注意耗时较长")
 
     if args.bing:
         await bot.send(event, "bing正在为你生成图像")
@@ -430,7 +434,7 @@ async def aidraw_get(
         if args.pic_url:
             img_url = args.pic_url
 
-        if img_url:
+        if img_url and not fifo.ni:
             if config.novelai_paid:
                 async with aiohttp.ClientSession() as session:
                     logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -442,7 +446,8 @@ async def aidraw_get(
 
         build_msg = f"{random.choice(config.no_wait_list)}, {message}"
         logger.debug(fifo)
-        await run_later(send_msg_and_revoke(bot, event, build_msg), 2)
+        if not fifo.pure:
+            await run_later(send_msg_and_revoke(bot, event, build_msg), 2)
         await fifo_gennerate(event, fifo, bot)
 
 
@@ -521,6 +526,8 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                     message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{fifo.audit_info}"
                 )
                 await revoke_msg(message_data, bot)
+            if fifo.video:
+                await bot.send(event=event, message=MessageSegment.video(Path(fifo.video)))
 
     await generate(fifo)
     await version.check_update()

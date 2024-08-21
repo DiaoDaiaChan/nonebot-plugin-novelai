@@ -39,7 +39,7 @@ async def get_vram(ava_url, get_code=False):
     return vram_usage
 
 
-async def sd_LoadBalance():
+async def sd_LoadBalance(fifo=None):
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
@@ -154,8 +154,12 @@ async def sd_LoadBalance():
                 for backend, weight in zip(normal_backend, weight_list):
                     list_tuple.append((backend, weight))
             print(list_tuple)
-            fifo = AIDRAW()
-            ava_url = fifo.weighted_choice(list_tuple)
+            if fifo:
+                ava_url = fifo.weighted_choice(list_tuple)
+            else:
+                from ..backend.sd import AIDRAW
+                fifo = AIDRAW()
+                ava_url = fifo.weighted_choice(list_tuple)
 
     logger.info(f"已选择后端{reverse_dict[ava_url]}")
     ava_url_index = list(backend_url_dict.values()).index(ava_url)

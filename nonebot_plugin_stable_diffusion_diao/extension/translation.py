@@ -23,7 +23,7 @@ async def translate(text: str, to: str):
             if i == config.novelai_retry:
                 logger.error(f"重试{i}次后依然失败")
                 is_translate = False
-        else:
+        finally:
             is_translate = True
             return text if result is None else result
     if is_translate == False:

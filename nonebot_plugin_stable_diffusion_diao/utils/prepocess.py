@@ -5,6 +5,7 @@ from copy import deepcopy
 
 
 async def trans(taglist):
+
     tag_str = ",".join(taglist)
     tagzh = ""
     tags_ = ""
@@ -14,7 +15,19 @@ async def trans(taglist):
         else:
             tags_ += f"{i},"
     if tagzh:
-        tags_en = await translate(tagzh, "en")
+        ai_trans = True
+
+        if ai_trans:
+            from ..amusement.chatgpt_tagger import get_user_session
+            from ..amusement.chatgpt_tagger import sys_text
+            to_openai = f"{str(tagzh)}+prompts"
+            sys_text = 'If the prompt contains Chinese, translate it into English. If the prompt is entirely in Chinese, generate an English prompt yourself.' + sys_text
+            try:
+                tags_en = await get_user_session(20020204).main(to_openai, sys_text)
+            except:
+                tags_en = await translate(tagzh, "en")
+        else:
+            tags_en = await translate(tagzh, "en")
         if tags_en == tagzh:
             return ""
         else:

@@ -76,6 +76,9 @@ aidraw_parser.add_argument("-bing", "--bing", action="store_true", help="bing DA
 aidraw_parser.add_argument("-xl", "-XL", "--xl", action="store_true", help="xl模式", dest="xl")
 aidraw_parser.add_argument("-vae", "--vae", type=str, help="使用指定vae生图", dest="vae")
 aidraw_parser.add_argument("-dtg", "--dtg", action="store_true", help="使用lm补充tag", dest="dtg")
+aidraw_parser.add_argument("-pu", "--paints-undo", action="store_true", help="ai生成模拟绘画过程", dest="pu")
+aidraw_parser.add_argument("-ni", "--no-i2i", action="store_true", help="ai生成模拟绘画过程", dest="ni")
+
 
 
 async def check_last_version(package: str):
