@@ -19,7 +19,7 @@ header = {
     "content-type": "application/json",
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
 }
-2
+
 
 def process_hr_scale_to_fit_64(data):
     adjusted_data = []
@@ -325,12 +325,12 @@ class AIDRAW(AIDRAW_BASE):
                 model_hash = ''
                 byte_img = self.result[0]
                 new_img = Image.open(BytesIO(byte_img))
-                img_info = new_img.info
+                img_info = self.resp_json
                 res_msg = f"分辨率:{new_img.width}x{new_img.height}\n"
                 pattern = r'Model:\s*(.*?),'
                 pattern2 = r'Model hash:\s*(.*?),'
-                match = re.search(pattern, img_info['parameters'])
-                match2 = re.search(pattern2, img_info['parameters'])
+                match = re.search(pattern, str(img_info['parameters']))
+                match2 = re.search(pattern2, str(img_info['parameters']))
 
                 if match:
                     model_name = match.group(1).strip()

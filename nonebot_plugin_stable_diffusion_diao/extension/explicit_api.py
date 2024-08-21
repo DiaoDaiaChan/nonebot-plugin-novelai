@@ -110,6 +110,7 @@ async def check_safe_method(
             else:
                 label = "_explicit"
                 message.append(f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n")
+                fifo.video = None
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
