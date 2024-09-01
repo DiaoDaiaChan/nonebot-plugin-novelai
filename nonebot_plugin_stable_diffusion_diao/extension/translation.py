@@ -1,3 +1,4 @@
+
 import aiohttp
 from ..config import config
 from nonebot.log import logger
@@ -10,12 +11,12 @@ async def translate(text: str, to: str):
     for i in range(config.novelai_retry):
         try:
             result = (
-                await translate_api(text, to) or
+                await translate_baidu(text, to) or
                 await translate_deepl(text, to) or 
                 await translate_bing(text, to) or
-                await translate_baidu(text, to) or
                 await translate_youdao(text, to) or
-                await translate_google_proxy(text, to)
+                await translate_google_proxy(text, to) or
+                await translate_api(text, to)
             )
         except:
             logger.warning(traceback.print_exc())
@@ -23,7 +24,7 @@ async def translate(text: str, to: str):
             if i == config.novelai_retry:
                 logger.error(f"重试{i}次后依然失败")
                 is_translate = False
-        finally:
+        else:
             is_translate = True
             return text if result is None else result
     if is_translate == False:
@@ -152,13 +153,10 @@ async def get_access_token():
 
 async def translate_baidu(input: str, to: str):
     try:
-        key = config.baidu_translate_key
         token = await get_access_token()
         url = 'https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1?access_token=' + token
-        # For list of language codes, please refer to `https://ai.baidu.com/ai-doc/MT/4kqryjku9#语种列表`
-        term_ids = '' # 术语库id，多个逗号隔开
         headers = {'Content-Type': 'application/json'}
-        payload = {'q': input, 'from': 'zh', 'to': to, 'termIds' : term_ids}
+        payload = {'q': input, 'from': 'zh', 'to': to}
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.post(url=url, json=payload) as resp:
                 if resp.status != 200:
