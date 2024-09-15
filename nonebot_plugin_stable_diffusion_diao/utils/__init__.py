@@ -1,6 +1,8 @@
 from io import BytesIO
 from PIL import Image
 import re
+import asyncio
+import os
 import aiohttp
 import base64
 import random
@@ -148,6 +150,37 @@ async def pic_audit_standalone(
         audit=False,
         return_none=False
 ):
+
+    async def get_caption(payload):
+
+        if config.novelai_picaudit == 2:
+            from ..utils.tagger import tagger_main
+            from ..config import wd_instance
+            resp_dict = {}
+            caption = await asyncio.get_event_loop().run_in_executor(
+                None,
+                tagger_main,
+                payload['image'],
+                payload['threshold'],
+                wd_instance
+            )
+            resp_dict["caption"] = caption
+            return resp_dict
+
+        else:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate",
+                        json=payload
+                ) as resp:
+
+                    if resp.status not in [200, 201]:
+                        resp_text = await resp.text()
+                        logger.error(f"API失败，错误信息:{resp.status, resp_text}")
+                        return None
+                    resp_dict = await resp.json()
+                    return resp_dict
+
     byte_img = (
         img_base64 if isinstance(img_base64, bytes)
         else base64.b64decode(img_base64)
@@ -156,33 +189,26 @@ async def pic_audit_standalone(
     img_base64 = await set_res(img)
 
     payload = {"image": img_base64, "model": f"{config.tagger_model}", "threshold": 0.35}
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url=f"http://{config.novelai_tagger_site}/tagger/v1/interrogate", json=payload) as resp:
 
-            if resp.status not in [200, 201]:
-                resp_text = await resp.text()
-                logger.error(f"API失败，错误信息:{resp.status, resp_text}")
-                return None
+    resp_dict = await get_caption(payload)
 
-            else:
-                resp_dict = await resp.json()
-                tags = resp_dict["caption"]
-                replace_list = ["general", "sensitive", "questionable", "explicit"]
-                to_user_list = ["这张图很安全!", "较为安全", "色情", "泰色辣!"]
-                possibilities = {}
-                to_user_dict = {}
-                message = "这是审核结果:\n"
+    tags = resp_dict["caption"]
+    replace_list = ["general", "sensitive", "questionable", "explicit"]
+    to_user_list = ["这张图很安全!", "较为安全", "色情", "泰色辣!"]
+    possibilities = {}
+    to_user_dict = {}
+    message = "这是审核结果:\n"
 
-                for i, to_user in zip(replace_list, to_user_list):
-                    possibilities[i] = tags[i]
-                    percent = f":{tags[i] * 100:.2f}".rjust(6)
-                    message += f"[{to_user}{percent}%]\n"
-                    to_user_dict[to_user] = tags[i]
+    for i, to_user in zip(replace_list, to_user_list):
+        possibilities[i] = tags[i]
+        percent = f":{tags[i] * 100:.2f}".rjust(6)
+        message += f"[{to_user}{percent}%]\n"
+        to_user_dict[to_user] = tags[i]
 
-                value = list(to_user_dict.values())
-                value.sort(reverse=True)
-                reverse_dict = {value: key for key, value in to_user_dict.items()}
-                message += (f"最终结果为:{reverse_dict[value[0]].rjust(5)}")
+    value = list(to_user_dict.values())
+    value.sort(reverse=True)
+    reverse_dict = {value: key for key, value in to_user_dict.items()}
+    message += (f"最终结果为:{reverse_dict[value[0]].rjust(5)}")
 
     if return_none:
         value = list(possibilities.values())

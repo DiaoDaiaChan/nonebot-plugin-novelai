@@ -84,6 +84,9 @@ backend_type:  # 后端类型, 会自动根据后端类型修改post参数
 novelai_tagger_site:
 指令: llm 
 ```
+```
+支持内建tagger用于审核以及分析功能, 将 novelai_picaudit 设置为 2 即可使用
+```
 兼容pydantic v1 和 v2 (大概)
 ## 2024.07.02 0.5.1 更新
 ```

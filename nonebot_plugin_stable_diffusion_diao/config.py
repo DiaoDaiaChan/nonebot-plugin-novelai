@@ -702,5 +702,27 @@ def format_config(config: Config):
     return msg
 
 
+if config.novelai_picaudit == 2:
+    try:
+        import pandas as pd
+    except ModuleNotFoundError:
+        logger.info("正在安装本地审核需要的依赖和模型")
+        os.system("pip install pandas numpy pillow huggingface_hub onnxruntime")
+
+    logger.info("正在加载实例")
+    from .utils.tagger import WaifuDiffusionInterrogator
+
+    wd_instance = WaifuDiffusionInterrogator(
+        name='WaifuDiffusion',
+        repo_id='SmilingWolf/wd-v1-4-convnextv2-tagger-v2',
+        revision='v2.0',
+        model_path='model.onnx',
+        tags_path='selected_tags.csv'
+    )
+
+    wd_instance.load()
+
+    logger.info("模型加载成功")
+
 logger.info(f"加载config完成\n{format_config(config)}")
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")

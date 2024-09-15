@@ -295,7 +295,7 @@ class AIDRAW(AIDRAW_BASE):
         elif config.backend_type[index] == "flux":
             parameters['sampler_name'] = 'Euler'
             parameters['scheduler'] = 'Simple'
-            scale = parameters['hr_scale'] if parameters['enable_hr'] else 1
+            scale = parameters.get('hr_scale') if parameters.get('enable_hr') else 1
             parameters['enable_hr'] = False
             parameters['width'] = int(self.width * scale)
             parameters['height'] = int(self.height * scale)

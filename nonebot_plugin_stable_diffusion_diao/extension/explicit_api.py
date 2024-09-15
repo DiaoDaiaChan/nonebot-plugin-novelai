@@ -159,7 +159,7 @@ async def check_safe_method(
                         await bot.call_api(
                             "send_private_msg",
                             {
-                                "user_id": fifo.users_id,
+                                "user_id": fifo.user_id,
                                 "message": MessageSegment.image(i)
                             }
                         )
@@ -200,52 +200,7 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
     'Accept': 'application/json'
 }
     picaudit = await config.get_value(fifo.group_id, "picaudit") or config.novelai_picaudit
-    if picaudit == 2:
-        if os.path.isfile("rainchan-image-porn-detection/lite_model.tflite"):
-            pass
-        else:
-            os.system("git lfs install && git clone https://huggingface.co/spaces/mayhug/rainchan-image-porn-detection")
-        try:
-            import tensorflow as tf
-        except:
-            os.system("pip install tensorflow==2.9")
-            import tensorflow as tf
-        from typing import IO
-        from io import BytesIO
-
-        def process_data(content, SIZE):
-            img = tf.io.decode_jpeg(content, channels=3)
-            img = tf.image.resize_with_pad(img, SIZE, SIZE, method="nearest")
-            img = tf.image.resize(img, (SIZE, SIZE), method="nearest")
-            img = img / 255
-            return img
-
-        def main(file: IO[bytes]):
-            SIZE = 224
-            inter = tf.lite.Interpreter("rainchan-image-porn-detection/lite_model.tflite", num_threads=12)
-            inter.allocate_tensors()
-            in_tensor, *_ = inter.get_input_details()
-            out_tensor, *_ = inter.get_output_details()
-            data = process_data(file.read(), SIZE)
-            data = tf.expand_dims(data, 0)
-            inter.set_tensor(in_tensor["index"], data)
-            inter.invoke()
-            result, *_ = inter.get_tensor(out_tensor["index"])
-            safe, questionable, explicit = map(float, result)
-            possibilities = {"safe": safe, "questionable": questionable, "explicit": explicit}
-            logger.info(f"审核结果:{possibilities}")
-            return possibilities
-
-        file_obj = BytesIO(img_bytes)
-        possibilities = await asyncio.get_event_loop().run_in_executor(None, main, file_obj)
-        value = list(possibilities.values())
-        value.sort(reverse=True)
-        reverse_dict = {value: key for key, value in possibilities.items()}
-        if is_check:
-            return possibilities
-        return reverse_dict[value[0]], value[0] * 100, ""
-    
-    elif picaudit == 4:
+    if picaudit == 4 or picaudit == 2:
         message = "N/A"
         img_base64 = base64.b64encode(img_bytes).decode()
         possibilities, message = await pic_audit_standalone(img_base64, False, True)

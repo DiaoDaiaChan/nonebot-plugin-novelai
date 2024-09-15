@@ -12,11 +12,11 @@ async def translate(text: str, to: str):
         try:
             result = (
                     await translate_baidu(text, to) or
+                    await translate_api(text, to) or
                     await translate_deepl(text, to) or
                     await translate_bing(text, to) or
                     await translate_youdao(text, to) or
-                    await translate_google_proxy(text, to) or
-                    await translate_api(text, to)
+                    await translate_google_proxy(text, to)
             )
         except:
             logger.warning(traceback.print_exc())

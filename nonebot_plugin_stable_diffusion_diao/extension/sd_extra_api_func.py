@@ -750,7 +750,7 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     txt_msg = msg.extract_plain_text()
     en = await translate(txt_msg, "en")
-    await risk_control(bot=bot, event=event, message=[en])
+    await risk_control(bot=bot, event=event, message=[en, "自然语言模型根据发送者发送的文字生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."])
 
 
 @random_tags.handle()
@@ -939,7 +939,21 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         r = redis_client[1]
         if r.exists("style"):
             style_list = r.lrange("style", 0, -1)
-            style_list = [ast.literal_eval(style.decode("utf-8")) for style in style_list]
+            decoded_styles = []
+
+            for index, style in enumerate(style_list):
+                try:
+                    decoded_style = style.decode("utf-8")
+                    try:
+                        parsed_style = ast.literal_eval(decoded_style)
+                        decoded_styles.append(parsed_style)
+                    except (ValueError, SyntaxError) as e:
+                        pass
+
+                except (UnicodeDecodeError, AttributeError) as e:
+                    pass
+
+            style_list = decoded_styles
             if r.exists("user_style"):
                 user_style_list = r.lrange("user_style", 0, -1)
                 for index, style in enumerate(user_style_list):
@@ -948,8 +962,8 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                         style = ast.literal_eval(decoded_style)
                         style_list.append(style)
                     except (ValueError, SyntaxError, UnicodeDecodeError) as e:
-                        print(f"Error at index {index}: {e}")
-                        print(f"Failed content: {decoded_style}")
+                        pass
+
 
     else:
         await style_.finish("需要redis以使用此功能")
@@ -1233,15 +1247,14 @@ async def __(event: MessageEvent, bot: Bot):
         for seg in reply.message['image']:
             url = seg.data["url"]
     if url:
-        await bot.call_api("get_image", {})
         img, _ = await download_img(url)
         payload = {
-            "image": url,
+            "image": img,
             "threshold": 0.3
         }
         resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
         if status_code not in [200, 201]:
             await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
-        await risk_control(bot, event, [f"llm打标{resp_data['llm']}"], True)
+        await risk_control(bot, event, [f"llm打标{resp_data['llm']}", "自然语言模型根据图片发送者发送的图片内容生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."], True)
     else:
         await llm_caption.reject("请重新发送图片")

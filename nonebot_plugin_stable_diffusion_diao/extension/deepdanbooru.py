@@ -60,7 +60,7 @@ async def deepdanbooru_handle(event: MessageEvent, bot: Bot):
                     tags = tags+label["label"]+","
 
         tags_ch = await translate(tags, "zh")
-        message_list = [MessageSegment.image(bytes_), tags, f"机翻结果:\n" + tags_ch]
+        message_list = [tags, f"机翻结果:\n" + tags_ch]
 
         if h_:
             message_list = message_list + [h_]
