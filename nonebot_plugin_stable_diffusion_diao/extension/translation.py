@@ -12,11 +12,11 @@ async def translate(text: str, to: str):
         try:
             result = (
                     await translate_baidu(text, to) or
-                    await translate_api(text, to) or
                     await translate_deepl(text, to) or
                     await translate_bing(text, to) or
                     await translate_youdao(text, to) or
-                    await translate_google_proxy(text, to)
+                    await translate_google_proxy(text, to) or
+                    await translate_api(text, to)
             )
         except:
             logger.warning(traceback.print_exc())
@@ -154,22 +154,19 @@ async def get_access_token():
 
 
 async def translate_baidu(input: str, to: str):
-    if config.baidu_translate_key["API_KEY"] and config.baidu_translate_key["SECRET_KEY"]:
-        try:
-            token = await get_access_token()
-            url = 'https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1?access_token=' + token
-            headers = {'Content-Type': 'application/json'}
-            payload = {'q': input, 'from': 'zh', 'to': to}
-            async with aiohttp.ClientSession(headers=headers) as session:
-                async with session.post(url=url, json=payload) as resp:
-                    if resp.status != 200:
-                        logger.error(f"百度翻译接口错误, 错误代码{resp.status},{await resp.text()}")
-                    json_ = await resp.json()
-                    result = json_["result"]["trans_result"][0]["dst"]
-            return result
-        except:
-            return None
-    else:
+    try:
+        token = await get_access_token()
+        url = 'https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1?access_token=' + token
+        headers = {'Content-Type': 'application/json'}
+        payload = {'q': input, 'from': 'zh', 'to': to}
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.post(url=url, json=payload) as resp:
+                if resp.status != 200:
+                    logger.error(f"百度翻译接口错误, 错误代码{resp.status},{await resp.text()}")
+                json_ = await resp.json()
+                result = json_["result"]["trans_result"][0]["dst"]
+        return result
+    except:
         return None
 
 
