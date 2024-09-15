@@ -5,6 +5,7 @@ import asyncio
 import os
 import aiohttp
 import base64
+import traceback
 import random
 from nonebot import logger
 from ..config import config
@@ -286,3 +287,42 @@ async def run_later(func, delay=1):
             func
         )
     )
+
+
+async def txt_audit(msg, prompt="接下来请你对一些聊天内容进行审核,如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 如果没有则输出<no>"):
+
+    system = [
+        {"role": "system",
+         "content": prompt}
+    ]
+    prompt = [{"role": "user", "content": msg}]
+
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
+        try:
+            async with session.post(
+                f"http://{config.openai_proxy_site}/v1/chat/completions",
+                headers={"Authorization": config.openai_api_key},
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": system + prompt,
+                    "max_tokens": 4000,
+                },
+            ) as response:
+                response_data = await response.json()
+            try:
+                res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
+                return res
+            except:
+                traceback.print_exc()
+                return "yes"
+        except:
+            traceback.print_exc()
+            return "yes"
+
+
+def remove_punctuation(text):
+    import string
+    for i in range(len(text)):
+        if text[i] not in string.punctuation:
+            return text[i:]
+    return ""

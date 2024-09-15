@@ -12,25 +12,27 @@ import os
 from typing import Tuple
 from ruamel.yaml import YAML
 import shutil
+import sys
 
 import aiofiles
 from nonebot import get_driver
 from nonebot.log import logger
+
 import pydantic
-pyd_version = pydantic.__version__
 from packaging import version
 
-if version.parse(pyd_version) < version.parse("2.0"):
-    from pydantic import validator as field_validator
-    from pydantic.fields import ModelField as Field
-    from pydantic import BaseSettings
+pyd_version = pydantic.__version__
 
+if version.parse(pyd_version) < version.parse("2.0"):
+    from pydantic import BaseSettings
 else:
-    from pydantic import Field, field_validator
     try:
         from pydantic_settings import BaseSettings
-    except ModuleNotFoundError:
-        os.system("pip install pydantic_settings")
+    except:
+        traceback.print_exc()
+        os.system("python -m pip install pydantic_settings")
+        logger.warning("请重启nb捏")
+        sys.exit()
 
 
 jsonpath = Path("data/novelai/config.json").resolve()
@@ -47,16 +49,16 @@ superusers = list(get_driver().config.superusers)
 
 class Config(BaseSettings):
     novelai_ControlNet_payload: list = []
-    backend_name_list = []
-    backend_site_list = []
+    backend_name_list: list = []
+    backend_site_list: list = []
     '''
     key或者后台设置
     '''
     novelai_mj_proxy: str = "" # 必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
     novelai_mj_token: str = "" # 选填，鉴权用
-    bing_key: str = None  # bing的翻译key
-    deepl_key: str = None  # deepL的翻译key
-    baidu_translate_key: dict = None  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
+    bing_key: str = ""  # bing的翻译key
+    deepl_key: str = ""  # deepL的翻译key
+    baidu_translate_key: dict = {}  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
     novelai_tagger_site: str = "api.diaodiao.online:7865"  # 分析功能的地址 例如 127.0.0.1:7860
     tagger_model: str = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
     vits_site: str = "api.diaodiao.online:5877"
@@ -66,10 +68,10 @@ class Config(BaseSettings):
     }  # 你的百度云API Key
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
     openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里
-    proxy_site: None or str = None  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-    trans_api = "api.diaodiao.online:50000"  # 自建翻译API
-    redis_host = ["127.0.0.1", 6379]  # redis地址和端口
-    bing_cookie = []  # bing的cookie们
+    proxy_site: str = ""  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
+    trans_api: str = "api.diaodiao.online:50000"  # 自建翻译API
+    redis_host: list = ["127.0.0.1", 6379]  # redis地址和端口
+    bing_cookie: list = []  # bing的cookie们
     '''
     开关设置
     '''
@@ -77,29 +79,29 @@ class Config(BaseSettings):
     novelai_on: bool = True  # 是否全局开启
     novelai_save_png: bool = False  # 是否保存为PNG格式
     novelai_pure: bool = True  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
-    novelai_extra_pic_audit = True  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
-    run_screenshot = False  # 获取服务器的屏幕截图
-    is_redis_enable = True  # 是否启动redis, 启动redis以获得更多功能
-    auto_match = True  # 是否自动匹配
-    hr_off_when_cn = True  # 使用controlnet功能的时候关闭高清修复
-    only_super_user = True  # 只有超级用户才能永久更换模型
-    tiled_diffusion = False  # 使用tiled-diffusion来生成图片
-    save_img = True  # 是否保存图片(API侧)
-    openpose = False  # 使用openpose dwopen生图，大幅度降低肢体崩坏
-    sag = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
-    negpip = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
-    zero_tags = False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
-    show_progress_bar = [False, 2]  # 是否显示进度条, 整数为刷新时间
-    is_trt_backend = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
-    is_return_hash_info = False  # 是否返回图片哈希信息（避免被q群管家撤回）
-    enalbe_xl = False # 是否默认使用xl模式
-    auto_dtg = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
-    ai_trans = False   # ai自动翻译/生成
+    novelai_extra_pic_audit: bool = True  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
+    run_screenshot: bool = False  # 获取服务器的屏幕截图
+    is_redis_enable: bool = True  # 是否启动redis, 启动redis以获得更多功能
+    auto_match: bool = True  # 是否自动匹配
+    hr_off_when_cn: bool = True  # 使用controlnet功能的时候关闭高清修复
+    only_super_user: bool = True  # 只有超级用户才能永久更换模型
+    tiled_diffusion: bool = False  # 使用tiled-diffusion来生成图片
+    save_img: bool = True  # 是否保存图片(API侧)
+    openpose: bool = False  # 使用openpose dwopen生图，大幅度降低肢体崩坏
+    sag: bool = False  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+    negpip: bool = False  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
+    zero_tags: bool = False  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
+    show_progress_bar: list = [False, 2]  # 是否显示进度条, 整数为刷新时间
+    is_trt_backend: bool = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
+    is_return_hash_info: bool = False  # 是否返回图片哈希信息（避免被q群管家撤回）
+    enalbe_xl: bool = False # 是否默认使用xl模式
+    auto_dtg: bool = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
+    ai_trans: bool = False   # ai自动翻译/生成
     '''
     模式选择
     '''
     novelai_save: int = 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
-    novelai_daylimit_type = 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
+    novelai_daylimit_type: int = 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图, 5为直接发送！爆了！
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
@@ -122,7 +124,7 @@ class Config(BaseSettings):
     '''
     novelai_tags: str = ""  # 内置的tag
     novelai_ntags: str = ""  # 内置的反tag
-    novelai_steps: int = None  # 默认步数
+    novelai_steps: int = 20  # 默认步数
     novelai_max_steps:int = 36  # 默认最大步数
     novelai_scale: int = 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_random_scale: bool = False  # 是否开启随机CFG
@@ -131,7 +133,7 @@ class Config(BaseSettings):
     novelai_random_ratio_list: list[Tuple[str, float]] = [("p", 0.7), ("s", 0.1), ("l", 0.1), ("uw", 0.05), ("uwp", 0.05)] # 随机图片比例
     novelai_random_sampler: bool = False  # 是否开启随机采样器
     novelai_random_sampler_list: list[Tuple[str, float]] = [("Euler a", 0.9), ("DDIM", 0.1)]
-    novelai_sampler: str = None  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
+    novelai_sampler: str = "Euler a"  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
     novelai_hr: bool = True  # 是否启动高清修复
     novelai_hr_scale: float = 1.5  # 高清修复放大比例
     novelai_hr_payload: dict = {
@@ -143,7 +145,7 @@ class Config(BaseSettings):
     } # 以上为个人推荐值
     novelai_SuperRes_MaxPixels: int = 2000  # 超分最大像素值, 对应(值)^2, 为了避免有人用超高分辨率的图来超分导致爆显存(
     novelai_SuperRes_generate: bool = False  # 图片生成后是否再次进行一次超分
-    novelai_SuperRes_generate_way: str = None  # 可选fast和slow, slow需要用到Ultimate SD upscale脚本
+    novelai_SuperRes_generate_way: str = "fast"  # 可选fast和slow, slow需要用到Ultimate SD upscale脚本
     novelai_SuperRes_generate_payload: dict = {
         "upscaling_resize": 1.2,  # 超分倍率, 为长宽分辨率各X1.2
         "upscaler_1": "Lanczos",  # 第一次超分使用的方法
@@ -151,8 +153,8 @@ class Config(BaseSettings):
         "extras_upscaler_2_visibility": 0.6  # 第二层upscaler力度
     } # 以上为个人推荐值
     novelai_ControlNet_post_method: int = 0
-    control_net = ["lineart_anime", "control_v11p_sd15s2_lineart_anime [3825e83e]"]  # 处理器和模型
-    xl_config = {
+    control_net: list = ["lineart_anime", "control_v11p_sd15s2_lineart_anime [3825e83e]"]  # 处理器和模型
+    xl_config: dict = {
         "sd_vae": "sdxl_vae.safetensors",
         "prompt": "",
         "negative_prompt": "",
@@ -164,7 +166,7 @@ class Config(BaseSettings):
         },
         "xl_base_factor": None # xl生图倍率 此倍率为基础分辨率的倍率
     }# XL使用参数
-    xl_sd_model_checkpoint = "" # 默认xl模型
+    xl_sd_model_checkpoint: str = "" # 默认xl模型
     '''
     插件设置
     '''
@@ -340,18 +342,37 @@ class Config(BaseSettings):
     def __getitem__(cls, item):
         return getattr(cls, item)
 
-    @field_validator("novelai_cd", "novelai_max")
-    def non_negative(cls, value, values, config, field):
-        if value < 1:
-            return field.default
-        return value
+    if version.parse(pyd_version) < version.parse("2.0"):
 
-    @field_validator("novelai_paid")
-    def paid(cls, value, values, config, field):
-        if value < 0 or value > 3:
-            return field.default
-        return value
+        from pydantic import validator as field_validator
+        from pydantic.fields import ModelField as Field
 
+        @field_validator("novelai_cd", "novelai_max", pre=True, always=True)
+        def non_negative(cls, value, values, config, field: Field):
+            if value < 1:
+                return field.default
+            return value
+
+        @field_validator("novelai_paid", pre=True, always=True)
+        def paid(cls, value, values, config, field: Field):
+            if value < 0 or value > 3:
+                return field.default
+            return value
+    else:
+
+        from pydantic import Field, field_validator
+
+        @field_validator("novelai_cd", "novelai_max")
+        def non_negative(cls, value):
+            if value < 1:
+                return Field.default
+            return value
+
+        @field_validator("novelai_paid")
+        def paid(cls, value):
+            if value < 0 or value > 3:
+                return Field.default
+            return value
     class Config:
         extra = "ignore"
 

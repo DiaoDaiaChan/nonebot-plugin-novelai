@@ -495,7 +495,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 extra_info = '' if config.is_return_hash_info else f"模型:{fifo.model}\n{fifo.img_hash}"
                 message_data = await bot.send(
                     event=event,
-                    message=pic_message + extra_info,
+                    message=pic_message + extra_info + "以上图像为AICG模型生成, 可能会出现错误或者意外情况, 生成的图片由发送者的指令决定, 不代表本人的态度或观点",
                     reply_message=True,
                     at_sender=True,
                 ) if (

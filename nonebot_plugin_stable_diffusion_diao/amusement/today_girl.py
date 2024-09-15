@@ -1330,7 +1330,7 @@ async def _(bot: Bot,
             args.tags = [tags]
 
         to_user = f'''
-二次元的{user_name},
+二次元的我,
 {build_msg_zh[11]},
 是{build_msg_zh[0]},{build_msg_zh[7]},
 {build_msg_zh[1]}色{build_msg_zh[2]},

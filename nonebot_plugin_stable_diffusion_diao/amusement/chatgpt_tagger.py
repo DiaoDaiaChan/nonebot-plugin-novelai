@@ -8,7 +8,7 @@ from nonebot.params import ShellCommandArgs
 from argparse import Namespace
 
 from ..extension.safe_method import risk_control
-from ..utils import aidraw_parser, tags_to_list, run_later
+from ..utils import aidraw_parser, tags_to_list, run_later, txt_audit
 
 sys_text = f'''
 The most important thing is that the prompts must be in English.
@@ -77,6 +77,7 @@ class Session(): # 这里来自nonebot-plugin-gpt3
 
 user_session = {}
 
+
 def get_user_session(user_id) -> Session:
     if user_id not in user_session:
         user_session[user_id] = Session(user_id)
@@ -89,6 +90,9 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     user_msg = str(args.tags)
     to_openai = user_msg + "prompt"
     prompt = await get_user_session(event.get_session_id()).main(to_openai)
+    resp = await txt_audit(prompt)
+    if "yes" in resp:
+        prompt = "1girl"
 
     await run_later(risk_control(bot, event, ["这是chatgpt为你生成的prompt: \n"+prompt]), 2)
 

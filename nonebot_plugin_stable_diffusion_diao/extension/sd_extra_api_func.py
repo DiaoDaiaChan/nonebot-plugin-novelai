@@ -22,7 +22,7 @@ from ..extension.translation import translate
 from ..extension.explicit_api import check_safe_method, check_safe
 from .translation import translate
 from ..backend import AIDRAW
-from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later
+from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later, txt_audit
 from ..utils.save import save_img
 from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance, get_vram
@@ -750,6 +750,9 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     txt_msg = msg.extract_plain_text()
     en = await translate(txt_msg, "en")
+    resp = await txt_audit(en)
+    if "yes" in resp:
+        en = "1girl"
     await risk_control(bot=bot, event=event, message=[en, "自然语言模型根据发送者发送的文字生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."])
 
 
