@@ -154,7 +154,7 @@ async def get_access_token():
 
 
 async def translate_baidu(input: str, to: str):
-    if config.baidu_translate_key["API_KEY"]:
+    if config.baidu_translate_key["API_KEY"] and config.baidu_translate_key["SECRET_KEY"]:
         try:
             token = await get_access_token()
             url = 'https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1?access_token=' + token
