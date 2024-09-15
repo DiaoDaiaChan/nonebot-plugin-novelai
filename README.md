@@ -28,6 +28,7 @@ https://github.com/MicrosoftArchive/redis/releases
 ## 其他花里胡哨的功能
 VITS(https://github.com/Artrajz/vits-simple-api)
 ## 相比于原本的nonebot-plugin-novelai更新了甚么？
+支持XL以及FLUX
 删除批量生成功能  
 添加了sd负载均衡功能
 ![添加了sd负载均衡功能](./docs/main/images/help/load_balance.png)

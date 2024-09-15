@@ -390,20 +390,13 @@ async def aidraw_get(
             tags_list = tags_list + args.no_trans
         # 如果使用xl, 覆盖预设提示词，使用xl设置提示词
         basetag, lowQuality = '', ''
-        if fifo.xl:
-            basetag = config.xl_config["prompt"]
-            lowQuality = config.xl_config["negative_prompt"]
-            # 默认参数优化
-            pre_tags = basetag
-            pre_ntags = lowQuality
+
+        if not args.override:
+            pre_tags = basetag + await config.get_value(group_id, "tags")
+            pre_ntags = lowQuality + await config.get_value(group_id, "ntags")
         else:
-            # 不使用默认参数优化
-            if not args.override:
-                pre_tags = basetag + await config.get_value(group_id, "tags")
-                pre_ntags = lowQuality + await config.get_value(group_id, "ntags")
-            else:
-                pre_tags = ""
-                pre_ntags = ""
+            pre_tags = ""
+            pre_ntags = ""
         # 拼接最终prompt
         raw_tag = tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
 

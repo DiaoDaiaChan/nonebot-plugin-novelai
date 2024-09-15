@@ -292,6 +292,9 @@ class AIDRAW(AIDRAW_BASE):
                 {"sd_vae": config.xl_config["sd_vae"], "sd_model_checkpoint": config.xl_sd_model_checkpoint}
             )
 
+            parameters["prompt"] = config.xl_config["prompt"] + self.tags
+            parameters["negative_prompt"] = config.xl_config["negative_prompt"] + self.ntags
+
         elif config.backend_type[index] == "flux":
             parameters['sampler_name'] = 'Euler'
             parameters['scheduler'] = 'Simple'

@@ -119,7 +119,7 @@ async def check_safe_method(
                     try:
                         message_data = await bot.send_private_msg(
                             user_id=fifo.user_id, 
-                            message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                            message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}+AI绘图模型根据用户QQ{fifo.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
                         )
                     except:
                         message_data = await bot.send_group_msg(
