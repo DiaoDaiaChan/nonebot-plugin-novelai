@@ -188,18 +188,25 @@ async def aidraw_get(
                 pop_index = -1
                 if isinstance(args.tags, list) and len(args.tags) > 0:
                     org_tag_list = tags_list
-                    for style in style_list:
-                        style = ast.literal_eval(style.decode("utf-8"))
-                        for tag in tags_list:
-                            pop_index += 1
-                            if tag in style["name"]:
-                                style_ = style["name"]
-                                info_style += f"自动找到的预设: {style_}\n"
-                                style_tag += str(style["prompt"]) + ","
-                                style_ntag += str(style["negative_prompt"]) + ","
-                                tags_list.pop(org_tag_list.index(tag))
-                                logger.info(info_style)
-                                break
+                    for index, style in enumerate(style_list):
+                        decoded_style = style.decode("utf-8")
+                        try:
+                            style = ast.literal_eval(decoded_style)
+                        except (ValueError, SyntaxError) as e:
+                            print(f"Error at index {index}: {e}")
+                            print(f"Failed content: {decoded_style}")
+                            continue
+                        else:
+                            for tag in tags_list:
+                                pop_index += 1
+                                if tag in style["name"]:
+                                    style_ = style["name"]
+                                    info_style += f"自动找到的预设: {style_}\n"
+                                    style_tag += str(style["prompt"]) + ","
+                                    style_ntag += str(style["negative_prompt"]) + ","
+                                    tags_list.pop(org_tag_list.index(tag))
+                                    logger.info(info_style)
+                                    break
         # 初始化实例
         args.tags = tags_list
         fifo = AIDRAW(**vars(args), event=event)
@@ -381,12 +388,12 @@ async def aidraw_get(
         # 不希望翻译的tags
         if args.no_trans:
             tags_list = tags_list + args.no_trans
-        #如果使用xl, 覆盖预设提示词，使用xl设置提示词
+        # 如果使用xl, 覆盖预设提示词，使用xl设置提示词
         basetag, lowQuality = '', ''
         if fifo.xl:
             basetag = config.xl_config["prompt"]
             lowQuality = config.xl_config["negative_prompt"]
-        # 默认参数优化
+            # 默认参数优化
             pre_tags = basetag
             pre_ntags = lowQuality
         else:
@@ -398,7 +405,8 @@ async def aidraw_get(
                 pre_tags = ""
                 pre_ntags = ""
         # 拼接最终prompt
-        raw_tag = tags_list+ ","+",".join(new_tags_list)+str(style_tag)+random_tags
+        raw_tag = tags_list + "," + ",".join(new_tags_list) + str(style_tag) + random_tags
+
         # 自动dtg
         def check_tag_length(raw_tag):
             raw_tag = raw_tag.replace('，', ',')
@@ -410,7 +418,7 @@ async def aidraw_get(
 
         if check_tag_length(raw_tag) is False and config.auto_dtg and fifo.xl:
             fifo.dtg = True
-    
+
         fifo.tags = pre_tags + "," + raw_tag
         fifo.ntags = pre_ntags + "," + fifo.ntags + str(style_ntag)
         fifo.pre_tags = [basetag, lowQuality, raw_tag]
@@ -435,6 +443,7 @@ async def aidraw_get(
             img_url = args.pic_url
 
         if img_url and not fifo.ni:
+            img_url = img_url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
             if config.novelai_paid:
                 async with aiohttp.ClientSession() as session:
                     logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
@@ -497,10 +506,10 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                     reply_message=True,
                     at_sender=True,
                 ) if (
-                    await config.get_value(fifo.group_id, "pure")
-                    ) or (
-                        await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
-                    ) else (
+                         await config.get_value(fifo.group_id, "pure")
+                     ) or (
+                             await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure
+                     ) else (
                     await send_forward_msg(
                         bot=bot,
                         event=event,

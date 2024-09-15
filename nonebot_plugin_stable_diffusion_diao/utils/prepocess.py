@@ -1,7 +1,7 @@
 import re
 from ..extension.translation import translate
 from nonebot import logger
-from copy import deepcopy
+from ..config import config
 
 
 async def trans(taglist):
@@ -15,15 +15,16 @@ async def trans(taglist):
         else:
             tags_ += f"{i},"
     if tagzh:
-        ai_trans = True
 
-        if ai_trans:
+        if config.ai_trans:
+            logger.info("使用AI翻译")
             from ..amusement.chatgpt_tagger import get_user_session
             from ..amusement.chatgpt_tagger import sys_text
             to_openai = f"{str(tagzh)}+prompts"
             sys_text = 'If the prompt contains Chinese, translate it into English. If the prompt is entirely in Chinese, generate an English prompt yourself.' + sys_text
             try:
                 tags_en = await get_user_session(20020204).main(to_openai, sys_text)
+                logger.info(f"ai生成prompt: {tags_en}")
             except:
                 tags_en = await translate(tagzh, "en")
         else:

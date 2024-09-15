@@ -235,6 +235,7 @@ async def get_and_process_emb(site, site_, text_msg=None):
 
 
 async def download_img(url):
+    url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             img_bytes = await resp.read()
@@ -434,6 +435,7 @@ async def aiohttp_func(way, url, payload={}):
                     resp_data = await resp.json()
                     return resp_data, resp.status
     except Exception:
+        traceback.print_exc()
         return None
 
 
@@ -940,8 +942,15 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
             style_list = [ast.literal_eval(style.decode("utf-8")) for style in style_list]
             if r.exists("user_style"):
                 user_style_list = r.lrange("user_style", 0, -1)
-                user_style_list = [ast.literal_eval(style.decode("utf-8")) for style in user_style_list]
-                style_list += user_style_list
+                for index, style in enumerate(user_style_list):
+                    try:
+                        decoded_style = style.decode("utf-8")
+                        style = ast.literal_eval(decoded_style)
+                        style_list.append(style)
+                    except (ValueError, SyntaxError, UnicodeDecodeError) as e:
+                        print(f"Error at index {index}: {e}")
+                        print(f"Failed content: {decoded_style}")
+
     else:
         await style_.finish("需要redis以使用此功能")
     if args.delete:
@@ -1203,4 +1212,36 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
         
     else:
         await get_scripts.finish("请按照以下格式获取脚本信息\n例如 获取脚本0 再使用 获取脚本0_2 查看具体脚本所需的参数")
-        
+
+
+llm_caption = on_command("llm", aliases={"图片分析"})
+
+
+@llm_caption.handle()
+async def __(state: T_State, png: Message = CommandArg()):
+    if png:
+        state['png'] = png
+    pass
+
+
+@llm_caption.got("png", "请发送你要分析的图片,请注意")
+async def __(event: MessageEvent, bot: Bot):
+    reply = event.reply
+    for seg in event.message['image']:
+        url = seg.data["url"]
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
+    if url:
+        await bot.call_api("get_image", {})
+        img, _ = await download_img(url)
+        payload = {
+            "image": url,
+            "threshold": 0.3
+        }
+        resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
+        if status_code not in [200, 201]:
+            await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
+        await risk_control(bot, event, [f"llm打标{resp_data['llm']}"], True)
+    else:
+        await llm_caption.reject("请重新发送图片")

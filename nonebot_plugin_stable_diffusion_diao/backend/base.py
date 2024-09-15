@@ -197,6 +197,8 @@ class AIDRAW_BASE:
         self.result_img = None
         self.video = None
         self.ni = ni
+        self.resp_json = None
+        self.current_backend_index = None
 
         # 数值合法检查
         max_steps = config.novelai_max_steps
@@ -564,7 +566,6 @@ class AIDRAW_BASE:
             img = await self.re_posting(header, payload, img_base64, True)
             return img
 
-                
     def extract_ratio(self, max_res=None):
         if ":" in self.accept_ratio:
             width_ratio, height_ratio = map(int, self.accept_ratio.split(':'))
@@ -601,6 +602,7 @@ class AIDRAW_BASE:
                 # 向服务器发送请求
                 async with session.post(post_api, json=payload) as resp:
                     resp_dict = json.loads(await resp.text())
+                    self.resp_json = resp_dict
                     if resp.status not in [200, 201]:
                         logger.error(resp_dict)
                         if resp_dict["error"] == "OutOfMemoryError":

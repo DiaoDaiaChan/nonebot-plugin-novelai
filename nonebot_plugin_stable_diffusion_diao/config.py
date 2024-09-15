@@ -16,8 +16,22 @@ import shutil
 import aiofiles
 from nonebot import get_driver
 from nonebot.log import logger
-from pydantic import validator, BaseSettings
-from pydantic.fields import ModelField
+import pydantic
+pyd_version = pydantic.__version__
+from packaging import version
+
+if version.parse(pyd_version) < version.parse("2.0"):
+    from pydantic import validator as field_validator
+    from pydantic.fields import ModelField as Field
+    from pydantic import BaseSettings
+
+else:
+    from pydantic import Field, field_validator
+    try:
+        from pydantic_settings import BaseSettings
+    except ImportError:
+        os.system("pip install pydantic_settings")
+
 
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
@@ -80,6 +94,7 @@ class Config(BaseSettings):
     is_return_hash_info = False  # 是否返回图片哈希信息（避免被q群管家撤回）
     enalbe_xl = False # 是否默认使用xl模式
     auto_dtg = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
+    ai_trans = False   # ai自动翻译/生成
     '''
     模式选择
     '''
@@ -101,6 +116,7 @@ class Config(BaseSettings):
         "雕雕的后端2": "api.diaodiao.online:7863",
         "雕雕的后端3": "api.diaodiao.online:7864"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
+    backend_type: list = ["1.5", "xl", "flux"]
     '''
     post参数设置
     '''
@@ -324,19 +340,17 @@ class Config(BaseSettings):
     def __getitem__(cls, item):
         return getattr(cls, item)
 
-    @validator("novelai_cd", "novelai_max")
-    def non_negative(cls, v: int, field: ModelField):
-        if v < 1:
+    @field_validator("novelai_cd", "novelai_max")
+    def non_negative(cls, value, values, config, field):
+        if value < 1:
             return field.default
-        return v
+        return value
 
-    @validator("novelai_paid")
-    def paid(cls, v: int, field: ModelField):
-        if v < 0:
+    @field_validator("novelai_paid")
+    def paid(cls, value, values, config, field):
+        if value < 0 or value > 3:
             return field.default
-        elif v > 3:
-            return field.default
-        return v
+        return value
 
     class Config:
         extra = "ignore"

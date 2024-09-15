@@ -62,6 +62,29 @@ lora
 敬请阅读下面的日志或者来雕雕的银趴玩(  
 
 # 更新日志
+## 2024.09.15 0.5.2 更新
+新增配置项
+```
+ai_trans = false  # 当检测到中文输入的时候, 使用ai翻译/生成prompt
+backend_type:  # 后端类型, 会自动根据后端类型修改post参数
+  - 1.5
+  - xl
+  - flux
+# 请按顺序修改后端类型, 比如
+按照顺序对应
+"雕雕的后端": "api.diaodiao.online:7860"
+"雕雕的后端2": "api.diaodiao.online:7863"
+"雕雕的后端3": "api.diaodiao.online:7864"
+当请求到雕雕的后端2的时候, 自动切换为XL参数
+当请求到雕雕的后端3的时候, 自动切换为FLUX参数
+```
+```
+支持自然语言打标
+使用项目: https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
+novelai_tagger_site:
+指令: llm 
+```
+兼容pydantic v1 和 v2 (大概)
 ## 2024.07.02 0.5.1 更新
 ```
 新增auto_dtg配置项，tag数量少于10个或者使用二次元的我时候自动调用dtg生成prompt

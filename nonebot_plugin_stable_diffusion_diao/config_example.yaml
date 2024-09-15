@@ -46,6 +46,7 @@ is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为6
 is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
 enalbe_xl: false # 是否默认使用xl模式
 auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
+ai_trans: false  # ai自动翻译/生成
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -67,6 +68,10 @@ novelai_backend_url_dict:
     "雕雕的后端": "api.diaodiao.online:7860"
     "雕雕的后端2": "api.diaodiao.online:7863"
     "雕雕的后端3": "api.diaodiao.online:7864"
+backend_type:
+  - 1.5
+  - xl
+  - flux
 # --------------------------------
 # post参数设置
 # --------------------------------

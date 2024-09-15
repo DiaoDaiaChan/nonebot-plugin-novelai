@@ -98,6 +98,7 @@ class AIDRAW(AIDRAW_BASE):
         self.backend_name = resp_tuple[1][1]
         self.backend_site = resp_tuple[1][0]
         self.vram = resp_tuple[1][4]
+        self.current_backend_index = resp_tuple[0]
         return resp_tuple
 
     async def post_parameters(self):
@@ -198,27 +199,6 @@ class AIDRAW(AIDRAW_BASE):
                 parameters.update(self.novelai_hr_payload)
             else:
                 self.hiresfix = False
-        # XL模式
-        if self.xl:
-            # 图像宽高改为高清修复的倍率
-            factor = config.novelai_hr_scale if config.xl_config["xl_base_factor"] is None else config.xl_config["xl_base_factor"]
-            parameters.update(
-                {
-                    "width": self.width*factor, 
-                    "height": self.height*factor
-                }
-            )
-            # 如果没有设置手动高清修复倍率，关闭高清修复
-            if self.man_hr_scale is False:
-                parameters.update({"enable_hr": "false"})
-            else:
-                config.xl_config['hr_config']["hr_scale"] = self.hiresfix_scale
-                parameters.update(config.xl_config['hr_config'])
-            # 使用XL VAE
-            parameters["override_settings_restore_afterwards"] = True
-            parameters["override_settings"].update(
-                {"sd_vae": config.xl_config["sd_vae"], "sd_model_checkpoint": config.xl_sd_model_checkpoint}
-            )
 
         # 脚本以及插件
         if self.xyz_plot:
@@ -284,6 +264,46 @@ class AIDRAW(AIDRAW_BASE):
             controlnet_full_payload["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
             parameters.update(controlnet_full_payload)
 
+        parameters["width"] = int(parameters["width"])
+        parameters["height"] = int(parameters["height"])
+
+        index = self.backend_index if self.backend_index is not None else self.current_backend_index
+
+        if config.backend_type[index] == "xl" or self.xl:
+            # XL模式
+            # 图像宽高改为高清修复的倍率
+            factor = config.novelai_hr_scale if config.xl_config["xl_base_factor"] is None else config.xl_config[
+                "xl_base_factor"]
+            parameters.update(
+                {
+                    "width": self.width * factor,
+                    "height": self.height * factor
+                }
+            )
+            # 如果没有设置手动高清修复倍率，关闭高清修复
+            if self.man_hr_scale is False:
+                parameters.update({"enable_hr": "false"})
+            else:
+                config.xl_config['hr_config']["hr_scale"] = self.hiresfix_scale
+                parameters.update(config.xl_config['hr_config'])
+            # 使用XL VAE
+            parameters["override_settings_restore_afterwards"] = True
+            parameters["override_settings"].update(
+                {"sd_vae": config.xl_config["sd_vae"], "sd_model_checkpoint": config.xl_sd_model_checkpoint}
+            )
+
+        elif config.backend_type[index] == "flux":
+            parameters['sampler_name'] = 'Euler'
+            parameters['scheduler'] = 'Simple'
+            scale = parameters['hr_scale'] if parameters['enable_hr'] else 1
+            parameters['enable_hr'] = False
+            parameters['width'] = int(self.width * scale)
+            parameters['height'] = int(self.height * scale)
+            parameters['cfg_scale'] = 1
+            parameters['steps'] = self.steps
+            parameters['distilled_cfg_scale'] = 3.5
+            parameters['prompt'] = self.tags
+
         logger.debug(str(parameters))
         self.post_parms = parameters
         return header, post_api, parameters
@@ -329,8 +349,8 @@ class AIDRAW(AIDRAW_BASE):
                 res_msg = f"分辨率:{new_img.width}x{new_img.height}\n"
                 pattern = r'Model:\s*(.*?),'
                 pattern2 = r'Model hash:\s*(.*?),'
-                match = re.search(pattern, str(img_info['parameters']))
-                match2 = re.search(pattern2, str(img_info['parameters']))
+                match = re.search(pattern, str(img_info['info']))
+                match2 = re.search(pattern2, str(img_info['info']))
 
                 if match:
                     model_name = match.group(1).strip()

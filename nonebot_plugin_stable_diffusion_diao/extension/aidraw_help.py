@@ -5,7 +5,6 @@ import aiohttp, json
 import os
 import aiofiles
 
-from ..config import config, nickname
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
@@ -23,13 +22,6 @@ async def get_url():
 
 @aidraw_help.handle()
 async def _(bot: Bot, event: MessageEvent):
-    # superuser_list = []
-    # superusers = get_driver().config.superusers
-    # for superuser in superusers:
-    #     superuser_list.append(superuser)
-    # resp_data = await bot.get_login_info()
-    # bot_qq = resp_data["user_id"]
-    # url = await get_url()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     md_file_path = os.path.join(current_dir, 'ADH.md')
     async with aiofiles.open(md_file_path, 'r', encoding='utf-8') as f:
