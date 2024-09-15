@@ -29,7 +29,7 @@ else:
     from pydantic import Field, field_validator
     try:
         from pydantic_settings import BaseSettings
-    except ImportError:
+    except ModuleNotFoundError:
         os.system("pip install pydantic_settings")
 
 
