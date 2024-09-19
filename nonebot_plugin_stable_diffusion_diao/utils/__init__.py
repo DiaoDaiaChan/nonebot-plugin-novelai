@@ -81,7 +81,8 @@ aidraw_parser.add_argument("-vae", "--vae", type=str, help="使用指定vae生�
 aidraw_parser.add_argument("-dtg", "--dtg", action="store_true", help="使用lm补充tag", dest="dtg")
 aidraw_parser.add_argument("-pu", "--paints-undo", action="store_true", help="ai生成模拟绘画过程", dest="pu")
 aidraw_parser.add_argument("-ni", "--no-i2i", action="store_true", help="ai生成模拟绘画过程", dest="ni")
-
+aidraw_parser.add_argument("-b", "--batch", type=int, help="batch size", dest="batch")
+aidraw_parser.add_argument("-niter", "--niter", type=int, help="batch count", dest="niter")
 
 
 async def check_last_version(package: str):
@@ -289,7 +290,14 @@ async def run_later(func, delay=1):
     )
 
 
-async def txt_audit(msg, prompt="接下来请你对一些聊天内容进行审核,如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 如果没有则输出<no>"):
+async def txt_audit(
+        msg,
+        prompt='''
+        接下来请你对一些聊天内容进行审核,
+        如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 
+        如果没有则输出<no>
+        '''
+):
 
     system = [
         {"role": "system",

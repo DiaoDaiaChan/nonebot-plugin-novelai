@@ -488,7 +488,7 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
                 message=message,
             )
         else:
-            pic_message = im[1]
+            pic_message = im
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"

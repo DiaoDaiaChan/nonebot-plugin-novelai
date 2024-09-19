@@ -71,7 +71,6 @@ async def check_safe_method(
     revoke = await config.get_value(fifo.group_id, "revoke")
     nsfw_count = 0
     for i in img_bytes:
-        # try:
         if isinstance(fifo.event, PrivateMessageEvent):
             if save_img_:
                 await run_later(

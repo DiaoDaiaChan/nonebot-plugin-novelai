@@ -157,7 +157,9 @@ class AIDRAW(AIDRAW_BASE):
             "script_args": [],
             "script_name": "",
             "override_settings": {},
-            "override_settings_restore_afterwards": False
+            "override_settings_restore_afterwards": False,
+            "n_iter": self.niter,
+            "batch_size": self.batch
         }
 
         if config.negpip:

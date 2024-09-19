@@ -69,8 +69,16 @@ get_models = on_command(
     priority=5,
     block=True
 )
+
 superusr = SUPERUSER if config.only_super_user else None
-change_models = on_command("更换模型", priority=1, block=True, permission=superusr)
+
+change_models = on_command(
+    "更换模型",
+    priority=1,
+    block=True,
+    permission=superusr
+)
+
 control_net = on_shell_command(
     "以图绘图",
     aliases={"以图生图"},
@@ -78,19 +86,21 @@ control_net = on_shell_command(
     priority=5,
     block=True
 )
-control_net_list = on_command("controlnet", aliases={"控制网"})
-super_res = on_command("图片修复", aliases={"图片超分", "超分"})
-get_backend_status = on_command("后端", aliases={"查看后端"})
-get_emb = on_command("emb", aliases={"embs"})
-get_lora = on_command("lora", aliases={"loras"})
-get_sampler = on_command("采样器", aliases={"获取采样器"})
-translate_ = on_command("翻译")
+
+control_net_list = on_command("controlnet", aliases={"控制网"}, block=True)
+super_res = on_command("图片修复", aliases={"图片超分", "超分"}, block=True)
+get_backend_status = on_command("后端", aliases={"查看后端"}, block=True)
+get_emb = on_command("emb", aliases={"embs"}, block=True)
+get_lora = on_command("lora", aliases={"loras"}, block=True)
+get_sampler = on_command("采样器", aliases={"获取采样器"}, block=True)
+translate_ = on_command("翻译", block=True)
 hr_fix = on_command("高清修复") # 欸，还没写呢，就是玩
 
 random_tags = on_shell_command(
     "随机tag",
     parser=aidraw_parser,
-    priority=5
+    priority=5,
+    block=True
 )
 
 find_pic = on_command("找图片")

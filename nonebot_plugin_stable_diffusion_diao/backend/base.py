@@ -72,6 +72,8 @@ class AIDRAW_BASE:
         dtg: bool = False,
         pu: bool = False,
         ni: bool = False,
+        batch: int = 1,
+        niter: int = 1,
         **kwargs,
     ):
         """
@@ -120,7 +122,7 @@ class AIDRAW_BASE:
         self.time = time.strftime("%Y-%m-%d %H:%M:%S")
         self.user_id: str = "" if event is None else (str(event.get_user_id()))
         self.tags: str = tags
-        self.seed: list[int] = seed or random.randint(0, 4294967295)
+        self.seed: int = seed or random.randint(0, 4294967295)
         self.group_id = "" if event is None else (
             f"{event.get_user_id()}_private" if isinstance(event, PrivateMessageEvent)
             else str(event.group_id)
@@ -199,6 +201,8 @@ class AIDRAW_BASE:
         self.ni = ni
         self.resp_json = None
         self.current_backend_index = None
+        self.batch = batch
+        self.niter = niter
 
         # 数值合法检查
         max_steps = config.novelai_max_steps
@@ -359,7 +363,7 @@ class AIDRAW_BASE:
                 await self.show_progress_bar()
                 await asyncio.sleep(config.show_progress_bar[1])
             
-        img, info = await post_task
+        _, info = await post_task
         info = info.strip().strip("'").strip('"')
         info = json.loads(info)
         self.tags = info["prompt"]
@@ -368,12 +372,20 @@ class AIDRAW_BASE:
         
         spend_time = time.time() - self.start_time
         self.spend_time = f"{spend_time:.2f}秒"
+        image_byte_list = []
+
         # 将图片转化为jpg
         if config.novelai_save == 1:
-            image_new = await png2jpg(img)
+            for b64image in self.result_img:
+                image_byte = await png2jpg(b64image)
+                image_byte_list.append(image_byte)
         else:
-            image_new = base64.b64decode(img)
-        self.img_hash = f"图片id:\n{hashlib.md5(image_new).hexdigest()}"
+            for b64image in self.result_img:
+                image_byte = base64.b64decode(b64image)
+                image_byte_list.append(image_byte)
+        hash_list = []
+        self.img_hash = hash_list.append(f"图片id:\n{hashlib.md5(image_new).hexdigest()}")
+
         current_date = datetime.now().date()
         day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
         try:
@@ -414,9 +426,9 @@ class AIDRAW_BASE:
         except Exception:
             logger.warning("记录后端工作数量出错")
             logger.warning(traceback.format_exc())
-        self.result.append(image_new)
+        self.result = image_byte_list
         self.extra_info += f"耗时{spend_time:.2f}秒\n"
-        return image_new
+        return image_byte_list
 
     async def fromresp(self, resp):
         """
@@ -608,17 +620,17 @@ class AIDRAW_BASE:
                         if resp_dict["error"] == "OutOfMemoryError":
                             logger.info("检测到爆显存，执行自动模型释放并加载")
                             await unload_and_reload(backend_site=self.backend_site)
-                    img = await self.fromresp(resp)
-                    self.result_img = img
+
+                    self.result_img = self.resp_json['images']
                     logger.debug(f"获取到返回图片，正在处理")
                     # 收到图片后处理
                     if self.open_pose or config.openpose:
-                        img = await self.dwpose(img, header)
+                        img = await self.dwpose(self.result_img[0], header)
                     if config.novelai_SuperRes_generate:
                         self.sr = ["fast"]
                     if self.sr is not None and isinstance(self.sr, list):
                         way = "fast" if len(self.sr) == 0 else self.sr[0]
-                        img = await self.super_res(img, header, way)
+                        img = await self.super_res(self.result_img[0], header, way)
                     if self.pu:
                         try:
                             pu_instance = paints_undo(self)
