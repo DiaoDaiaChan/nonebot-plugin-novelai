@@ -266,9 +266,6 @@ class AIDRAW(AIDRAW_BASE):
             controlnet_full_payload["alwayson_scripts"]["controlnet"]["args"][0].update(rewrite_controlnet)
             parameters.update(controlnet_full_payload)
 
-        parameters["width"] = int(parameters["width"])
-        parameters["height"] = int(parameters["height"])
-
         index = self.backend_index if self.backend_index is not None else self.current_backend_index
 
         if config.backend_type[index] == "xl" or self.xl:
@@ -309,8 +306,12 @@ class AIDRAW(AIDRAW_BASE):
             parameters['distilled_cfg_scale'] = 3.5
             parameters['prompt'] = self.tags
 
+        parameters["width"] = int(parameters["width"])
+        parameters["height"] = int(parameters["height"])
+
         logger.debug(str(parameters))
         self.post_parms = parameters
+
         return header, post_api, parameters
 
     async def post(self):
