@@ -289,7 +289,7 @@ async def run_later(func, delay=1):
     )
 
 
-async def txt_audit(msg, prompt="接下来请你对一些聊天内容进行审核,如果内容出现政治/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 如果没有则输出<no>"):
+async def txt_audit(msg, prompt="接下来请你对一些聊天内容进行审核,如果内容出现政治/敏感时间/暴恐内容（特别是我国的政治人物/或者和我国相关的政治）则请你输出<yes>, 如果没有则输出<no>"):
 
     system = [
         {"role": "system",
