@@ -492,10 +492,9 @@ async def fifo_gennerate(event, fifo: AIDRAW = None, bot: Bot = None):
             try:
                 if len(fifo.extra_info) != 0:
                     fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
-                extra_info = '' if config.is_return_hash_info else f"模型:{fifo.model}\n{fifo.img_hash}"
                 message_data = await bot.send(
                     event=event,
-                    message=pic_message + extra_info + "以上图像为AICG模型生成, 可能会出现错误或者意外情况, 生成的图片由发送者的指令决定, 不代表本人的态度或观点",
+                    message=pic_message,
                     reply_message=True,
                     at_sender=True,
                 ) if (
@@ -550,8 +549,10 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot):
     # 构造消息体并保存图片
     message.append(f"{config.novelai_mode}绘画完成~")
     message = await check_safe_method(fifo, fifo.result, message, bot.self_id)
-    for i in fifo.format():
-        message.append(i)
+    # for i in fifo.format():
+    #     message.append(i)
+    if config.is_return_hash_info:
+        message.append("\n".join(fifo.img_hash))
     # 扣除点数
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)

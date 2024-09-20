@@ -201,8 +201,13 @@ class AIDRAW_BASE:
         self.ni = ni
         self.resp_json = None
         self.current_backend_index = None
-        self.batch = batch
-        self.niter = niter
+        self.batch = batch or 1
+        self.niter = niter or 1
+
+        total_images = self.batch * self.niter
+
+        if total_images > config.novelai_max:
+            self.niter = config.novelai_max // self.batch
 
         # 数值合法检查
         max_steps = config.novelai_max_steps
@@ -373,18 +378,14 @@ class AIDRAW_BASE:
         spend_time = time.time() - self.start_time
         self.spend_time = f"{spend_time:.2f}秒"
         image_byte_list = []
-
-        # 将图片转化为jpg
-        if config.novelai_save == 1:
-            for b64image in self.result_img:
-                image_byte = await png2jpg(b64image)
-                image_byte_list.append(image_byte)
-        else:
-            for b64image in self.result_img:
-                image_byte = base64.b64decode(b64image)
-                image_byte_list.append(image_byte)
         hash_list = []
-        self.img_hash = hash_list.append(f"图片id:\n{hashlib.md5(image_new).hexdigest()}")
+
+        for b64image in self.result_img:
+            image_byte = await png2jpg(b64image) if config.novelai_save == 1 else base64.b64decode(b64image)
+            image_byte_list.append(image_byte)
+            hash_list.append(f"图片id:\n{hashlib.md5(image_byte).hexdigest()}")
+
+        self.img_hash = hash_list
 
         current_date = datetime.now().date()
         day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
@@ -480,6 +481,7 @@ class AIDRAW_BASE:
         list.append(f"tags={self.tags}\n")
         list.append(f"ntags={self.ntags}")
         return list
+
 
     def __repr__(self):
         return (
@@ -607,6 +609,7 @@ class AIDRAW_BASE:
                 await asyncio.sleep(config.show_progress_bar[1])
                 
     async def post_request(self, header, post_api, payload):
+        img = None
         async with aiohttp.ClientSession(
                     headers=header, 
                     timeout=aiohttp.ClientTimeout(total=1800)

@@ -88,6 +88,10 @@ novelai_tagger_site:
 ```
 支持内建tagger用于审核以及分析功能, 将 novelai_picaudit 设置为 2 即可使用
 ```
+```
+恢复多张生成功能, -b 为每批数量 -niter 为批数
+config.novelai_max 一次能生成的最大数量
+```
 兼容pydantic v1 和 v2 (大概)
 ## 2024.07.02 0.5.1 更新
 ```

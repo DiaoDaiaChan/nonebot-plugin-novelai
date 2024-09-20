@@ -70,7 +70,9 @@ async def check_safe_method(
     h = await config.get_value(fifo.group_id, "h")
     revoke = await config.get_value(fifo.group_id, "revoke")
     nsfw_count = 0
-    for i in img_bytes:
+    for index, i in enumerate(img_bytes):
+        if index == 0 and (fifo.niter != 1 or fifo.batch != 1):
+            continue
         if isinstance(fifo.event, PrivateMessageEvent):
             if save_img_:
                 await run_later(
