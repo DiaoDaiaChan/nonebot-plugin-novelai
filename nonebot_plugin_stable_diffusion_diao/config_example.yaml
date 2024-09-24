@@ -1,7 +1,7 @@
 # --------------------------------
 # key或者后台设置
 # --------------------------------
-novelai_mj_proxy: "" # 必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
+novelai_mj_proxy: "" # 使用mj必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
 novelai_mj_token: "" # 选填，鉴权用
 bing_key: null  # bing的翻译key
 deepl_key: null  # deepL的翻译key
@@ -21,14 +21,14 @@ openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填�
 proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
 trans_api: api.diaodiao.online:50000  # 自建翻译API
 redis_host: ["127.0.0.1", 6379]  # redis地址和端口
-bing_cookie: []  # bing的cookie们
+bing_cookie: []  # bing的cookie们, 注意, 由于原项目已经跑路, 此功能已经不可以使用
 dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
 dbapi_conf_file: './config/dbapi_config.yaml'  # SD-DrawBridgeAPI配置文件
 # --------------------------------
 # 开关设置
 # --------------------------------
 novelai_antireport: true  # 玄学选项。开启后，合并消息内发送者将会显示为调用指令的人而不是bot
-novelai_on: true  # 是否全局开启
+novelai_on: true  # 是否全局开启画图
 novelai_save_png: false  # 是否保存为PNG格式
 novelai_pure: true  # 是否启用简洁返回模式（只返回图片，不返回tag等数据）
 novelai_extra_pic_audit: true  # 是否为二次元的我, chatgpt生成tag等功能添加审核功能
@@ -55,9 +55,9 @@ dbapi_build_in: true  # 启动内置的dbapi进行生图
 # --------------------------------
 novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
 novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
-novelai_paid: 3  # 0为禁用付费模式，1为点数制，2为不限制
+novelai_paid: 3  # 不要动.. 历史遗留
 novelai_htype: 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
-novelai_h: 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+novelai_h: 2  # 涩涩prompt检测, 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
 novelai_picaudit: 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
 novelai_todaygirl: 1  # 可选值 1 和 2 两种不同的方式
 # --------------------------------
@@ -65,21 +65,21 @@ novelai_todaygirl: 1  # 可选值 1 和 2 两种不同的方式
 # --------------------------------
 novelai_load_balance: true  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
 novelai_load_balance_mode: 1  # 负载均衡模式, 1为随机, 2为加权随机选择
-novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
-# 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
-novelai_backend_url_dict:
+novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3], 注意, 要和下面的长度一致 ↓
+novelai_backend_url_dict: # 你能用到的后端, 无http头 , 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
     "雕雕的后端": "api.diaodiao.online:7860"
     "雕雕的后端2": "api.diaodiao.online:7863"
     "雕雕的后端3": "api.diaodiao.online:7864"
-backend_type:
+backend_type:  # 这里的长度要和上面一样哦!
   - 1.5
   - xl
   - flux
+# 后端跑的是什么类型的模型? ↑
 # --------------------------------
 # post参数设置
 # --------------------------------
 novelai_tags: ""  # 内置的tag
-novelai_ntags: ""  # 内置的反tag
+novelai_ntags: "easynegative"  # 内置的反tag
 novelai_steps: null  # 默认步数
 novelai_max_steps: 36  # 默认最大步数
 novelai_scale: 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
@@ -112,7 +112,7 @@ novelai_random_sampler_list:
 novelai_sampler: null  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
 novelai_hr: true  # 是否启动高清修复
 novelai_hr_scale: 1.5  # 高清修复放大比例
-novelai_hr_payload: 
+novelai_hr_payload:   # 新版的webui和旧版的webui高清修复是不一样的哦! 雕雕下面写的还是旧版的
     enable_hr: true
     denoising_strength: 0.4  # 重绘幅度
     hr_scale: 1.5  # 高清修复比例, 1.5为长宽分辨率各X1.5
@@ -132,8 +132,8 @@ control_net:
     - "control_v11p_sd15s2_lineart_anime [3825e83e]"  # 处理器和模型
 xl_config:
     sd_vae: "sdxl_vae.safetensors"
-    prompt: ""
-    negative_prompt: ""
+    prompt: "score_9,score_8_up,score_7_up,score_anime,"
+    negative_prompt: "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
     hr_config:         
       denoising_strength: 0.3
       hr_scale: 1.5
@@ -144,7 +144,7 @@ xl_sd_model_checkpoint: ""
 # --------------------------------
 # 插件设置
 # --------------------------------
-novelai_command_start: 
+novelai_command_start:   # 机器人响应什么命令
     - "绘画"
     - "咏唱"
     - "召唤"
@@ -156,7 +156,7 @@ novelai_command_start:
     - "ai绘图"
 novelai_retry: 4  # post失败后重试的次数
 novelai_site: "api.diaodiao.online:7863"
-novelai_daylimit: 24  # 每日次数限制，0为禁用
+novelai_daylimit: 24  # 每日画图次数限制，0为禁用
 # 可运行更改的设置
 novelai_cd: 60  # 默认的cd
 novelai_group_cd: 3  # 默认的群共享cd
@@ -249,7 +249,7 @@ scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制
   - 2048
   - 2048
   - 2.0
-# 没有用的东西（
+# 没有用的东西（ 不过不要删掉它们!
 novelai_ControlNet_payload:
 novelai_limit: false
 novelai_token:

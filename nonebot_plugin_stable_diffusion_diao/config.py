@@ -767,6 +767,9 @@ if config.dbapi_build_in:
         {"DrawBridgeAPI": f"{config.dbapi_site[0]}:{config.dbapi_site[1]}"}
     )
     config.backend_type.append("1.5")
+    
+    if config.novelai_load_balance_mode == 2:
+        config.novelai_load_balance_weight.append(0.2)
 
 config.backend_name_list = list(config.novelai_backend_url_dict.keys())
 config.backend_site_list = list(config.novelai_backend_url_dict.values())
