@@ -22,6 +22,8 @@ proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻�
 trans_api: api.diaodiao.online:50000  # 自建翻译API
 redis_host: ["127.0.0.1", 6379]  # redis地址和端口
 bing_cookie: []  # bing的cookie们
+dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
+dbapi_conf_file: './config/dbapi_config.yaml'  # SD-DrawBridgeAPI配置文件
 # --------------------------------
 # 开关设置
 # --------------------------------
@@ -47,6 +49,7 @@ is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管�
 enalbe_xl: false # 是否默认使用xl模式
 auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
 ai_trans: false  # ai自动翻译/生成
+dbapi_build_in: true  # 启动内置的dbapi进行生图
 # --------------------------------
 # 模式选择
 # --------------------------------

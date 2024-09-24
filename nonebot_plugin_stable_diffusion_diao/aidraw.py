@@ -553,6 +553,8 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot):
     #     message.append(i)
     if config.is_return_hash_info:
         message.append("\n".join(fifo.img_hash))
+
+    message.append(f"\n模型:{fifo.model}")
     # 扣除点数
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)

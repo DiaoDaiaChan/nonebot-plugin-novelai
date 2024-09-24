@@ -4,7 +4,6 @@ import aiohttp
 import ast
 import asyncio
 import traceback
-from tqdm import tqdm
 from datetime import datetime
 import redis
 import yaml as yaml_
@@ -13,6 +12,8 @@ from typing import Tuple
 from ruamel.yaml import YAML
 import shutil
 import sys
+import uvicorn
+import threading
 
 import aiofiles
 from nonebot import get_driver
@@ -72,6 +73,8 @@ class Config(BaseSettings):
     trans_api: str = "api.diaodiao.online:50000"  # 自建翻译API
     redis_host: list = ["127.0.0.1", 6379]  # redis地址和端口
     bing_cookie: list = []  # bing的cookie们
+    dbapi_site: list = ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
+    dbapi_conf_file: str = './config/dbapi_config.yaml'  # SD-DrawBridgeAPI配置文件
     '''
     开关设置
     '''
@@ -94,9 +97,10 @@ class Config(BaseSettings):
     show_progress_bar: list = [False, 2]  # 是否显示进度条, 整数为刷新时间
     is_trt_backend: bool = False  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
     is_return_hash_info: bool = False  # 是否返回图片哈希信息（避免被q群管家撤回）
-    enalbe_xl: bool = False # 是否默认使用xl模式
-    auto_dtg: bool = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
+    enalbe_xl: bool = False  # 是否默认使用xl模式
+    auto_dtg: bool = False  # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
     ai_trans: bool = False   # ai自动翻译/生成
+    dbapi_build_in: bool = True  # 启动内置的dbapi进行生图
     '''
     模式选择
     '''
@@ -647,8 +651,7 @@ else:
             yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
             config = Config(**yaml_config)
 
-config.backend_name_list = list(config.novelai_backend_url_dict.keys())
-config.backend_site_list = list(config.novelai_backend_url_dict.values())
+
 config.novelai_ControlNet_payload = [
     {
         "alwayson_scripts": {
@@ -706,14 +709,6 @@ except ImportError:
     logger.warning("未能成功导入tensorflow")
     logger.warning("novelai_picaudit为2时本地图片审核不可用")
 
-if config.is_redis_enable:
-    try:
-        redis_client = asyncio.run(get_redis_client())
-    except Exception:
-        redis_client = None
-        logger.warning(traceback.format_exc())
-        logger.warning("redis初始化失败, 已经禁用redis")
-
 
 def format_config(config: Config):
     msg = ''
@@ -726,6 +721,9 @@ def format_config(config: Config):
 if config.novelai_picaudit == 2:
     try:
         import pandas as pd
+        import numpy as np
+        import huggingface_hub
+        import onnxruntime
     except ModuleNotFoundError:
         logger.info("正在安装本地审核需要的依赖和模型")
         os.system("pip install pandas numpy pillow huggingface_hub onnxruntime")
@@ -745,5 +743,42 @@ if config.novelai_picaudit == 2:
 
     logger.info("模型加载成功")
 
+if config.dbapi_build_in:
+
+    config_file_path = str(Path(config.dbapi_conf_file).resolve())
+    os.environ['CONF_PATH'] = config_file_path
+    from DrawBridgeAPI.api_server import api_instance
+    from DrawBridgeAPI.base_config import package_import
+
+    if not Path(config.dbapi_conf_file).exists():
+        package_import(config_file_path)
+
+    threading.Thread(
+        target=uvicorn.run,
+        args=(api_instance.app,),
+        kwargs={
+            "host": config.dbapi_site[0],
+            "port": config.dbapi_site[1],
+            "log_level": "critical"
+        }
+    ).start()
+
+    config.novelai_backend_url_dict.update(
+        {"DrawBridgeAPI": f"{config.dbapi_site[0]}:{config.dbapi_site[1]}"}
+    )
+    config.backend_type.append("1.5")
+
+config.backend_name_list = list(config.novelai_backend_url_dict.keys())
+config.backend_site_list = list(config.novelai_backend_url_dict.values())
+
+if config.is_redis_enable:
+    try:
+        redis_client = asyncio.run(get_redis_client())
+    except Exception:
+        redis_client = None
+        logger.warning(traceback.format_exc())
+        logger.warning("redis初始化失败, 已经禁用redis")
+
 logger.info(f"加载config完成\n{format_config(config)}")
 logger.info(f"后端数据加载完成, 共有{len(config.backend_name_list)}个后端被加载")
+

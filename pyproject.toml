@@ -1,6 +1,6 @@
 [project]
 name = "nonebot-plugin-stable-diffusion-diao"
-version = "0.5.2.5"
+version = "0.5.2.6"
 description = "主要面对stable-diffusion-webui-api的nonebot2插件"
 authors = [
     {name = "DiaoDaiaChan", email = "diaodaiachan@qq.com"},
@@ -18,7 +18,8 @@ dependencies = [
     "ruamel.yaml",
     "BingImageCreator==0.5.0",
     "gradio_client>=0.16.4",
-    "pydantic"
+    "pydantic",
+    "stable_diffusion_drawbridge_api"
 ]
 
 [tool.pdm.dependencies]

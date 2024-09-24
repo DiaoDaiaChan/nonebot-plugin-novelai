@@ -74,6 +74,7 @@ class AIDRAW_BASE:
         ni: bool = False,
         batch: int = 1,
         niter: int = 1,
+        override: bool = False,
         **kwargs,
     ):
         """
@@ -203,6 +204,7 @@ class AIDRAW_BASE:
         self.current_backend_index = None
         self.batch = batch or 1
         self.niter = niter or 1
+        self.override = override
 
         total_images = self.batch * self.niter
 
@@ -625,6 +627,8 @@ class AIDRAW_BASE:
                             await unload_and_reload(backend_site=self.backend_site)
 
                     self.result_img = self.resp_json['images']
+                    if self.niter != 1 or self.batch != 1:
+                        del self.result_img[0]
                     logger.debug(f"获取到返回图片，正在处理")
                     # 收到图片后处理
                     if self.open_pose or config.openpose:
