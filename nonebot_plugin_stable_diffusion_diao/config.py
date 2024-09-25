@@ -97,6 +97,7 @@ class Config(BaseSettings):
     enalbe_xl: bool = False # 是否默认使用xl模式
     auto_dtg: bool = False # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
     ai_trans: bool = False   # ai自动翻译/生成
+    start_dbapi_at_start = True  # 启动dbapi白嫖绘图  https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
     '''
     模式选择
     '''
