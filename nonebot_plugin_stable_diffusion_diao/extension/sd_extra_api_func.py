@@ -1,3 +1,4 @@
+from cgitb import handler
 from typing import Tuple
 from PIL import Image
 from io import BytesIO
@@ -33,7 +34,7 @@ from ..aidraw import aidraw_get
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
-from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs
+from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher
 from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
@@ -42,19 +43,18 @@ from collections import Counter
 from copy import deepcopy
 
 
-async def func_init(event):
-    '''
-    获取当前群的后端设置
-    '''
-    global site, reverse_dict
-    if isinstance(event, PrivateMessageEvent):
-        site = config.novelai_site
-    else:
-        site = await config.get_value(event.group_id, "site") or config.novelai_site
-    reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
-    return site, reverse_dict    
+# async def func_init(event):
+#     '''
+#     获取当前群的后端设置
+#     '''
+#     global site, reverse_dict
+#     if isinstance(event, PrivateMessageEvent):
+#         site = config.novelai_site
+#     else:
+#         site = await config.get_value(event.group_id, "site") or config.novelai_site
+#     reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
+#     return site, reverse_dict
 
-reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
 current_date = datetime.now().date()
 day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
 
@@ -63,21 +63,22 @@ header = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.54"
 }
 
-get_models = on_command(
-    "模型目录",
-    aliases={"获取模型", "查看模型", "模型列表"},
-    priority=5,
-    block=True
-)
-
-superusr = SUPERUSER if config.only_super_user else None
-
-change_models = on_command(
-    "更换模型",
-    priority=1,
-    block=True,
-    permission=superusr
-)
+# get_models = on_command(
+#     "模型目录",
+#     aliases={"获取模型", "查看模型", "模型列表"},
+#     priority=5,
+#     block=True,
+#     handler=[]
+# )
+#
+# superusr = SUPERUSER if config.only_super_user else None
+#
+# change_models = on_command(
+#     "更换模型",
+#     priority=1,
+#     block=True,
+#     permission=superusr
+# )
 
 control_net = on_shell_command(
     "以图绘图",
@@ -87,9 +88,9 @@ control_net = on_shell_command(
     block=True
 )
 
-control_net_list = on_command("controlnet", aliases={"控制网"}, block=True)
-super_res = on_command("图片修复", aliases={"图片超分", "超分"}, block=True)
-get_backend_status = on_command("后端", aliases={"查看后端"}, block=True)
+# control_net_list = on_command("controlnet", aliases={"控制网"}, block=True)
+# super_res = on_command("图片修复", aliases={"图片超分", "超分"}, block=True)
+# get_backend_status = on_command("后端", aliases={"查看后端"}, block=True)
 get_emb = on_command("emb", aliases={"embs"}, block=True)
 get_lora = on_command("lora", aliases={"loras"}, block=True)
 get_sampler = on_command("采样器", aliases={"获取采样器"}, block=True)
@@ -142,6 +143,307 @@ style_ = on_shell_command(
     parser=style_parser,
     priority=5
 )
+
+
+class SdAPI:
+
+    def __init__(
+            self,
+            backend_sit: str = "",
+            backend_index: int = None,
+    ):
+        self.backend_site = backend_sit
+        self.backend_index = backend_index
+        self.config = config
+        self.reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
+        self.backend_site_list = config.backend_site_list
+        self.backend_name_list = config.backend_name_list
+
+    async def change_model(
+            self,
+            model_index,
+    ):
+        self.backend_site = list(config.novelai_backend_url_dict.values())[int(self.backend_index)]
+
+        async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
+            content = await f.read()
+            models_dict = json.loads(content)
+
+        data = models_dict[model_index]
+
+        start_time = time.time()
+
+        payload = {"sd_model_checkpoint": data}
+        url = "http://" + self.backend_site + "/sdapi/v1/options"
+        resp_ = await aiohttp_func("post", url, payload)
+
+        code, end_time = resp_[1], time.time()
+        spend_time = end_time - start_time
+        spend_time_msg = f",更换模型共耗时{spend_time:.3f}秒"
+
+        return data, spend_time_msg, code
+
+    async def get_models_api(self, backend_index, return_models=False, vae=False):
+        self.backend_site = self.config.backend_site_list[int(backend_index)]
+        endpoint = "sd-vae" if vae else "sd-models"
+        options_endpoint = "sd_vae" if vae else "sd_model_checkpoint"
+        dict_model = {}
+        all_models_list = []
+        message = []
+
+        resp_ = await aiohttp_func("get", f"http://{self.backend_site}/sdapi/v1/options")
+        current_model = resp_[0][options_endpoint]
+        message.append(
+            f"当前使用模型: {current_model}, 当前后端类型: {self.config.backend_type[self.backend_index]},\t\n\n"
+        )
+
+        models_info = await aiohttp_func("get", f"http://{self.backend_site}/sdapi/v1/{endpoint}")
+        for n, model_info in enumerate(models_info[0], 1):
+            model_name = model_info['model_name'] if vae else model_info['title']
+            dict_model[n] = model_name
+            message.append(f"{n}. {model_name},\t\n")
+            all_models_list.append(model_name)
+
+        message.append(f"总计{n}个模型")
+
+        if return_models:
+            return dict_model
+
+        file_path = "data/novelai/vae.json" if vae else "data/novelai/models.json"
+        with open(file_path, "w", encoding='utf-8') as f:
+            json.dump(dict_model, f, indent=4)
+
+        return message
+
+    async def super_res_api_func(
+            self,
+            img: str or bytes,
+            size: int = 0,
+            compress=True,
+            upscale=2,
+    ):
+        '''
+        sd超分extra API, size,1为
+        '''
+
+        img = img if isinstance(img, bytes) else base64.b64decode(img)
+        msg = ""
+        max_res = config.novelai_SuperRes_MaxPixels
+
+        if size == 0:
+            upscale = 2
+        elif size == 1:
+            upscale = 3
+        ai_draw_instance = AIDRAW()
+
+        if compress:
+            new_img = Image.open(io.BytesIO(img)).convert("RGB")
+            old_res = new_img.width * new_img.height
+            width = new_img.width
+            height = new_img.height
+
+            if old_res > pow(max_res, 2):
+                new_width, new_height = ai_draw_instance.shape_set(width, height, max_res)
+                new_img = new_img.resize((round(new_width), round(new_height)))
+                msg = f"原图已经自动压缩至{int(new_width)}*{int(new_height)}"
+            else:
+                msg = ''
+
+            img_bytes = io.BytesIO()
+            new_img.save(img_bytes, format="JPEG")
+            img_bytes = img_bytes.getvalue()
+        else:
+            img_bytes = img
+
+        img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+        payload = {"image": img_base64}
+        payload.update(config.novelai_SuperRes_generate_payload)
+
+        if upscale:
+            payload["upscaling_resize"] = upscale
+
+        lb_resp = await sd_LoadBalance(None)
+        self.backend_site = lb_resp[1][0]
+
+        api_url = "http://" + self.backend_site + "/sdapi/v1/extra-single-image"
+        resp_json, sc = await aiohttp_func("post", api_url, payload)
+
+        if sc not in [200, 201]:
+            return img_bytes, msg, sc, img_base64
+        resp_img = resp_json["image"]
+        bytes_img = base64.b64decode(resp_img)
+        return bytes_img, msg, sc, resp_img
+
+
+class CommandHandler(SdAPI):
+    def __init__(self):
+        super().__init__()
+
+    async def get_sd_models(
+        self,
+        event: MessageEvent,
+        bot: Bot,
+        msg: Message = CommandArg()
+    ):
+        vae = False
+        plain_text = msg.extract_plain_text()
+        if "_" and "vae" in plain_text:
+            self.backend_index = plain_text.split("_")[1]
+            vae = True
+        else:
+            if msg:
+                self.backend_index = int(plain_text)
+            else:
+                self.backend_index = 0
+        final_message = await self.get_models_api(self.backend_index, False, vae)
+        await risk_control(bot, event, final_message, True, False)
+
+    async def change_sd_model(
+        self,
+        event: MessageEvent,
+        bot: Bot,
+        matcher: Matcher,
+        msg: Message = CommandArg(),
+    ):
+        try:
+            user_command = msg.extract_plain_text()
+            self.backend_index = user_command.split("_")[0]
+            index = user_command.split("_")[1]
+        except:
+            await matcher.finish("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)")
+
+        await bot.send(
+            event=event,
+            message=f"收到指令，为后端 {self.backend_site} 更换模型中，后端索引-sd {self.backend_index}，请等待,期间无法出图",
+            at_sender=True
+        )
+
+        data, spend_time_msg, code = await self.change_model(index)
+
+        if code in [200, 201]:
+            await bot.send(event=event, message=f"更换模型 {data} 成功{spend_time_msg}", at_sender=True)
+        else:
+            await bot.send(event=event, message=f"更换模型失败，错误代码 {code}", at_sender=True)
+
+        # await matcher.finish("输入错误, 索引错误")
+        #
+
+    async def super_res(
+            self, event, bot, msg, matcher: Matcher
+    ):
+        img_url_list = []
+        img_byte_list = []
+        text_msg = ""
+        upscale = 0
+
+        if len(msg) > 1:
+            for i in msg:
+                img_url_list.append(i.data["url"])
+                upscale = 0
+        else:
+            img_url_list.append(msg[0].data["url"])
+            upscale = 1
+
+        logger.info(f"总共{len(img_url_list)}张图片")
+        for i in img_url_list:
+            qq_img = await download_img(i)
+            qq_img, text_msg, status_code, _ = await self.super_res_api_func(qq_img[1], upscale)
+
+            if status_code not in [200, 201]:
+                await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
+
+            img_byte_list.append(qq_img)
+
+        if len(img_byte_list) == 1:
+            img_mes = MessageSegment.image(img_byte_list[0])
+            await bot.send(
+                event=event,
+                message=img_mes + text_msg,
+                at_sender=True,
+                reply_message=True
+            )
+
+        else:
+            img_list = []
+            for i in img_byte_list:
+                img_list.append(f"{MessageSegment.image(i)}\n{text_msg}")
+
+            await send_forward_msg(
+                bot,
+                event,
+                event.sender.nickname,
+                event.user_id,
+                img_list
+            )
+
+    async def view_backend(self, event: MessageEvent, bot: Bot):
+        message = []
+        fifo = AIDRAW(event=event)
+        all_tuple = await fifo.load_balance_init()
+
+        resp_config = await asyncio.gather(
+            *[fifo.get_webui_config(site) for site in self.backend_name_list],
+           return_exceptions=True
+        )
+
+        resp_tuple = all_tuple[1][2]
+        current_date = datetime.now().date()
+        day = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+
+        async def get_today_task(backend, day):
+            if redis_client:
+                r = redis_client[2]
+                if r.exists(day):
+                    today = ast.literal_eval(r.get(day).decode("utf-8"))
+                    return today["gpu"].get(backend, 0)
+            else:
+                filename = "data/novelai/day_limit_data.json"
+                if os.path.exists(filename):
+                    async with aiofiles.open(filename, "r") as f:
+                        json_ = json.loads(await f.read())
+                    return json_.get(day, {}).get("gpu", {}).get(backend, 0)
+            return 0
+
+        for n, (i, m) in enumerate(zip(resp_tuple, resp_config)):
+            if isinstance(i, (aiohttp.ContentTypeError, TypeError, asyncio.TimeoutError, Exception)):
+                message.append(f"{n + 1}.后端{self.backend_name_list[n]}掉线😭\t\n")
+            else:
+                status_message = f"{n + 1}.后端{self.backend_name_list[n]}正常,\t\n"
+                model = m.get("sd_model_checkpoint", "")
+                status_message += f"模型:{os.path.basename(model)}\n"
+
+                progress = i[0].get("progress", 0)
+                if progress in [0, 0.01, 0.0]:
+                    status_message += "后端空闲中\t\n"
+                else:
+                    eta = i[0]["eta_relative"]
+                    status_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
+
+                message.append(status_message)
+
+            today_task = await get_today_task(self.backend_name_list[n], day)
+            message.append(f"今日此后端已画{today_task}张图\t\n")
+
+            vram = await get_vram(self.backend_site_list[n])
+            message.append(f"{vram}\t\n")
+
+        await risk_control(bot, event, message, True)
+
+    async def get_emb(self, event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+        text_msg = None
+        index = 0
+        msg = msg.extract_plain_text().strip()
+        if msg:
+            if "_" in msg:
+                index, text_msg = int(msg.split("_")[0]), msg.split("_")[1]
+            else:
+                if msg.isdigit():
+                    index = int(msg)
+                else:
+                    text_msg = msg
+        site_, site = self.backend_name_list[index], self.backend_site_list[index]
+        emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
+        await risk_control(bot, event, embs_list, True, True)
 
 
 class GET_API():
@@ -253,102 +555,7 @@ async def download_img(url):
             return img_base64, img_bytes
 
 
-async def super_res_api_func(
-    img: str or bytes, 
-    size: int=0, 
-    site=None, 
-    compress=True,
-    upscale=2,
-):
-    '''
-    sd超分extra API, size,1为
-    '''
-    img = img if isinstance(img, bytes) else base64.b64decode(img)
-    msg = ""
-    max_res = config.novelai_SuperRes_MaxPixels
-    if size == 0:
-        upscale = 2
-    elif size == 1:
-        upscale = 3
-    ai_draw_instance = AIDRAW()
-    if compress:
-        
-        new_img = Image.open(io.BytesIO(img)).convert("RGB")
-        old_res = new_img.width * new_img.height
-        width = new_img.width
-        height = new_img.height
-        
-        if old_res > pow(max_res, 2):
-            new_width, new_height = ai_draw_instance.shape_set(width, height, max_res) # 借用一下shape_set函数
-            new_img = new_img.resize((round(new_width), round(new_height)))
-            msg = f"原图已经自动压缩至{int(new_width)}*{int(new_height)}"
-        else:
-            msg = ''
 
-        img_bytes =  io.BytesIO()
-        new_img.save(img_bytes, format="JPEG")
-        img_bytes = img_bytes.getvalue()
-    else:
-        img_bytes = img
-
-    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
-    payload = {"image": img_base64}
-    payload.update(config.novelai_SuperRes_generate_payload)
-    if upscale:
-        payload["upscaling_resize"] = upscale
-    backend_site = site or await sd_LoadBalance(None)
-    backend_site = backend_site if isinstance(backend_site, str) else backend_site[1][0]
-    async with aiohttp.ClientSession() as session:
-        api_url = "http://" + backend_site + "/sdapi/v1/extra-single-image"
-        async with session.post(url=api_url, json=payload) as resp:
-            if resp.status not in [200, 201]:
-                return img_bytes, msg, resp.status, img_base64
-            else:
-                resp_json = await resp.json()
-                resp_img = resp_json["image"]
-                bytes_img = base64.b64decode(resp_img)
-                return bytes_img, msg, resp.status, resp_img
-
-
-async def sd(backend_site_index, return_models=False, vae=False):
-    site = config.backend_site_list[int(backend_site_index)]
-    dict_model = {}
-    all_models_list = []
-    message = []
-    message1 = []
-    n = 1
-    resp_ = await aiohttp_func("get", f"http://{site}/sdapi/v1/options")
-    currents_model = resp_[0]["sd_vae"] if vae else resp_[0]["sd_model_checkpoint"]
-    message1.append("当前使用模型:" + currents_model + ",\t\n\n")
-    models_info_dict = await aiohttp_func(
-        "get", f"http://{site}/sdapi/v1/sd-vae" if vae else f"http://{site}/sdapi/v1/sd-models"
-    )
-    for x in models_info_dict[0]:
-        models_info_dict = x['model_name'] if vae else x['title']
-        all_models_list.append(models_info_dict)
-        dict_model[n] = models_info_dict
-        num = str(n) + ". "
-        message.append(num + models_info_dict + ",\t\n")
-        n = n + 1
-    message.append("总计%d个模型" % int(n - 1))
-    message_all = message1 + message
-    if return_models:
-        return dict_model
-    with open(
-        "data/novelai/vae.json" if vae else "data/novelai/models.json", 
-        "w", 
-        encoding='utf-8'
-    ) as f:
-        f.write(json.dumps(dict_model, indent=4))
-    return message_all
-
-
-async def set_config(data, backend_site):
-    payload = {"sd_model_checkpoint": data}
-    url = "http://" + backend_site + "/sdapi/v1/options"
-    resp_ = await aiohttp_func("post", url, payload)
-    end = time.time()
-    return resp_[1], end
 
 
 def extract_tags_from_file(file_path, get_full_content=True) -> str:
@@ -397,39 +604,7 @@ def get_all_filenames(directory, fileType=None) -> dict:
     return file_path_dict
 
 
-async def change_model(event: MessageEvent, 
-                    bot: Bot,
-                    model_index, 
-                    backend_site_index
-                    ):
-    
-    backend_site = list(config.novelai_backend_url_dict.values())[int(backend_site_index)]
-    await func_init(event)
-    try:
-        site_ = reverse_dict[backend_site]
-    except KeyError:
-        site_ = await config(event.group_id, "site") or config.novelai_site
-    try:
-        site_index = list(config.novelai_backend_url_dict.keys()).index(site_)
-    except KeyError:
-        site_index = ""
-    await sd(backend_site_index)
-    async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
-        content = await f.read()
-        models_dict = json.loads(content)
-    try:
-        data = models_dict[model_index]
-        await bot.send(event=event, message=f"收到指令，为后端{site_}更换模型中，后端索引-sd {site_index}，请等待,期间无法出图", at_sender=True)
-        start = time.time()
-        code, end = await set_config(data, backend_site)
-        spend_time = end - start
-        spend_time_msg = str(',更换模型共耗时%.3f秒' % spend_time)
-        if code in [200, 201]:
-            await bot.send(event=event, message="更换模型%s成功" % str(data) + spend_time_msg , at_sender=True) 
-        else:
-            await bot.send(event=event, message="更换模型失败，错误代码%s" % str(code), at_sender=True)
-    except KeyError:
-        await get_models.finish("输入错误,索引错误")
+
 
 
 async def aiohttp_func(way, url, payload={}):
@@ -451,7 +626,6 @@ async def aiohttp_func(way, url, payload={}):
 
 @set_sd_config.handle()
 async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
-    await func_init(event)
     msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
     n = 0
     if args.backend_site is None and not isinstance(args.backend_site, int):
@@ -489,21 +663,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
 
 
 @get_emb.handle()
-async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    text_msg = None
-    index = 0
-    msg = msg.extract_plain_text().strip()
-    if msg:
-        if "_" in msg:
-            index, text_msg = int(msg.split("_")[0]), msg.split("_")[1]
-        else:
-            if msg.isdigit():
-                index = int(msg)
-            else:
-                text_msg = msg
-    site_, site = config.backend_name_list[index], config.backend_site_list[index]
-    emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
-    await risk_control(bot, event, embs_list, True, True)
+
 
 @get_lora.handle()
 async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
@@ -521,57 +681,6 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
     site_, site = config.backend_name_list[index], config.backend_site_list[index]
     lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
     await risk_control(bot, event, loras_list, True, True)
-
-
-@super_res.handle()
-async def pic_fix(state: T_State, super_res: Message = CommandArg()):
-    if super_res:
-        state['super_res'] = super_res
-    pass    
-
-
-@super_res.got("super_res", "请发送你要修复的图片")
-async def abc(event: MessageEvent, bot: Bot, msg: Message = Arg("super_res")):
-    img_url_list = []
-    img_byte_list = []
-
-    if msg[0].type == "image":
-        if len(msg) > 1:
-            for i in msg:
-                img_url_list.append(i.data["url"])
-                upscale = 0
-        else:
-            img_url_list.append(msg[0].data["url"])
-            upscale = 1
-            
-        for i in img_url_list:
-            qq_img = await download_img(i)
-            qq_img, text_msg, status_code, _ = await super_res_api_func(qq_img[1], upscale)
-            if status_code not in [200, 201]:
-                await super_res.finish(f"出错了,错误代码{status_code},请检查服务器")
-            img_byte_list.append(qq_img)
-        if len(img_byte_list) == 1:
-                img_mes = MessageSegment.image(img_byte_list[0])
-                await bot.send(
-                    event=event, 
-                    message=img_mes+text_msg, 
-                    at_sender=True, 
-                    reply_message=True
-                ) 
-        else:
-            img_list = []
-            for i in img_byte_list:
-                img_list.append(f"{MessageSegment.image(i)}\n{text_msg}")
-            await send_forward_msg(
-                bot, 
-                event, 
-                event.sender.nickname, 
-                event.user_id, 
-                img_list
-            )
-                                        
-    else:
-        await super_res.reject("请重新发送图片")
 
 
 @control_net.handle()
@@ -610,38 +719,6 @@ async def _(
     await aidraw_get(bot, event, args)
 
 
-@get_models.handle()
-async def get_sd_models(event: MessageEvent, 
-                        bot: Bot, 
-                        msg: Message = CommandArg()
-                    ):
-    vae = False
-    plain_text = msg.extract_plain_text()
-    if "_" and "vae" in plain_text:
-        backend_site_index = plain_text.split("_")[1]
-        vae = True
-    else:
-        if msg:
-            backend_site_index = int(plain_text)
-        else:
-            backend_site_index = 0
-    final_message = await sd(backend_site_index, False, vae)
-    await risk_control(bot, event, final_message, True, False)
-
-
-@change_models.handle()
-async def _(event: MessageEvent, 
-            bot: Bot, 
-            msg: Message = CommandArg()
-):
-    try:
-        user_command = msg.extract_plain_text()
-        backend_index = user_command.split("_")[0]
-        index = user_command.split("_")[1]
-    except:
-        await get_models.finish("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)")
-    await change_model(event, bot, index, backend_index)
-
 
 @get_sampler.handle()
 async def _(event: MessageEvent, bot: Bot):
@@ -655,105 +732,42 @@ async def _(event: MessageEvent, bot: Bot):
     await risk_control(bot, event, sampler_list)
 
 
-@get_backend_status.handle()
-async def _(event: MessageEvent, bot: Bot):
-    # async with aiofiles.open("data/novelai/load_balance.json", "r", encoding="utf-8") as f:
-    #     content = await f.read()
-    #     backend_info: dict = json.loads(content)
-    # backend_info_task_type = ["txt2img", "img2img", "controlnet"]
-    n = -1
-    backend_list = list(config.novelai_backend_url_dict.keys())
-    backend_site = list(config.novelai_backend_url_dict.values())
-    message = []
-    task_list = []
-    fifo = AIDRAW(event=event)
-    all_tuple = await fifo.load_balance_init()
-    for i in backend_site:
-        task_list.append(fifo.get_webui_config(i))
-    resp_config = await asyncio.gather(*task_list, return_exceptions=True)
-    resp_tuple = all_tuple[1][2]
-    current_date = datetime.now().date()
-    day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
-    for i, m in zip(resp_tuple, resp_config):
-        today_task = 0
-        n += 1
-        if isinstance(i, (aiohttp.ContentTypeError, 
-                          TypeError,
-                          asyncio.exceptions.TimeoutError,
-                          Exception)
-                          ):
-            message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
-        else:
-            if i[3] in [200, 201]:
-                text_message = ''
-                try:
-                    model = m["sd_model_checkpoint"]
-                except:
-                    model = ""
-                text_message += f"{n+1}.后端{backend_list[n]}正常,\t\n模型:{os.path.basename(model)}\n"
-                if i[0]["progress"] in [0, 0.01, 0.0]:
-                    text_message += f"后端空闲中\t\n"
-                else:
-                    eta = i[0]["eta_relative"]
-                    text_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
-                message.append(text_message)
-            else:
-                message.append(f"{n+1}.后端{backend_list[n]}掉线😭\t\n")
-                
-        today_task = 0
-        if redis_client:
-            r = redis_client[2]
-            if r.exists(day):
-                today = r.get(day)
-                today = ast.literal_eval(today.decode("utf-8"))
-                today_task = today["gpu"][backend_list[n]]
-        else:
-            filename = "data/novelai/day_limit_data.json"
-            if os.path.exists(filename):
-                async with aiofiles.open(filename, "r") as f:
-                    json_ = await f.read()
-                    json_ = json.loads(json_)
-                today_task = json_[day]["gpu"][backend_list[n]]
-        message.append(f"今日此后端已画{today_task}张图\t\n")
-        vram = await get_vram(backend_site[n])
-        message.append(f"{vram}\t\n")
-
-    await risk_control(bot, event, message, True)
 
 
-@control_net_list.handle()
-async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    await func_init(event)
-    message_model = "可用的controlnet模型\t\n"
-    message_module = "可用的controlnet模块\t\n"
-    if msg:
-        if msg[0].type == "image":
-            img_url = msg[0].data["url"]
-            img_tuple = await download_img(img_url)
-            base64_img = img_tuple[0]
-            payload = {"controlnet_input_images": [base64_img]}
-            config.novelai_cndm.update(payload)
-            resp_ = await aiohttp_func("post", "http://" + site + "/controlnet/detect", config.novelai_cndm)
-            if resp_[1] == 404:
-                await control_net_list.finish("出错了, 是不是没有安装controlnet插件捏?")
-            image = resp_[0]["images"][0]
-            image = base64.b64decode(image)
-            await control_net_list.finish(message=MessageSegment.image(image))
-
-    resp_1 = await aiohttp_func("get", "http://" + site + "/controlnet/model_list")
-    resp_2 = await aiohttp_func("get", "http://" + site + "/controlnet/module_list")
-    if resp_1[1] == 404:
-        await control_net_list.finish("出错了, 是不是没有安装controlnet插件捏?")
-    if resp_2[1] == 404:
-        model_list = resp_1[0]["model_list"]
-        for a in model_list:
-            message_model += f"{a}\t\n"
-        await bot.send(event=event, message=message_model)
-        await control_net_list.finish("获取control模块失败, 可能是controlnet版本太老, 不支持获取模块列表捏")
-    model_list = resp_1[0]["model_list"]
-    module_list = resp_2[0]["module_list"]
-    module_list = "\n".join(module_list)
-    await risk_control(bot, event, model_list+[module_list], True)
+#
+# @control_net_list.handle()
+# async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+#     await func_init(event)
+#     message_model = "可用的controlnet模型\t\n"
+#     message_module = "可用的controlnet模块\t\n"
+#     if msg:
+#         if msg[0].type == "image":
+#             img_url = msg[0].data["url"]
+#             img_tuple = await download_img(img_url)
+#             base64_img = img_tuple[0]
+#             payload = {"controlnet_input_images": [base64_img]}
+#             config.novelai_cndm.update(payload)
+#             resp_ = await aiohttp_func("post", "http://" + site + "/controlnet/detect", config.novelai_cndm)
+#             if resp_[1] == 404:
+#                 await control_net_list.finish("出错了, 是不是没有安装controlnet插件捏?")
+#             image = resp_[0]["images"][0]
+#             image = base64.b64decode(image)
+#             await control_net_list.finish(message=MessageSegment.image(image))
+#
+#     resp_1 = await aiohttp_func("get", "http://" + site + "/controlnet/model_list")
+#     resp_2 = await aiohttp_func("get", "http://" + site + "/controlnet/module_list")
+#     if resp_1[1] == 404:
+#         await control_net_list.finish("出错了, 是不是没有安装controlnet插件捏?")
+#     if resp_2[1] == 404:
+#         model_list = resp_1[0]["model_list"]
+#         for a in model_list:
+#             message_model += f"{a}\t\n"
+#         await bot.send(event=event, message=message_model)
+#         await control_net_list.finish("获取control模块失败, 可能是controlnet版本太老, 不支持获取模块列表捏")
+#     model_list = resp_1[0]["model_list"]
+#     module_list = resp_2[0]["module_list"]
+#     module_list = "\n".join(module_list)
+#     await risk_control(bot, event, model_list+[module_list], True)
 
 
 @translate_.handle()
