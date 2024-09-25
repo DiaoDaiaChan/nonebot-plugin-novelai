@@ -995,16 +995,19 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
                 await style_.finish(f"删除预设{delete_name}成功!")
         if not find_style:
             await style_.finish(f"没有找到预设{delete_name},是不是打错了!\n另外不支持删除从webui中导入的预设")
+
     if args.find_style_name:
-        find_style = False
+        matched_styles = []
         for style in style_list:
-            if args.find_style_name == style["name"]:
+            if args.find_style_name.lower() in style["name"].lower():
                 name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
-                find_style = True
-                await risk_control(bot, event, [f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n"], True)
-                break
-        if not find_style:
-            await style_.finish(f"没有找到预设{args.find_style_name}")
+                matched_styles.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
+
+        if matched_styles:
+            await risk_control(bot, event, matched_styles, True)
+        else:
+            await style_.finish(f"没有找到预设 {args.find_style_name}")
+
     if len(args.tags) != 0:
         if args.tags and args.style_name:
             tags = await prepocess_tags(args.tags, False)

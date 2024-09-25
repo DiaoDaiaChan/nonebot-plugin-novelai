@@ -52,6 +52,16 @@ async def get_img_url(message_data, bot):
     return img_url
 
 
+async def audit_all_image(fifo, img_bytes):
+    task_list = []
+    for i in img_bytes:
+        task_list.append(check_safe(i, fifo))
+
+    result = await asyncio.gather(*task_list)
+
+    return result
+
+
 async def check_safe_method(
     fifo, 
     img_bytes, 
@@ -70,22 +80,25 @@ async def check_safe_method(
     h = await config.get_value(fifo.group_id, "h")
     revoke = await config.get_value(fifo.group_id, "revoke")
     nsfw_count = 0
-    for index, i in enumerate(img_bytes):
-        if index == 0 and (fifo.niter != 1 or fifo.batch != 1):
-            continue
-        if isinstance(fifo.event, PrivateMessageEvent):
-            if save_img_:
+    # 私聊保存图片
+    if isinstance(fifo.event, PrivateMessageEvent):
+        if save_img_:
+            for i in img_bytes:
                 await run_later(
                     save_img(
                         fifo, i, fifo.group_id
                     )
                 )
-            message.append(MessageSegment.image(i))
-            return message
+
+        return [MessageSegment.image(i) for i in img_bytes]
+
+    audit_result = await audit_all_image(fifo, img_bytes)
+
+    for index, (i, audit_result) in enumerate(zip(img_bytes, audit_result)):
+        label, h_value, fifo.audit_info = audit_result
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
-            try:
-                label, h_value, fifo.audit_info = await check_safe(i, fifo)
-            except Exception as e:
+
+            if not label:
                 logger.warning(f"审核调用失败，错误代码为{traceback.format_exc()}，为了安全期间转为二维码发送图片")
                 label = "unknown"
                 message_data = await sendtosuperuser(
@@ -96,6 +109,7 @@ async def check_safe_method(
                 message_data = await send_qr_code(bot, fifo, img_url)
                 if revoke:
                     await revoke_msg(message_data, bot, revoke)
+
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
                 message.append(MessageSegment.image(i))
@@ -160,8 +174,8 @@ async def check_safe_method(
                         await bot.call_api(
                             "send_private_msg",
                             {
-                                "user_id": fifo.user_id,
-                                "message": MessageSegment.image(i)
+                            "user_id": fifo.user_id,
+                            "message": MessageSegment.image(i)
                             }
                         )
                     except ActionFailed:
@@ -204,7 +218,10 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
     if picaudit == 4 or picaudit == 2:
         message = "N/A"
         img_base64 = base64.b64encode(img_bytes).decode()
-        possibilities, message = await pic_audit_standalone(img_base64, False, True)
+        try:
+            possibilities, message = await pic_audit_standalone(img_base64, False, True)
+        except:
+            return None, None, None
         value = list(possibilities.values())
         value.sort(reverse=True)
         reverse_dict = {value: key for key, value in possibilities.items()}
