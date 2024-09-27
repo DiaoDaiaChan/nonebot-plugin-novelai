@@ -94,6 +94,10 @@ dbapi_conf_file: ./config/dbapi_config.yaml  # 配置文件路径
 dbapi_build_in: true  # 启动内置的dbapi进行生图
 ```
 推荐使用liblib AI !
+新设置, 图片可以选择发送给superuser或者机器人本体
+``` yaml
+send_to_bot: true  # 涩图直接发给机器人本身(避免未配置superusers)
+```
 [DrawBridgeAPI使用教程](docs/main/DrawBridgeAPI.md)
 ## 2024.09.15 0.5.2 更新
 新增配置项
