@@ -1,4 +1,3 @@
-
 from PIL import Image
 from PIL import ImageGrab
 import json
@@ -27,18 +26,16 @@ from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils.prepocess import prepocess_tags
 from .safe_method import send_forward_msg, risk_control
-from ..extension.daylimit import count
 from ..aidraw import aidraw_get
 
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
-from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher, RegexStr
+from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher, RegexGroup
 from nonebot.typing import T_State
-from nonebot.rule import ArgumentParser
-from nonebot.permission import SUPERUSER
 from nonebot import logger
 from collections import Counter
 from copy import deepcopy
+from typing import Any, Annotated
 
 current_date = datetime.now().date()
 day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
@@ -55,10 +52,6 @@ control_net = on_shell_command(
     priority=5,
     block=True
 )
-
-rembg =
-read_png_info = on_command("读图", aliases={"读png", "读PNG"})
-random_pic = on_command("随机出图", aliases={"随机模型", "随机画图"})
 
 
 class SdAPI:
@@ -101,6 +94,7 @@ class SdAPI:
 
     async def get_models_api(self, backend_index, return_models=False, vae=False):
         self.backend_site = self.config.backend_site_list[int(backend_index)]
+        self.backend_index = backend_index
         endpoint = "sd-vae" if vae else "sd-models"
         options_endpoint = "sd_vae" if vae else "sd_model_checkpoint"
         dict_model = {}
@@ -293,54 +287,61 @@ class CommandHandler(SdAPI):
             )
 
     async def view_backend(self, event: MessageEvent, bot: Bot):
+        n = -1
+        backend_list = self.backend_name_list
+        backend_site = self.backend_site
         message = []
+        task_list = []
         fifo = AIDRAW(event=event)
         all_tuple = await fifo.load_balance_init()
-
-        resp_config = await asyncio.gather(
-            *[fifo.get_webui_config(site) for site in self.backend_name_list],
-           return_exceptions=True
-        )
-
+        for i in backend_site:
+            task_list.append(fifo.get_webui_config(i))
+        resp_config = await asyncio.gather(*task_list, return_exceptions=True)
         resp_tuple = all_tuple[1][2]
         current_date = datetime.now().date()
-        day = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+        day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
+        for i, m in zip(resp_tuple, resp_config):
+            today_task = 0
+            n += 1
+            if isinstance(i, (aiohttp.ContentTypeError,
+                              TypeError,
+                              asyncio.exceptions.TimeoutError,
+                              Exception)
+                          ):
+                message.append(f"{n + 1}.后端{backend_list[n]}掉线😭\t\n")
+            else:
+                if i[3] in [200, 201]:
+                    text_message = ''
+                    try:
+                        model = m["sd_model_checkpoint"]
+                    except:
+                        model = ""
+                    text_message += f"{n + 1}.后端{backend_list[n]}正常,\t\n模型:{os.path.basename(model)}\n"
+                    if i[0]["progress"] in [0, 0.01, 0.0]:
+                        text_message += f"后端空闲中\t\n"
+                    else:
+                        eta = i[0]["eta_relative"]
+                        text_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
+                    message.append(text_message)
+                else:
+                    message.append(f"{n + 1}.后端{backend_list[n]}掉线😭\t\n")
 
-        async def get_today_task(backend, day):
+            today_task = 0
             if redis_client:
                 r = redis_client[2]
                 if r.exists(day):
-                    today = ast.literal_eval(r.get(day).decode("utf-8"))
-                    return today["gpu"].get(backend, 0)
+                    today = r.get(day)
+                    today = ast.literal_eval(today.decode("utf-8"))
+                    today_task = today["gpu"][backend_list[n]]
             else:
                 filename = "data/novelai/day_limit_data.json"
                 if os.path.exists(filename):
                     async with aiofiles.open(filename, "r") as f:
-                        json_ = json.loads(await f.read())
-                    return json_.get(day, {}).get("gpu", {}).get(backend, 0)
-            return 0
-
-        for n, (i, m) in enumerate(zip(resp_tuple, resp_config)):
-            if isinstance(i, (aiohttp.ContentTypeError, TypeError, asyncio.TimeoutError, Exception)):
-                message.append(f"{n + 1}.后端{self.backend_name_list[n]}掉线😭\t\n")
-            else:
-                status_message = f"{n + 1}.后端{self.backend_name_list[n]}正常,\t\n"
-                model = m.get("sd_model_checkpoint", "")
-                status_message += f"模型:{os.path.basename(model)}\n"
-
-                progress = i[0].get("progress", 0)
-                if progress in [0, 0.01, 0.0]:
-                    status_message += "后端空闲中\t\n"
-                else:
-                    eta = i[0]["eta_relative"]
-                    status_message += f"后端繁忙捏,还需要{eta:.2f}秒完成任务\t\n"
-
-                message.append(status_message)
-
-            today_task = await get_today_task(self.backend_name_list[n], day)
+                        json_ = await f.read()
+                        json_ = json.loads(json_)
+                    today_task = json_[day]["gpu"][backend_list[n]]
             message.append(f"今日此后端已画{today_task}张图\t\n")
-
-            vram = await get_vram(self.backend_site_list[n])
+            vram = await get_vram(backend_site[n])
             message.append(f"{vram}\t\n")
 
         await risk_control(bot, event, message, True)
@@ -603,14 +604,14 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def another_backend_control(
-            regex_match: RegexStr,
             matcher: Matcher,
             event: MessageEvent,
             bot: Bot,
-            msg: Message = CommandArg()
+            regex_group: Annotated[tuple[Any, ...], RegexGroup()],
     ):
-            operation = regex_match
-            msg = msg.extract_plain_text()
+            print(regex_group)
+            operation = regex_group[0]
+            msg = regex_group[1]
 
             if operation == "刷新模型":
                 post_end_point_list = ["/sdapi/v1/refresh-loras", "/sdapi/v1/refresh-checkpoints"]
@@ -683,7 +684,8 @@ class CommandHandler(SdAPI):
                     await matcher.finish(
                         "请按照以下格式获取脚本信息\n例如 获取脚本0 再使用 获取脚本0_2 查看具体脚本所需的参数")
 
-    async def remove_bg(self, msg, ):
+    @staticmethod
+    async def remove_bg(event, bot, msg, matcher: Matcher):
         img_url_list = []
         img_byte_list = []
         if len(msg) > 1:
@@ -706,7 +708,7 @@ class CommandHandler(SdAPI):
             }
             resp_data, status_code = await aiohttp_func("post", f"http://{fifo.backend_site}/rembg", payload)
             if status_code not in [200, 201]:
-                await rembg.finish(f"出错了,错误代码{status_code},请检查服务器")
+                await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
             img_byte_list.append(base64.b64decode(resp_data["image"]))
         if len(img_byte_list) == 1:
             img_mes = MessageSegment.image(img_byte_list[0])
@@ -728,20 +730,223 @@ class CommandHandler(SdAPI):
                 img_list
             )
 
+    @staticmethod
+    async def get_png_info(event, bot, matcher: Matcher):
 
-class GET_API():
+        url = None
+
+        reply = event.reply
+        for seg in event.message['image']:
+            url = seg.data["url"]
+        if reply:
+            for seg in reply.message['image']:
+                url = seg.data["url"]
+
+        if url:
+            fifo = AIDRAW()
+            await fifo.load_balance_init()
+            img, _ = await download_img(url)
+            payload = {
+                "image": img
+            }
+            resp_data, status_code = await aiohttp_func(
+                "post",
+                f"http://{fifo.backend_site}/sdapi/v1/png-info",
+                payload
+            )
+            if status_code not in [200, 201]:
+                await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
+            info = resp_data["info"]
+            if info == "":
+                await matcher.finish("图片里面没有元数据信息欸\n是不是没有发送原图")
+
+            else:
+                parameters = ""
+                await risk_control(
+                    bot,
+                    event,
+                    [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"],
+                    True
+                )
+
+        else:
+            await matcher.reject("请重新发送图片")
+
+    @staticmethod
+    async def random_pic(event: MessageEvent, bot: Bot, matcher: Matcher, msg: Message = CommandArg()):
+        init_dict = {}
+        if msg:
+            tags = msg.extract_plain_text()
+        else:
+            tags = await get_random_tags(6)
+            tags = ", ".join(tags)
+            if not tags:
+                tags = "miku"
+
+        init_dict["tags"] = tags
+        _, __, normal_backend = await sd_LoadBalance(None)
+        random_site = random.choice(normal_backend)
+        index = config.backend_site_list.index(random_site)
+        init_dict["backend_index"] = index
+
+        fifo = AIDRAW(**init_dict)
+        fifo.backend_site = random_site
+        fifo.is_random_model = True
+        fifo.model_index = "20204"
+        fifo.ntags = lowQuality
+        fifo.disable_hr = True
+        fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
+
+        await bot.send(event=event, message=f"{nickname}祈祷中...让我们看看随机了什么好模型\nprompts: {fifo.tags}")
+
+        try:
+            await fifo.post()
+        except Exception as e:
+            await matcher.finish(f"服务端出错辣,{e.args},是不是后端设置被锁死了...")
+        else:
+            img_msg = MessageSegment.image(fifo.result[0])
+            to_user = f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n" + img_msg + f"\n{fifo.img_hash}" + f"\n后端索引是{fifo.backend_index}"
+            if config.novelai_extra_pic_audit:
+                result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_model")
+                if isinstance(result[1], MessageSegment):
+                    await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
+            else:
+                try:
+                    await bot.send(
+                        event=event,
+                        message=to_user,
+                        at_sender=True,
+                        reply_message=True
+                    )
+                except ActionFailed:
+                    await bot.send(
+                        event=event,
+                        message=img_msg + f"\n{fifo.img_hash}",
+                        at_sender=True, reply_message=True
+                    )
+        await run_later(
+            save_img(
+                fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id + "_random_model"
+            )
+        )
     
-    def __init__(self, 
-                site: str = None,
-                end_point: str = None
-    ) -> None:
-        self.site = site
-        self.end_point = end_point
-        self.task_list = []
-    
-    async def get_all_resp(self):
-        pass
-    
+    @staticmethod
+    async def set_config(event: MessageEvent, bot: Bot, matcher: Matcher, args: Namespace = ShellCommandArgs()):
+        msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
+        n = 0
+        if args.backend_site is None and not isinstance(args.backend_site, int):
+            await matcher.finish("请指定一个后端")
+        else:
+            site = config.backend_site_list[args.backend_site]
+        get_config_site = "http://" + site + "/sdapi/v1/options"
+        resp_dict = await aiohttp_func("get", get_config_site)
+        index_list = list(resp_dict[0].keys())
+        value_list = list(resp_dict[0].values())
+        for i, v in zip(index_list, value_list):
+            n += 1
+            if args.search:
+                pattern = re.compile(f".*{args.search}.*", re.IGNORECASE)
+                if pattern.match(i):
+                    msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
+            else:
+                msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
+        if args.index is None and args.value == None:
+            await risk_control(bot, event, msg_list, True)
+        elif args.index is None:
+            await matcher.finish("你要设置啥啊!")
+        elif args.value is None:
+            await matcher.finish("你的设置值捏?")
+        else:
+            payload = {
+                index_list[args.index - 1]: args.value
+            }
+            try:
+                await aiohttp_func("post", get_config_site, payload)
+            except Exception as e:
+                await matcher.finish(f"出现错误,{str(e)}")
+            else:
+                await bot.send(event=event, message=f"设置完成{payload}")
+
+    @staticmethod
+    async def style(event: MessageEvent, bot: Bot,  matcher: Matcher, args: Namespace = ShellCommandArgs()):
+        message_list = []
+        style_dict = {}
+        if redis_client:
+            r = redis_client[1]
+            if r.exists("style"):
+                style_list = r.lrange("style", 0, -1)
+                decoded_styles = []
+
+                for index, style in enumerate(style_list):
+                    try:
+                        decoded_style = style.decode("utf-8")
+                        try:
+                            parsed_style = ast.literal_eval(decoded_style)
+                            decoded_styles.append(parsed_style)
+                        except (ValueError, SyntaxError) as e:
+                            pass
+
+                    except (UnicodeDecodeError, AttributeError) as e:
+                        pass
+
+                style_list = decoded_styles
+                if r.exists("user_style"):
+                    user_style_list = r.lrange("user_style", 0, -1)
+                    for index, style in enumerate(user_style_list):
+                        try:
+                            decoded_style = style.decode("utf-8")
+                            style = ast.literal_eval(decoded_style)
+                            style_list.append(style)
+                        except (ValueError, SyntaxError, UnicodeDecodeError) as e:
+                            pass
+
+        else:
+            await matcher.finish("需要redis以使用此功能")
+        if args.delete:
+            delete_name = args.delete[0] if isinstance(args.delete, list) else args.delete
+            find_style = False
+            style_index = -1
+            for style in user_style_list:
+                style_index += 1
+                if style["name"] == delete_name:
+                    pipe = r.pipeline()
+                    r.lset("user_style", style_index, '__DELETED__')
+                    r.lrem("user_style", style_index, '__DELETED__')
+                    pipe.execute()
+                    find_style = True
+                    await matcher.finish(f"删除预设{delete_name}成功!")
+            if not find_style:
+                await matcher.finish(f"没有找到预设{delete_name},是不是打错了!\n另外不支持删除从webui中导入的预设")
+
+        if args.find_style_name:
+            matched_styles = []
+            for style in style_list:
+                if args.find_style_name.lower() in style["name"].lower():
+                    name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
+                    matched_styles.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
+
+            if matched_styles:
+                await risk_control(bot, event, matched_styles, True)
+            else:
+                await matcher.finish(f"没有找到预设 {args.find_style_name}")
+
+        if len(args.tags) != 0:
+            if args.tags and args.style_name:
+                tags = await prepocess_tags(args.tags, False)
+                ntags = "" if args.ntags is None else args.ntags
+                style_dict["name"] = args.style_name
+                style_dict["prompt"] = tags
+                style_dict["negative_prompt"] = ntags
+                r.rpush("user_style", str(style_dict))
+                await matcher.finish(f"添加预设: {args.style_name}成功!")
+            else:
+                await matcher.finish("参数不完整, 请检查后重试")
+        else:
+            for style in style_list:
+                name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
+                message_list.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
+            await risk_control(bot, event, message_list, True)
+
 
 async def get_random_tags(sample_num=12):
     try:
@@ -838,9 +1043,6 @@ async def download_img(url):
             return img_base64, img_bytes
 
 
-
-
-
 def extract_tags_from_file(file_path, get_full_content=True) -> str:
     separators = ['，', '。', ","]
     separator_pattern = '|'.join(map(re.escape, separators))
@@ -887,9 +1089,6 @@ def get_all_filenames(directory, fileType=None) -> dict:
     return file_path_dict
 
 
-
-
-
 async def aiohttp_func(way, url, payload={}):
     try:
         if way == "post":
@@ -905,45 +1104,6 @@ async def aiohttp_func(way, url, payload={}):
     except Exception:
         traceback.print_exc()
         return None
-
-
-@set_sd_config.handle()
-async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
-    msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
-    n = 0
-    if args.backend_site is None and not isinstance(args.backend_site, int):
-        await set_sd_config.finish("请指定一个后端")
-    else:
-        site = config.backend_site_list[args.backend_site]
-    get_config_site = "http://" + site + "/sdapi/v1/options"
-    resp_dict = await aiohttp_func("get", get_config_site)
-    index_list = list(resp_dict[0].keys())
-    value_list = list(resp_dict[0].values())
-    for i, v in zip(index_list, value_list):
-        n += 1 
-        if args.search:
-            pattern = re.compile(f".*{args.search}.*", re.IGNORECASE)
-            if pattern.match(i):
-                msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
-        else:
-            msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
-    if args.index is None and args.value == None:
-        await risk_control(bot, event, msg_list, True)
-    elif args.index is None:
-        await set_sd_config.finish("你要设置啥啊!")
-    elif args.value is None:
-        await set_sd_config.finish("你的设置值捏?")
-    else:
-        payload = {
-            index_list[args.index - 1]: args.value
-        }
-        try:
-            await aiohttp_func("post", get_config_site, payload)
-        except Exception as e:
-            await set_sd_config.finish(f"出现错误,{str(e)}")
-        else:
-            await bot.send(event=event, message=f"设置完成{payload}")
-
 
 
 @control_net.handle()
@@ -1018,185 +1178,6 @@ async def _(
 #     module_list = resp_2[0]["module_list"]
 #     module_list = "\n".join(module_list)
 #     await risk_control(bot, event, model_list+[module_list], True)
-
-
-
-        
-
-@style_.handle()
-async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
-    message_list = []
-    style_dict = {}
-    if redis_client:
-        r = redis_client[1]
-        if r.exists("style"):
-            style_list = r.lrange("style", 0, -1)
-            decoded_styles = []
-
-            for index, style in enumerate(style_list):
-                try:
-                    decoded_style = style.decode("utf-8")
-                    try:
-                        parsed_style = ast.literal_eval(decoded_style)
-                        decoded_styles.append(parsed_style)
-                    except (ValueError, SyntaxError) as e:
-                        pass
-
-                except (UnicodeDecodeError, AttributeError) as e:
-                    pass
-
-            style_list = decoded_styles
-            if r.exists("user_style"):
-                user_style_list = r.lrange("user_style", 0, -1)
-                for index, style in enumerate(user_style_list):
-                    try:
-                        decoded_style = style.decode("utf-8")
-                        style = ast.literal_eval(decoded_style)
-                        style_list.append(style)
-                    except (ValueError, SyntaxError, UnicodeDecodeError) as e:
-                        pass
-
-
-    else:
-        await style_.finish("需要redis以使用此功能")
-    if args.delete:
-        delete_name = args.delete[0] if isinstance(args.delete, list) else args.delete
-        find_style = False
-        style_index = -1
-        for style in user_style_list:
-            style_index += 1
-            if style["name"] == delete_name:
-                pipe = r.pipeline()
-                r.lset("user_style", style_index, '__DELETED__')
-                r.lrem("user_style", style_index, '__DELETED__')
-                pipe.execute()
-                find_style = True
-                await style_.finish(f"删除预设{delete_name}成功!")
-        if not find_style:
-            await style_.finish(f"没有找到预设{delete_name},是不是打错了!\n另外不支持删除从webui中导入的预设")
-
-    if args.find_style_name:
-        matched_styles = []
-        for style in style_list:
-            if args.find_style_name.lower() in style["name"].lower():
-                name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
-                matched_styles.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
-
-        if matched_styles:
-            await risk_control(bot, event, matched_styles, True)
-        else:
-            await style_.finish(f"没有找到预设 {args.find_style_name}")
-
-    if len(args.tags) != 0:
-        if args.tags and args.style_name:
-            tags = await prepocess_tags(args.tags, False)
-            ntags = "" if args.ntags is None else args.ntags
-            style_dict["name"] = args.style_name
-            style_dict["prompt"] = tags
-            style_dict["negative_prompt"] = ntags
-            r.rpush("user_style", str(style_dict))
-            await style_.finish(f"添加预设: {args.style_name}成功!")
-        else:
-            await style_.finish("参数不完整, 请检查后重试")
-    else:
-        for style in style_list:
-            name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
-            message_list.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
-        await risk_control(bot, event, message_list, True)
-    
-
-
-@read_png_info.handle()
-async def __(state: T_State, png: Message = CommandArg()):
-    if png:
-        state['png'] = png
-    pass    
-
-@read_png_info.got("png", "请发送你要读取的图片,请注意,请发送原图")
-async def __(event: MessageEvent, bot: Bot):
-    reply = event.reply
-    for seg in event.message['image']:
-        url = seg.data["url"]
-    if reply:
-        for seg in reply.message['image']:
-            url = seg.data["url"]
-    if url:
-        fifo = AIDRAW()
-        await fifo.load_balance_init()
-        img, _ = await download_img(url)
-        payload = {
-            "image": img
-        }
-        resp_data, status_code = await aiohttp_func("post", f"http://{fifo.backend_site}/sdapi/v1/png-info", payload)
-        if status_code not in [200, 201]:
-            await read_png_info.finish(f"出错了,错误代码{status_code},请检查服务器")
-        info = resp_data["info"]
-        if info == "":
-            await read_png_info.finish("图片里面没有元数据信息欸\n是不是没有发送原图")
-        else:
-            parameters = ""
-            await risk_control(bot, event, [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"], True)
-    else:
-        await read_png_info.reject("请重新发送图片")
-
-
-@random_pic.handle()
-async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
-    init_dict = {}
-    if msg:
-        tags = msg.extract_plain_text()
-    else:
-        tags = await get_random_tags(6)
-        tags = ", ".join(tags)
-        if not tags:
-            tags = "miku"
-
-    init_dict["tags"] = tags
-    _, __, normal_backend = await sd_LoadBalance(None)
-    random_site = random.choice(normal_backend)
-    index = config.backend_site_list.index(random_site)
-    init_dict["backend_index"] = index
-
-    fifo = AIDRAW(**init_dict)
-    fifo.backend_site = random_site
-    fifo.is_random_model = True
-    fifo.model_index = "20204" 
-    fifo.ntags = lowQuality
-    fifo.disable_hr = True
-    fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
-
-    await bot.send(event=event, message=f"{nickname}祈祷中...让我们看看随机了什么好模型\nprompts: {fifo.tags}")
-    
-    try:
-        await fifo.post()
-    except Exception as e:
-        await random_pic.finish(f"服务端出错辣,{e.args},是不是后端设置被锁死了...")
-    else:
-        img_msg = MessageSegment.image(fifo.result[0])
-        to_user = f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n"+img_msg+f"\n{fifo.img_hash}"+f"\n后端索引是{fifo.backend_index}"
-        if config.novelai_extra_pic_audit:
-            result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_model")
-            if isinstance(result[1], MessageSegment):
-                await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
-        else:
-            try:
-                await bot.send(
-                    event=event,
-                    message=to_user,
-                    at_sender=True,
-                    reply_message=True
-                )
-            except ActionFailed:
-                await bot.send(
-                    event=event,
-                    message=img_msg+f"\n{fifo.img_hash}",
-                    at_sender=True, reply_message=True
-                )
-    await run_later(
-        save_img(
-            fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id+"_random_model"
-        )
-    )
 
 
 llm_caption = on_command("llm", aliases={"图片分析"})

@@ -3,7 +3,7 @@ from .aidraw import AIDRAW
 from nonebot.plugin import PluginMetadata
 from .extension.deepdanbooru import deepdanbooru
 from .amusement import today_girl, chatgpt_tagger, vits
-from .extension import sd_extra_api_func, aidraw_help, civitai
+from .extension import sd_extra_api_func, aidraw_help, civitai, sd_on_command
 
 
 __plugin_meta__ = PluginMetadata(

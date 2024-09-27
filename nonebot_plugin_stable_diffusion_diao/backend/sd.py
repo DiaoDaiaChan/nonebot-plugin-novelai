@@ -166,9 +166,10 @@ class AIDRAW(AIDRAW_BASE):
             parameters["alwayson_scripts"].update(config.custom_scripts[4])
         # 如果手动指定了模型
         if self.model_index:
-            from ..extension.sd_extra_api_func import sd
+            from ..extension.sd_extra_api_func import SdAPI
+            api_instance = SdAPI()
             model_dict = (
-                await sd(
+                await api_instance.get_models_api(
                     self.backend_index or
                     config.backend_site_list.index(self.backend_site),
                     True
@@ -180,7 +181,6 @@ class AIDRAW(AIDRAW_BASE):
                 else await self.get_model_index(self.model_index, model_dict)
             )
             if self.is_random_model:
-                from ..extension.sd_extra_api_func import sd
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
 
             self.model = model_dict[int(self.model_index)]

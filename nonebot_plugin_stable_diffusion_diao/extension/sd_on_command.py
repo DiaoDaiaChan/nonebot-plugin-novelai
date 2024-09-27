@@ -1,5 +1,3 @@
-from cgitb import handler
-
 from nonebot import on_command, on_shell_command
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
 from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher, RegexMatched
@@ -8,6 +6,8 @@ from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot import logger
+
+from re import I
 
 from ..config import config
 from ..utils import aidraw_parser
@@ -48,6 +48,7 @@ on_command(
     handlers=[command_handler_instance.get_emb]
 
 )
+
 on_command(
     "lora",
     aliases={"loras"},
@@ -110,21 +111,30 @@ on_command(
 )
 
 on_regex(
-    r'(卸载模型|获取脚本|终止生成|刷新模型)',
+    r'(卸载模型(\d+)?|获取脚本(\d+)?|终止生成(\d+)?|刷新模型(\d+)?)',
+    flags=I,
     block=True,
     handlers=[command_handler_instance.another_backend_control]
+)
+
+on_command(
+    "随机出图",
+    aliases={"随机模型", "随机画图"},
+    block=True,
+    handlers=[command_handler_instance.random_pic]
 )
 
 rembg = on_command(
     "去背景",
     aliases={"rembg", "抠图"},
-    block=True,
+    block=True
 )
 
-
-
-
-super_res = on_command("图片修复", aliases={"图片超分", "超分"}, block=True)
+super_res = on_command(
+    "图片修复",
+    aliases={"图片超分", "超分"},
+    block=True
+)
 
 
 more_func_parser, style_parser = ArgumentParser(), ArgumentParser()
@@ -140,16 +150,25 @@ style_parser.add_argument("-d", type=str, help="删除指定预设", dest="delet
 
 
 on_shell_command(
-    "config",
-    aliases={"设置"},
+    "设置",
     parser=more_func_parser,
-    priority=5
+    priority=5,
+    block=True,
+    handlers=[command_handler_instance.set_config]
 )
 
 on_shell_command(
     "预设",
     parser=style_parser,
-    priority=5
+    priority=5,
+    block=True,
+    handlers=[command_handler_instance.style]
+)
+
+read_png_info = on_command(
+    "读图",
+    aliases={"读png", "读PNG"},
+    block=True
 )
 
 
@@ -171,7 +190,6 @@ async def _(event: MessageEvent, bot: Bot, matcher: Matcher, msg: Message = Arg(
         await super_res.reject("请重新发送图片")
 
 
-
 @rembg.handle()
 async def rm_bg(state: T_State, rmbg: Message = CommandArg()):
     if rmbg:
@@ -183,6 +201,20 @@ async def rm_bg(state: T_State, rmbg: Message = CommandArg()):
 async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
 
     if msg[0].type == "image":
+        await command_handler_instance.remove_bg(event, bot, msg)
 
     else:
         await rembg.reject("请重新发送图片")
+
+
+@read_png_info.handle()
+async def __(state: T_State, png: Message = CommandArg()):
+    if png:
+        state['png'] = png
+    pass
+
+
+@read_png_info.got("png", "请发送你要读取的图片,请注意,请发送原图")
+async def __(event: MessageEvent, bot: Bot, matcher: Matcher):
+   await command_handler_instance.get_png_info(event, bot, matcher)
+

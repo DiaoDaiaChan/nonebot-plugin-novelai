@@ -50,10 +50,11 @@ enalbe_xl: false # 是否默认使用xl模式
 auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
 ai_trans: false  # ai自动翻译/生成
 dbapi_build_in: true  # 启动内置的dbapi进行生图
+send_to_bot: true  # 涩图直接发给机器人本身(避免未配置superusers)
 # --------------------------------
 # 模式选择
 # --------------------------------
-novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2同时保存追踪信息
+novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2, 同时保存追踪信息
 novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
 novelai_paid: 3  # 不要动.. 历史遗留
 novelai_htype: 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
@@ -70,10 +71,12 @@ novelai_backend_url_dict: # 你能用到的后端, 无http头 , 键为名称, �
     "雕雕的后端": "api.diaodiao.online:7860"
     "雕雕的后端2": "api.diaodiao.online:7863"
     "雕雕的后端3": "api.diaodiao.online:7864"
+    "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
 backend_type:  # 这里的长度要和上面一样哦!
   - 1.5
-  - xl
   - flux
+  - xl
+  - 1.5
 # 后端跑的是什么类型的模型? ↑
 # --------------------------------
 # post参数设置

@@ -101,6 +101,7 @@ class Config(BaseSettings):
     auto_dtg: bool = False  # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
     ai_trans: bool = False   # ai自动翻译/生成
     dbapi_build_in: bool = True  # 启动内置的dbapi进行生图
+    send_to_bot: bool = True  # 涩图直接发给机器人本身(避免未配置superusers)
     '''
     模式选择
     '''
@@ -120,9 +121,10 @@ class Config(BaseSettings):
     novelai_backend_url_dict: dict = {
         "雕雕的后端": "api.diaodiao.online:7860",
         "雕雕的后端2": "api.diaodiao.online:7863",
-        "雕雕的后端3": "api.diaodiao.online:7864"
+        "雕雕的后端3": "api.diaodiao.online:7864",
+        "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
-    backend_type: list = ["1.5", "xl", "flux"]
+    backend_type: list = ["1.5", "xl", "flux", "1.5"]
     '''
     post参数设置
     '''
@@ -745,13 +747,16 @@ if config.novelai_picaudit == 2:
 
 if config.dbapi_build_in:
 
+    if not Path(config.dbapi_conf_file).exists():
+        import DrawBridgeAPI
+
+        package_path = os.path.dirname(DrawBridgeAPI.__file__)
+        config_path = os.path.join(package_path, 'config_example.yaml')
+        shutil.copy(config_path, config.dbapi_conf_file)
+
     config_file_path = str(Path(config.dbapi_conf_file).resolve())
     os.environ['CONF_PATH'] = config_file_path
     from DrawBridgeAPI.api_server import api_instance
-    from DrawBridgeAPI.base_config import package_import
-
-    if not Path(config.dbapi_conf_file).exists():
-        package_import(config_file_path)
 
     threading.Thread(
         target=uvicorn.run,
@@ -764,7 +769,7 @@ if config.dbapi_build_in:
     ).start()
 
     config.novelai_backend_url_dict.update(
-        {"DrawBridgeAPI": f"{config.dbapi_site[0]}:{config.dbapi_site[1]}"}
+        {"内建DrawBridgeAPI": f"{config.dbapi_site[0]}:{config.dbapi_site[1]}"}
     )
     config.backend_type.append("1.5")
     
