@@ -553,13 +553,12 @@ class AIDRAW_BASE:
     async def super_res(self, img_base64, header, way="fast"):
         logger.info(f"开始使用{way}方式进行超分")
         if way == "fast":
-            from ..extension.sd_extra_api_func import super_res_api_func
-            resp_tuple = await super_res_api_func(
+            from ..extension.sd_extra_api_func import SdAPI
+            resp_tuple = await SdAPI.super_res_api_func(
                 img_base64, 
                 3, 
                 self.backend_site, 
-                False, 
-                config.novelai_SuperRes_generate_payload["upscaling_resize"]
+                False
             )
             return resp_tuple[3]
         
@@ -637,7 +636,11 @@ class AIDRAW_BASE:
                         self.sr = ["fast"]
                     if self.sr is not None and isinstance(self.sr, list):
                         way = "fast" if len(self.sr) == 0 else self.sr[0]
-                        img = await self.super_res(self.result_img[0], header, way)
+                        new_image_list = []
+                        for i in self.result_img:
+                            img = await self.super_res(i, header, way)
+                            new_image_list.append(img)
+                        self.result_img = new_image_list
                     if self.pu:
                         try:
                             pu_instance = paints_undo(self)

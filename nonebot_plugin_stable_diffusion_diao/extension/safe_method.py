@@ -69,84 +69,43 @@ async def risk_control(
     '''
     n = 240
     new_list = []
-    msg_list = None
-    if len(message) > n and isinstance(message, list): # 列表太长，避免生成图片太大发不出去
-        for i in range(0, len(message), n):
-            new_list.append(message[i:i+n])
+
+    # 处理消息列表
+    if isinstance(message, list) and len(message) > n:
+        new_list = [message[i:i + n] for i in range(0, len(message), n)]
     else:
-        if isinstance(message, str):
-            new_list.append(message)
-        else:
-            new_list.append(message)
+        new_list.append(message)
+
     # 如果指定图片发送
     if md_temple:
         img_list = []
         for img in new_list:
-            msg_list = (
-                "".join(img) 
-                if isinstance(img, (list, tuple)) 
-                else str(img)
-            )
+            msg_list = "".join(img) if isinstance(img, (list, tuple)) else str(img)
             markdown = await markdown_temple(bot, msg_list)
             img = await md_to_pic(md=markdown, width=width)
-            if len(new_list) == 1:
-                await bot.send(event, MessageSegment.image(img))
-            else:
-                img_list.append(MessageSegment.image(img))
+            img_list.append(MessageSegment.image(img))
 
-        if len(img_list) != 0:
-            await send_forward_msg(
-                bot, 
-                event, 
-                event.sender.nickname, 
-                event.user_id, 
-                img_list
-            )
+        if img_list:
+            await send_forward_msg(bot, event, event.sender.nickname, event.user_id, img_list)
         return
-    
+
+    # 转发消息或发送文本消息
     if isinstance(message, list):
-        # 转发消息
         if is_forward:
-            msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
+            msg_list = ["".join(message[i:i + 10]) for i in range(0, len(message), 10)]
             try:
-                await send_forward_msg(
-                    bot, 
-                    event, 
-                    event.sender.nickname, 
-                    event.user_id, 
-                    msg_list
-                )
-            # 如果风控转为渲染图片
-            except ActionFailed:
-                for img in new_list:
-                    msg_list = "".join(img)
+                await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+            except Exception:
+                pass
+        else:
+            try:
+                await bot.send(event, "".join(message))
+            except Exception:
+                msg_list = ["".join(message[i:i + 10]) for i in range(0, len(message), 10)]
+                try:
+                    await send_forward_msg(bot, event, event.sender.nickname, event.user_id, msg_list)
+                except Exception:
+                    msg_list = "".join(message)
                     markdown = await markdown_temple(bot, msg_list)
                     img = await md_to_pic(md=markdown, width=width)
                     await bot.send(event, MessageSegment.image(img))
-        # 纯文本消息
-        else:
-            try:
-                if not msg_list:
-                    msg_list = message
-                await bot.send(event, msg_list)
-            # 如果风控转为转发消息再被风控的话转为渲染图片
-            except ActionFailed:
-                    msg_list = ["".join(message[i:i+10]) for i in range(0, len(message), 10)]
-                    try:
-                        await send_forward_msg(
-                            bot, 
-                            event, 
-                            event.sender.nickname, 
-                            event.user_id, 
-                            msg_list
-                        )
-                    except ActionFailed:
-                        msg_list = "".join(message)
-                        markdown = await markdown_temple(bot, msg_list)
-                        img = await md_to_pic(md=markdown, width=width)
-                        await bot.send(event, MessageSegment.image(img))
-    
-            
-
-
-

@@ -31,7 +31,8 @@ else:
         from pydantic_settings import BaseSettings
     except:
         traceback.print_exc()
-        os.system("python -m pip install pydantic_settings")
+        import subprocess
+        subprocess.run([sys.executable, "-m", "pip", "install", "pydantic_settings"])
         logger.warning("请重启nb捏")
         sys.exit()
 
@@ -348,37 +349,6 @@ class Config(BaseSettings):
     def __getitem__(cls, item):
         return getattr(cls, item)
 
-    if version.parse(pyd_version) < version.parse("2.0"):
-
-        from pydantic import validator as field_validator
-        from pydantic.fields import ModelField as Field
-
-        @field_validator("novelai_cd", "novelai_max", pre=True, always=True)
-        def non_negative(cls, value, values, config, field: Field):
-            if value < 1:
-                return field.default
-            return value
-
-        @field_validator("novelai_paid", pre=True, always=True)
-        def paid(cls, value, values, config, field: Field):
-            if value < 0 or value > 3:
-                return field.default
-            return value
-    else:
-
-        from pydantic import Field, field_validator
-
-        @field_validator("novelai_cd", "novelai_max")
-        def non_negative(cls, value):
-            if value < 1:
-                return Field.default
-            return value
-
-        @field_validator("novelai_paid")
-        def paid(cls, value):
-            if value < 0 or value > 3:
-                return Field.default
-            return value
     class Config:
         extra = "ignore"
 

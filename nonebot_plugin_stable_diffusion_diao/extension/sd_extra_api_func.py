@@ -125,8 +125,8 @@ class SdAPI:
 
         return message
 
+    @staticmethod
     async def super_res_api_func(
-            self,
             img: str or bytes,
             size: int = 0,
             compress=True,
@@ -173,9 +173,9 @@ class SdAPI:
             payload["upscaling_resize"] = upscale
 
         lb_resp = await sd_LoadBalance(None)
-        self.backend_site = lb_resp[1][0]
+        backend_site = lb_resp[1][0]
 
-        api_url = "http://" + self.backend_site + "/sdapi/v1/extra-single-image"
+        api_url = "http://" + backend_site + "/sdapi/v1/extra-single-image"
         resp_json, sc = await aiohttp_func("post", api_url, payload)
 
         if sc not in [200, 201]:
@@ -288,8 +288,8 @@ class CommandHandler(SdAPI):
 
     async def view_backend(self, event: MessageEvent, bot: Bot):
         n = -1
-        backend_list = self.backend_name_list
-        backend_site = self.backend_site
+        backend_list = self.config.backend_name_list
+        backend_site = self.config.backend_site_list
         message = []
         task_list = []
         fifo = AIDRAW(event=event)
@@ -467,6 +467,10 @@ class CommandHandler(SdAPI):
             msg_list = [f"这是你要找的{hash_id}的图\n", txt_content, MessageSegment.image(content)]
         else:
             await matcher.finish("你要找的图不存在")
+
+        if isinstance(event, PrivateMessageEvent):
+            await risk_control(bot, event, msg_list)
+            return
 
         if config.novelai_extra_pic_audit:
             fifo = AIDRAW(
