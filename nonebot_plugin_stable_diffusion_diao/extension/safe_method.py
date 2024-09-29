@@ -18,6 +18,7 @@ async def send_forward_msg(
         name: str,
         uin: str,
         msgs: list,
+        build_msg = False
 ) -> dict:
     
     def to_json(msg: Message):

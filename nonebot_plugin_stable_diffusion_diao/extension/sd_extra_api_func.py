@@ -17,7 +17,6 @@ import ast
 from argparse import Namespace
 
 from ..config import config, redis_client, nickname
-from ..extension.explicit_api import check_safe_method
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later, txt_audit
@@ -473,13 +472,8 @@ class CommandHandler(SdAPI):
             return
 
         if config.novelai_extra_pic_audit:
-            fifo = AIDRAW(
-                user_id=event.get_user_id,
-                event=event
-            )
-            await fifo.load_balance_init()
-            message_ = await check_safe_method(fifo, [content], [""], None, False)
-            if isinstance(message_[1], MessageSegment):
+            result = await pic_audit_standalone(content, return_none=True)
+            if result:
                 try:
                     await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
                 except:
@@ -588,8 +582,8 @@ class CommandHandler(SdAPI):
                     await matcher.finish("出错惹, 快叫主人看控制台")
                 else:
                     img_msg = MessageSegment.image(fifo.result[0])
-                    result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_agin")
-                    if isinstance(result[1], MessageSegment):
+                    result = await pic_audit_standalone(img_msg, return_none=True)
+                    if result:
                         await bot.send(
                             event=event,
                             message=f"{nickname}又给你画了一张哦!" + img_msg + f"\n{fifo.img_hash}",
@@ -811,8 +805,8 @@ class CommandHandler(SdAPI):
             img_msg = MessageSegment.image(fifo.result[0])
             to_user = f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n" + img_msg + f"\n{fifo.img_hash}" + f"\n后端索引是{fifo.backend_index}"
             if config.novelai_extra_pic_audit:
-                result = await check_safe_method(fifo, [fifo.result[0]], [""], None, True, "_random_model")
-                if isinstance(result[1], MessageSegment):
+                result = await pic_audit_standalone(img_msg, return_none=True)
+                if result:
                     await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
             else:
                 try:

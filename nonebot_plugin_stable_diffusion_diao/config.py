@@ -16,11 +16,13 @@ import uvicorn
 import threading
 
 import aiofiles
-from nonebot import get_driver
+from nonebot import get_driver, require
 from nonebot.log import logger
 
 import pydantic
 from packaging import version
+
+require("nonebot_plugin_alconna")
 
 pyd_version = pydantic.__version__
 

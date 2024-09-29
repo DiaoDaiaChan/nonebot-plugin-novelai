@@ -4,6 +4,7 @@ from ..config import config, nickname
 from ..utils import revoke_msg
 from ..utils.save import save_img
 from ..utils import sendtosuperuser, pic_audit_standalone, run_later
+
 from io import BytesIO
 import base64
 import aiohttp, aiofiles
@@ -15,8 +16,12 @@ import qrcode
 import time
 import asyncio
 from PIL import Image
-from nonebot.adapters.onebot.v11 import MessageSegment, Bot, GroupMessageEvent, ActionFailed, PrivateMessageEvent
+
+from nonebot.adapters.onebot.v11 import PrivateMessageEvent, MessageEvent as ObV11MessageEvent
+from nonebot.adapters.qq import MessageEvent as QQMessageEvent
 from nonebot.log import logger
+from nonebot_plugin_alconna import Target, UniMessage
+
 from ..config import config
 
 
@@ -27,7 +32,7 @@ async def send_qr_code(bot, fifo, img_url):
     img.save(file_name)
     with open(file_name, 'rb') as f:
         bytes_img = f.read()
-    message_data = await bot.send_group_msg(group_id=fifo.group_id, message=MessageSegment.image(bytes_img))
+    message_data = await bot.send_group_msg(group_id=fifo.group_id, message=UniMessage.image(raw=bytes_img))
     os.remove(file_name)
     return message_data
 
@@ -39,7 +44,7 @@ async def add_qr_code(img_url, message: list):
     img.save(file_name)
     with open(file_name, 'rb') as f:
         bytes_img = f.read()
-    message.append(MessageSegment.image(bytes_img))
+    message.append(UniMessage.image(raw=bytes_img))
     os.remove(file_name)
     return message
 
@@ -63,17 +68,22 @@ async def audit_all_image(fifo, img_bytes):
 
 
 async def check_safe_method(
-    fifo, 
+    fifo,
+    event,
     img_bytes, 
     message: list, 
     bot_id=None, 
     save_img_=True, 
     extra_lable="",
 ) -> list:
+
+    is_obv11 = isinstance(event, ObV11MessageEvent)
+
     try:
         bot = nonebot.get_bot(bot_id)
     except:
         bot = nonebot.get_bot()
+
     raw_message = f"\n{nickname}已经"
     label = ""
     # 判读是否进行图片审核
@@ -81,7 +91,8 @@ async def check_safe_method(
     revoke = await config.get_value(fifo.group_id, "revoke")
     nsfw_count = 0
     # 私聊保存图片
-    if isinstance(fifo.event, PrivateMessageEvent):
+
+    if isinstance(event, PrivateMessageEvent):
         if save_img_:
             for i in img_bytes:
                 await run_later(
@@ -90,29 +101,33 @@ async def check_safe_method(
                     )
                 )
 
-        return [MessageSegment.image(i) for i in img_bytes]
+        return [UniMessage.image(raw=i) for i in img_bytes]
 
     audit_result = await audit_all_image(fifo, img_bytes)
 
     for index, (i, audit_result) in enumerate(zip(img_bytes, audit_result)):
         label, h_value, fifo.audit_info = audit_result
+        unimsg_img = UniMessage.image(raw=i)
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
 
             if not label:
                 logger.warning(f"审核调用失败，错误代码为{traceback.format_exc()}，为了安全期间转为二维码发送图片")
                 label = "unknown"
-                message_data = await sendtosuperuser(
-                    f"审核失败惹！{MessageSegment.image(i)}",
-                    bot_id
-                )
-                img_url = await get_img_url(message_data, bot)
-                message_data = await send_qr_code(bot, fifo, img_url)
-                if revoke:
-                    await revoke_msg(message_data, bot, revoke)
+                if is_obv11:
+                    message_data = await sendtosuperuser(
+                        f"审核失败惹！{unimsg_img}",
+                        bot_id
+                    )
+                    img_url = await get_img_url(message_data, bot)
+                    message_data = await send_qr_code(bot, fifo, img_url)
+                    if revoke:
+                        await revoke_msg(message_data, bot, revoke)
+                else:
+                    await UniMessage.text("审核失败惹！").send()
 
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
-                message.append(MessageSegment.image(i))
+                message.append(unimsg_img)
             elif label == "unknown":
                 message.append("审核失败\n")
                 if save_img_:
@@ -120,7 +135,7 @@ async def check_safe_method(
                         save_img(
                             fifo, i, fifo.group_id
                         )
-                )
+                    )
                 return message
             else:
                 label = "_explicit"
@@ -128,82 +143,88 @@ async def check_safe_method(
                 fifo.video = None
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
-                message_data = await sendtosuperuser(f"让我看看谁又画色图了{MessageSegment.image(i)}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}", bot_id)
-                img_url = await get_img_url(message_data, bot)
-                if htype == 1:
-                    try:
-                        message_data = await bot.send_private_msg(
-                            user_id=fifo.user_id, 
-                            message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}+AI绘图模型根据用户QQ{fifo.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
-                        )
-                    except:
-                        message_data = await bot.send_group_msg(
-                            group_id=fifo.group_id, 
-                            message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
-                        )
-                elif htype == 2:
-                    try:
-                        message_data = await bot.send_group_msg(
-                            group_id=fifo.group_id, 
-                            message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
-                        )
-                    except:
+                if is_obv11:
+                    message_data = await sendtosuperuser(
+                        f"让我看看谁又画色图了{unimsg_img}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}",
+                        bot_id)
+                    img_url = await get_img_url(message_data, bot)
+                    if htype == 1:
                         try:
                             message_data = await bot.send_private_msg(
-                                user_id=fifo.user_id, 
-                                message=f"悄悄给你看哦{MessageSegment.image(i)}\n{fifo.img_hash}"
+                                user_id=fifo.user_id,
+                                message=f"悄悄给你看哦{unimsg_img}\n{fifo.img_hash}+AI绘图模型根据用户QQ{fifo.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
+                            )
+                        except:
+                            message_data = await bot.send_group_msg(
+                                group_id=fifo.group_id,
+                                message=f"请先加机器人好友捏, 才能私聊要涩图捏\n{fifo.img_hash}"
+                            )
+                    elif htype == 2:
+                        try:
+                            message_data = await bot.send_group_msg(
+                                group_id=fifo.group_id,
+                                message=f"这是图片的url捏,{img_url[0]}\n{fifo.img_hash}"
                             )
                         except:
                             try:
-                                message_data = await bot.send_group_msg(
-                                    group_id=fifo.group_id, 
-                                    message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
+                                message_data = await bot.send_private_msg(
+                                    user_id=fifo.user_id,
+                                    message=f"悄悄给你看哦{unimsg_img}\n{fifo.img_hash}"
                                 )
-                            except ActionFailed:
-                                message_data = await send_qr_code(bot, fifo, img_url)
-                elif htype == 3:
-                    if config.novelai_pure:
-                        message_data = await send_qr_code(bot, fifo, img_url)
-                    message = await add_qr_code(img_url, message)                                                            
-                elif htype == 4:
-                    await bot.send_group_msg(
-                        group_id=fifo.group_id, 
-                        message=f"太色了, 不准看"
-                    )
-                    try:
-                        await bot.call_api(
-                            "send_private_msg",
-                            {
-                            "user_id": fifo.user_id,
-                            "message": MessageSegment.image(i)
-                            }
+                            except:
+                                try:
+                                    message_data = await bot.send_group_msg(
+                                        group_id=fifo.group_id,
+                                        message=f"URL发送失败, 私聊消息发送失败, 请先加好友\n{fifo.img_hash}"
+                                    )
+                                except:
+                                    message_data = await send_qr_code(bot, fifo, img_url)
+                    elif htype == 3:
+                        if config.novelai_pure:
+                            message_data = await send_qr_code(bot, fifo, img_url)
+                        message = await add_qr_code(img_url, message)
+                    elif htype == 4:
+                        await bot.send_group_msg(
+                            group_id=fifo.group_id,
+                            message=f"太色了, 不准看"
                         )
-                    except ActionFailed:
-                        await bot.send_group_msg(fifo.group_id, f"呜呜,你不加我好友我怎么发图图给你!")
-                elif htype == 5:
-                    await bot.send_group_msg(
-                        group_id=fifo.group_id, 
-                        message=f"是好康{MessageSegment.image(i)}\n{fifo.img_hash}"
-                    )
+                        try:
+                            await bot.call_api(
+                                "send_private_msg",
+                                {
+                                    "user_id": fifo.user_id,
+                                    "message": unimsg_img
+                                }
+                            )
+                        except:
+                            await bot.send_group_msg(fifo.group_id, f"呜呜,你不加我好友我怎么发图图给你!")
+                    elif htype == 5:
+                        await bot.send_group_msg(
+                            group_id=fifo.group_id,
+                            message=f"是好康{unimsg_img}\n{fifo.img_hash}"
+                        )
 
-                revoke = await config.get_value(fifo.group_id, "revoke")
-                if revoke:
-                    await revoke_msg(message_data, bot, revoke)
+                    revoke = await config.get_value(fifo.group_id, "revoke")
+                    if revoke:
+                        await revoke_msg(message_data, bot, revoke)
+
+                else:
+                    await UniMessage.text("检测到NSFW图片!").send(reply_to=True)
         else:
             if save_img_:
                 await run_later(
                     save_img(
-                        fifo, i, fifo.group_id+extra_lable
+                        fifo, i, fifo.group_id + extra_lable
                     )
                 )
-            message.append(MessageSegment.image(i))
+            message.append(unimsg_img)
             return message
         if save_img_:
             await run_later(
-            save_img(
-                fifo, i, fifo.group_id+extra_lable+label
+                save_img(
+                    fifo, i, fifo.group_id + extra_lable + label
+                )
             )
-        )
     if nsfw_count:
         message.append(f"有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
     return message

@@ -6,6 +6,8 @@ from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot import logger
+from nonebot_plugin_alconna import on_alconna
+from arclet.alconna import Alconna
 
 from re import I
 
@@ -17,7 +19,14 @@ superuser = SUPERUSER if config.only_super_user else None
 
 command_handler_instance = CommandHandler()
 
-on_command(
+ali = on_alconna(
+    "一言",
+    aliases={"hitokoto"},
+    block=True,
+
+)
+
+on_alconna(
     "模型目录",
     aliases={"获取模型", "查看模型", "模型列表"},
     priority=5,
@@ -25,7 +34,7 @@ on_command(
     handlers=[command_handler_instance.get_sd_models]
 )
 
-on_command(
+on_alconna(
     "更换模型",
     priority=1,
     block=True,
@@ -33,7 +42,7 @@ on_command(
     handlers=[command_handler_instance.change_sd_model]
 )
 
-on_command(
+on_alconna(
     "后端",
     aliases={"查看后端"},
     priority=1,
@@ -41,7 +50,7 @@ on_command(
     handlers=[command_handler_instance.view_backend]
 )
 
-on_command(
+on_alconna(
     "emb",
     aliases={"embs"},
     block=True,
@@ -49,21 +58,21 @@ on_command(
 
 )
 
-on_command(
+on_alconna(
     "lora",
     aliases={"loras"},
     block=True,
     handlers=[command_handler_instance.get_lora]
 )
 
-on_command(
+on_alconna(
     "采样器",
     aliases={"获取采样器"},
     block=True,
     handlers=[command_handler_instance.get_sampler]
 )
 
-on_command(
+on_alconna(
     "翻译",
     block=True,
     handlers=[command_handler_instance.translate]
@@ -77,20 +86,20 @@ on_shell_command(
     handlers=[command_handler_instance.random_tags]
 )
 
-on_command(
+on_alconna(
     "找图片",
     block=True,
     handlers=[command_handler_instance.find_image]
 )
 
-on_command(
+on_alconna(
     "词频统计",
     aliases={"tag统计"},
     block=True,
     handlers=[command_handler_instance.word_freq]
 )
 
-on_command(
+on_alconna(
     "运行截图",
     aliases={"状态"},
     block=False,
@@ -98,13 +107,13 @@ on_command(
     handlers=[command_handler_instance.screen_shot]
 )
 
-on_command(
+on_alconna(
     "审核",
     block=True,
     handlers=[command_handler_instance.audit]
 )
 
-on_command(
+on_alconna(
     "再来一张",
     block=True,
     handlers=[command_handler_instance.one_more_generate]
@@ -117,20 +126,20 @@ on_regex(
     handlers=[command_handler_instance.another_backend_control]
 )
 
-on_command(
+on_alconna(
     "随机出图",
     aliases={"随机模型", "随机画图"},
     block=True,
     handlers=[command_handler_instance.random_pic]
 )
 
-rembg = on_command(
+rembg = on_alconna(
     "去背景",
     aliases={"rembg", "抠图"},
     block=True
 )
 
-super_res = on_command(
+super_res = on_alconna(
     "图片修复",
     aliases={"图片超分", "超分"},
     block=True
@@ -165,7 +174,7 @@ on_shell_command(
     handlers=[command_handler_instance.style]
 )
 
-read_png_info = on_command(
+read_png_info = on_alconna(
     "读图",
     aliases={"读png", "读PNG"},
     block=True

@@ -7,11 +7,11 @@ import aiohttp
 import base64
 import traceback
 import random
-from nonebot import logger
+
 from ..config import config
 from asyncio import get_running_loop
-
 from nonebot.rule import ArgumentParser
+from nonebot import logger
 
 aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
@@ -278,17 +278,9 @@ async def set_res(new_img: Image) -> str:
     return img_base64
 
 
-async def revoke_msg(message_data, bot, time=None):
-    message_id = message_data["message_id"]
-    recall_time = time or random.randint(30, 110)
-    loop = get_running_loop()
-    loop.call_later(
-        recall_time,
-        lambda: loop.create_task(
-            bot.delete_msg(message_id=message_id)
-        )
-    )
-
+async def revoke_msg(r, time=None):
+    if r.recallable:
+        await r.recall(delay=time or random.randint(30, 100), index=0)
 
 async def run_later(func, delay=1):
     loop = get_running_loop()
