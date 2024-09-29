@@ -8,7 +8,7 @@ from datetime import datetime
 import redis
 import yaml as yaml_
 import os
-from typing import Tuple
+from typing import Tuple, Union
 from ruamel.yaml import YAML
 import shutil
 import sys
@@ -19,12 +19,31 @@ import aiofiles
 from nonebot import get_driver, require
 from nonebot.log import logger
 
+from nonebot.adapters.qq import Adapter as QQAdapter
+from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
+
+from nonebot.adapters.qq import MessageEvent as QQMessageEvent
+from nonebot.adapters.onebot.v11 import MessageEvent as OnebotV11MessageEvent
+
+from nonebot.adapters.qq import Bot as QQBot
+from nonebot.adapters.onebot.v11 import Bot as OnebotV11Bot
+
+from nonebot.adapters.qq import Message as QQMessage
+from nonebot.adapters.onebot.v11 import Message as OnebotV11Message
+
 import pydantic
 from packaging import version
 
 require("nonebot_plugin_alconna")
 
 pyd_version = pydantic.__version__
+
+# 支持的适配器 support
+
+__SUPPORTED_ADAPTER__ = [QQAdapter, OnebotV11Adapter]
+__SUPPORTED_MESSAGEEVENT__ = Union[QQMessageEvent, OnebotV11MessageEvent]
+__SUPPORTED_BOT__ = Union[QQBot, OnebotV11Bot]
+__SUPPORTED_MESSAGE__ = Union[OnebotV11Message, QQMessage]
 
 if version.parse(pyd_version) < version.parse("2.0"):
     from pydantic import BaseSettings

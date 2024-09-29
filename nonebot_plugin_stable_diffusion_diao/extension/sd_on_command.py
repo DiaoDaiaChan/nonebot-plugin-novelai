@@ -6,7 +6,7 @@ from nonebot.typing import T_State
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot import logger
-from nonebot_plugin_alconna import on_alconna
+# from nonebot_plugin_alconna import on_command
 from arclet.alconna import Alconna
 
 from re import I
@@ -19,14 +19,7 @@ superuser = SUPERUSER if config.only_super_user else None
 
 command_handler_instance = CommandHandler()
 
-ali = on_alconna(
-    "一言",
-    aliases={"hitokoto"},
-    block=True,
-
-)
-
-on_alconna(
+on_command(
     "模型目录",
     aliases={"获取模型", "查看模型", "模型列表"},
     priority=5,
@@ -34,7 +27,7 @@ on_alconna(
     handlers=[command_handler_instance.get_sd_models]
 )
 
-on_alconna(
+on_command(
     "更换模型",
     priority=1,
     block=True,
@@ -42,7 +35,7 @@ on_alconna(
     handlers=[command_handler_instance.change_sd_model]
 )
 
-on_alconna(
+on_command(
     "后端",
     aliases={"查看后端"},
     priority=1,
@@ -50,7 +43,7 @@ on_alconna(
     handlers=[command_handler_instance.view_backend]
 )
 
-on_alconna(
+on_command(
     "emb",
     aliases={"embs"},
     block=True,
@@ -58,21 +51,21 @@ on_alconna(
 
 )
 
-on_alconna(
+on_command(
     "lora",
     aliases={"loras"},
     block=True,
     handlers=[command_handler_instance.get_lora]
 )
 
-on_alconna(
+on_command(
     "采样器",
     aliases={"获取采样器"},
     block=True,
     handlers=[command_handler_instance.get_sampler]
 )
 
-on_alconna(
+on_command(
     "翻译",
     block=True,
     handlers=[command_handler_instance.translate]
@@ -86,20 +79,20 @@ on_shell_command(
     handlers=[command_handler_instance.random_tags]
 )
 
-on_alconna(
+on_command(
     "找图片",
     block=True,
     handlers=[command_handler_instance.find_image]
 )
 
-on_alconna(
+on_command(
     "词频统计",
     aliases={"tag统计"},
     block=True,
     handlers=[command_handler_instance.word_freq]
 )
 
-on_alconna(
+on_command(
     "运行截图",
     aliases={"状态"},
     block=False,
@@ -107,13 +100,13 @@ on_alconna(
     handlers=[command_handler_instance.screen_shot]
 )
 
-on_alconna(
+on_command(
     "审核",
     block=True,
     handlers=[command_handler_instance.audit]
 )
 
-on_alconna(
+on_command(
     "再来一张",
     block=True,
     handlers=[command_handler_instance.one_more_generate]
@@ -126,20 +119,20 @@ on_regex(
     handlers=[command_handler_instance.another_backend_control]
 )
 
-on_alconna(
+on_command(
     "随机出图",
     aliases={"随机模型", "随机画图"},
     block=True,
     handlers=[command_handler_instance.random_pic]
 )
 
-rembg = on_alconna(
+rembg = on_command(
     "去背景",
     aliases={"rembg", "抠图"},
     block=True
 )
 
-super_res = on_alconna(
+super_res = on_command(
     "图片修复",
     aliases={"图片超分", "超分"},
     block=True
@@ -174,7 +167,7 @@ on_shell_command(
     handlers=[command_handler_instance.style]
 )
 
-read_png_info = on_alconna(
+read_png_info = on_command(
     "读图",
     aliases={"读png", "读PNG"},
     block=True
@@ -189,11 +182,11 @@ async def pic_fix(state: T_State, super_res: Message = CommandArg()):
 
 
 @super_res.got("super_res", "请发送你要修复的图片")
-async def _(event: MessageEvent, bot: Bot, matcher: Matcher, msg: Message = Arg("super_res")):
+async def _(matcher: Matcher, msg: Message = Arg("super_res")):
 
     if msg[0].type == "image":
         logger.info("开始超分")
-        await command_handler_instance.super_res(event, bot, msg, matcher)
+        await command_handler_instance.super_res(msg, matcher)
 
     else:
         await super_res.reject("请重新发送图片")

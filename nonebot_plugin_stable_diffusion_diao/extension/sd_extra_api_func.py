@@ -17,6 +17,7 @@ import ast
 from argparse import Namespace
 
 from ..config import config, redis_client, nickname
+from ..config import __SUPPORTED_MESSAGEEVENT__, __SUPPORTED_BOT__, __SUPPORTED_MESSAGE__
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later, txt_audit
@@ -28,8 +29,8 @@ from .safe_method import send_forward_msg, risk_control
 from ..aidraw import aidraw_get
 
 from nonebot import on_command, on_shell_command
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
-from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher, RegexGroup
+from nonebot.params import CommandArg, Arg, ShellCommandArgs, Matcher, RegexGroup
+from nonebot_plugin_alconna import UniMessage
 from nonebot.typing import T_State
 from nonebot import logger
 from collections import Counter
@@ -190,9 +191,9 @@ class CommandHandler(SdAPI):
 
     async def get_sd_models(
         self,
-        event: MessageEvent,
-        bot: Bot,
-        msg: Message = CommandArg()
+        event: __SUPPORTED_MESSAGEEVENT__,
+        bot: __SUPPORTED_BOT__,
+        msg: __SUPPORTED_MESSAGE__ = CommandArg()
     ):
         vae = False
         plain_text = msg.extract_plain_text()
@@ -209,10 +210,10 @@ class CommandHandler(SdAPI):
 
     async def change_sd_model(
         self,
-        event: MessageEvent,
-        bot: Bot,
+        event: __SUPPORTED_MESSAGEEVENT__,
+        bot: __SUPPORTED_BOT__,
         matcher: Matcher,
-        msg: Message = CommandArg(),
+        msg: __SUPPORTED_MESSAGE__ = CommandArg(),
     ):
         try:
             user_command = msg.extract_plain_text()
@@ -238,7 +239,7 @@ class CommandHandler(SdAPI):
         #
 
     async def super_res(
-            self, event, bot, msg, matcher: Matcher
+            self, msg, matcher: Matcher
     ):
         img_url_list = []
         img_byte_list = []
@@ -264,34 +265,21 @@ class CommandHandler(SdAPI):
             img_byte_list.append(qq_img)
 
         if len(img_byte_list) == 1:
-            img_mes = MessageSegment.image(img_byte_list[0])
-            await bot.send(
-                event=event,
-                message=img_mes + text_msg,
-                at_sender=True,
-                reply_message=True
-            )
-
+            await UniMessage.image(raw=img_byte_list[0]).send()
         else:
-            img_list = []
+            uni_msg = UniMessage.text('')
             for i in img_byte_list:
-                img_list.append(f"{MessageSegment.image(i)}\n{text_msg}")
+                uni_msg += UniMessage.image(raw=i)
 
-            await send_forward_msg(
-                bot,
-                event,
-                event.sender.nickname,
-                event.user_id,
-                img_list
-            )
+            await uni_msg.send()
 
-    async def view_backend(self, event: MessageEvent, bot: Bot):
+    async def view_backend(self, event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
         n = -1
         backend_list = self.config.backend_name_list
         backend_site = self.config.backend_site_list
         message = []
         task_list = []
-        fifo = AIDRAW(event=event)
+        fifo = AIDRAW()
         all_tuple = await fifo.load_balance_init()
         for i in backend_site:
             task_list.append(fifo.get_webui_config(i))
@@ -347,9 +335,9 @@ class CommandHandler(SdAPI):
 
     async def get_emb(
             self,
-            event: MessageEvent,
-            bot: Bot,
-            msg: Message = CommandArg()
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
+            msg: __SUPPORTED_MESSAGE__ = CommandArg()
     ):
         text_msg = None
         index = 0
@@ -368,9 +356,9 @@ class CommandHandler(SdAPI):
 
     async def get_lora(
             self,
-            event: MessageEvent,
-            bot: Bot,
-            msg: Message = CommandArg()
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
+            msg: __SUPPORTED_MESSAGE__ = CommandArg()
     ):
         text_msg = None
         index = 0
@@ -387,7 +375,7 @@ class CommandHandler(SdAPI):
         lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
         await risk_control(bot, event, loras_list, True, True)
 
-    async def get_sampler(self, event: MessageEvent, bot: Bot):
+    async def get_sampler(self, event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
 
         lb_resp = await sd_LoadBalance(None)
         self.backend_site = lb_resp[1][0]
@@ -404,9 +392,9 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def translate(
-            event: MessageEvent,
-            bot: Bot,
-            msg: Message = CommandArg()
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
+            msg: __SUPPORTED_MESSAGE__ = CommandArg()
     ):
 
         txt_msg = msg.extract_plain_text()
@@ -423,8 +411,8 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def random_tags(
-            event: MessageEvent,
-            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
             args: Namespace = ShellCommandArgs()
     ):
 
@@ -439,10 +427,10 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def find_image(
-            event: MessageEvent,
-            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
             matcher: Matcher,
-            msg: Message = CommandArg()
+            msg: __SUPPORTED_MESSAGE__ = CommandArg()
     ):
 
         hash_id = msg.extract_plain_text()
@@ -463,7 +451,7 @@ class CommandHandler(SdAPI):
 
             async with aiofiles.open(img_file_path, "rb") as f:
                 content = await f.read()
-            msg_list = [f"这是你要找的{hash_id}的图\n", txt_content, MessageSegment.image(content)]
+            msg_list = [f"这是你要找的{hash_id}的图\n", txt_content, UniMessage.image(raw=content)]
         else:
             await matcher.finish("你要找的图不存在")
 
@@ -492,8 +480,8 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def word_freq(
-            event: MessageEvent,
-            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
             matcher: Matcher
     ):
         msg_list = []
@@ -530,8 +518,8 @@ class CommandHandler(SdAPI):
 
     @staticmethod
     async def screen_shot(
-            event: MessageEvent,
-            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
             matcher: Matcher
     ):
         if config.run_screenshot:
@@ -548,7 +536,7 @@ class CommandHandler(SdAPI):
             await matcher.finish("未启动屏幕截图")
 
     @staticmethod
-    async def audit(event: MessageEvent, bot: Bot):
+    async def audit(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
         url = ""
         reply = event.reply
         for seg in event.message['image']:
@@ -565,7 +553,7 @@ class CommandHandler(SdAPI):
             await bot.send(event, message, at_sender=True, reply_message=True)
 
     @staticmethod
-    async def one_more_generate(event: MessageEvent, bot: Bot, matcher: Matcher):
+    async def one_more_generate(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher):
         # 读取redis数据
         if redis_client:
             r = redis_client[0]
@@ -603,8 +591,8 @@ class CommandHandler(SdAPI):
     @staticmethod
     async def another_backend_control(
             matcher: Matcher,
-            event: MessageEvent,
-            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: __SUPPORTED_BOT__,
             regex_group: Annotated[tuple[Any, ...], RegexGroup()],
     ):
             print(regex_group)
@@ -771,7 +759,7 @@ class CommandHandler(SdAPI):
             await matcher.reject("请重新发送图片")
 
     @staticmethod
-    async def random_pic(event: MessageEvent, bot: Bot, matcher: Matcher, msg: Message = CommandArg()):
+    async def random_pic(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher, msg: __SUPPORTED_MESSAGE__ = CommandArg()):
         init_dict = {}
         if msg:
             tags = msg.extract_plain_text()
@@ -829,7 +817,7 @@ class CommandHandler(SdAPI):
         )
     
     @staticmethod
-    async def set_config(event: MessageEvent, bot: Bot, matcher: Matcher, args: Namespace = ShellCommandArgs()):
+    async def set_config(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher, args: Namespace = ShellCommandArgs()):
         msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
         n = 0
         if args.backend_site is None and not isinstance(args.backend_site, int):
@@ -866,7 +854,7 @@ class CommandHandler(SdAPI):
                 await bot.send(event=event, message=f"设置完成{payload}")
 
     @staticmethod
-    async def style(event: MessageEvent, bot: Bot,  matcher: Matcher, args: Namespace = ShellCommandArgs()):
+    async def style(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__,  matcher: Matcher, args: Namespace = ShellCommandArgs()):
         message_list = []
         style_dict = {}
         if redis_client:
@@ -1127,10 +1115,10 @@ async def __():
 
 @control_net.got("net", "你的图图呢？")
 async def _(
-        event: MessageEvent,
-        bot: Bot,
+        event: __SUPPORTED_MESSAGEEVENT__,
+        bot: __SUPPORTED_BOT__,
         args: Namespace = Arg("args"),
-        msg: Message = Arg("net")
+        msg: __SUPPORTED_MESSAGE__ = Arg("net")
 ):
     for data in msg:
         if data.data.get("url"):
@@ -1144,7 +1132,7 @@ async def _(
 
 #
 # @control_net_list.handle()
-# async def _(event: MessageEvent, bot: Bot, msg: Message = CommandArg()):
+# async def _(event: MessageEvent, bot: __SUPPORTED_BOT__, msg: __SUPPORTED_MESSAGE__ = CommandArg()):
 #     await func_init(event)
 #     message_model = "可用的controlnet模型\t\n"
 #     message_module = "可用的controlnet模块\t\n"
@@ -1189,7 +1177,7 @@ async def __(state: T_State, png: Message = CommandArg()):
 
 
 @llm_caption.got("png", "请发送你要分析的图片,请注意")
-async def __(event: MessageEvent, bot: Bot):
+async def __(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
     reply = event.reply
     for seg in event.message['image']:
         url = seg.data["url"]

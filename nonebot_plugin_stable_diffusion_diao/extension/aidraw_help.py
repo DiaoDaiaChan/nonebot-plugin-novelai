@@ -1,5 +1,7 @@
-from nonebot import on_command, require, get_driver, get_bot
+from nonebot import on_command, require
 from nonebot.adapters.onebot.v11 import Bot, MessageEvent, MessageSegment
+
+from nonebot_plugin_alconna import UniMessage
 
 import aiohttp, json
 import os
@@ -21,7 +23,7 @@ async def get_url():
 
 
 @aidraw_help.handle()
-async def _(bot: Bot, event: MessageEvent):
+async def _():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     md_file_path = os.path.join(current_dir, 'ADH.md')
     async with aiofiles.open(md_file_path, 'r', encoding='utf-8') as f:
@@ -29,5 +31,5 @@ async def _(bot: Bot, event: MessageEvent):
     img = await md_to_pic(md=content,
         width=1000
     )
-    msg = MessageSegment.image(img)
-    await bot.send(event=event, message=msg)
+
+    await UniMessage.image(raw=img).send()

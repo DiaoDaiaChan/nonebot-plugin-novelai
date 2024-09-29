@@ -82,12 +82,22 @@ async def get_message_at(data: str) -> int:
         return None
 
 
-async def send_msg_and_revoke(bot, event, message):
-    message_data = await bot.send(event, message)
-    await revoke_msg(message_data, bot)
+async def send_msg_and_revoke(message):
+    r = await UniMessage.text(message).send()
+    await revoke_msg(r)
 
 
 class AIDrawHandler:
+
+    tasks_num = 0
+
+    @classmethod
+    def get_tasks_num(cls):
+        return cls.tasks_num
+
+    @classmethod
+    def set_tasks_num(cls, num):
+        cls.tasks_num += num
 
     def __init__(self):
         self.event = None
@@ -113,6 +123,8 @@ class AIDrawHandler:
         self.group_id = None
         self.nickname = None
 
+
+
     async def aidraw_get(
             self,
             bot: Union[Bot, QQbot],
@@ -121,11 +133,16 @@ class AIDrawHandler:
             args: Namespace = ShellCommandArgs()
     ):
 
+        self.set_tasks_num(1)
+
         self.event = event
         self.bot = bot
 
         self.matcher = matcher
         self.args = args
+
+        logger.debug(self.args.tags)
+        logger.debug(self.fifo)
 
         if isinstance(event, MessageEvent):
             self.user_id = event.user_id
@@ -140,24 +157,17 @@ class AIDrawHandler:
             self.group_id = event.get_session_id()
             await self.qq_handler(bot, event)
 
-    async def obv11_handler(self, bot, event):
-
-        logger.debug(self.args.tags)
-        logger.debug(self.fifo)
-
-        await self.exec_generate(event, bot)
-
-        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}"
+        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}, 你前面还有{self.get_tasks_num()}个人"
 
         if not self.fifo.pure:
-            r = await UniMessage.text(build_msg).send()
-            await revoke_msg(r)
+            await run_later(send_msg_and_revoke(build_msg), 2)
 
         await self.fifo_gennerate(event, bot)
 
+    async def obv11_handler(self, bot, event):
+        pass
+
     async def qq_handler(self, bot, event):
-        logger.debug(self.args.tags)
-        logger.debug(self.fifo)
 
         await self.pre_process_args()
         await self.cd_(event, bot)
@@ -165,13 +175,6 @@ class AIDrawHandler:
         await self.match_models()
         await self.post_process_tags(event)
 
-        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}"
-
-        if not self.fifo.pure:
-            r = await UniMessage.text(build_msg).send()
-            await revoke_msg(r)
-
-        await self.fifo_gennerate(event, bot)
 
     async def pre_process_args(self):
         if self.args.pu:
@@ -453,29 +456,37 @@ class AIDrawHandler:
                     message=message,
                 )
             else:
-                await self.send_result_msg(bot, event, fifo, unimsg)
+                await self.send_result_msg(fifo, unimsg)
+                self.set_tasks_num(-1)
 
         await generate(self.fifo)
         await version.check_update()
 
     @staticmethod
-    async def send_result_msg(bot, event, fifo, unimsg):
+    async def send_result_msg(fifo, unimsg):
         try:
             if len(fifo.extra_info) != 0:
                 fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
             r = await unimsg.send(reply_to=True)
         except:
             r = await unimsg.send(reply_to=True)
+
         # 撤回图片
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
-            await revoke_msg(r, revoke)
+            await run_later(revoke_msg(r, revoke), 2)
         if not fifo.pure:
-            message_data = await bot.send(
-                event=event,
-                message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{fifo.audit_info}"
+            await run_later(send_msg_and_revoke(
+f'''
+当前后端:{fifo.backend_name}
+采样器:{fifo.sampler}
+CFG Scale:{fifo.scale}
+{fifo.extra_info}
+{fifo.audit_info}
+'''
+                ),
+                revoke
             )
-            await revoke_msg(r)
         if fifo.video:
             await UniMessage.video(path=Path(fifo.video)).send(reply_to=True)
 
