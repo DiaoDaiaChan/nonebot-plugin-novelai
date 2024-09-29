@@ -87,11 +87,6 @@ async def send_msg_and_revoke(bot, event, message):
     await revoke_msg(message_data, bot)
 
 
-
-async def qq_handler(bot, event, args):
-    pass
-
-
 class AIDrawHandler:
 
     def __init__(self):
@@ -99,6 +94,9 @@ class AIDrawHandler:
         self.bot = None
         self.args = None
         self.matcher = None
+
+        self.event = None
+        self.bot = None
 
         self.tags_list = []
         self.new_tags_list = []
@@ -123,6 +121,9 @@ class AIDrawHandler:
             args: Namespace = ShellCommandArgs()
     ):
 
+        self.event = event
+        self.bot = bot
+
         self.matcher = matcher
         self.args = args
 
@@ -134,10 +135,10 @@ class AIDrawHandler:
                 self.group_id = str(event.group_id)
             await self.obv11_handler(bot, event)
 
-        else:
+        elif isinstance(event, QQMessageEvent):
             self.user_id = event.get_user_id()
             self.group_id = event.get_session_id()
-            await qq_handler(bot, event, args)
+            await self.qq_handler(bot, event)
 
     async def obv11_handler(self, bot, event):
 
@@ -152,7 +153,25 @@ class AIDrawHandler:
             r = await UniMessage.text(build_msg).send()
             await revoke_msg(r)
 
-        await self.fifo_gennerate(event, self.fifo, bot)
+        await self.fifo_gennerate(event, bot)
+
+    async def qq_handler(self, bot, event):
+        logger.debug(self.args.tags)
+        logger.debug(self.fifo)
+
+        await self.pre_process_args()
+        await self.cd_(event, bot)
+        await self.auto_match()
+        await self.match_models()
+        await self.post_process_tags(event)
+
+        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}"
+
+        if not self.fifo.pure:
+            r = await UniMessage.text(build_msg).send()
+            await revoke_msg(r)
+
+        await self.fifo_gennerate(event, bot)
 
     async def pre_process_args(self):
         if self.args.pu:
@@ -241,7 +260,7 @@ class AIDrawHandler:
         ):
             r = redis_client[1]
             if r.exists("style"):
-                info_style = ""
+                self.info_style = ""
                 style_list: list[bytes] = r.lrange("style", 0, -1)
                 style_list_: list[bytes] = r.lrange("user_style", 0, -1)
                 style_list += style_list_
@@ -261,27 +280,27 @@ class AIDrawHandler:
                                 pop_index += 1
                                 if tag in style["name"]:
                                     style_ = style["name"]
-                                    info_style += f"自动找到的预设: {style_}\n"
+                                    self.info_style += f"自动找到的预设: {style_}\n"
                                     self.style_tag += str(style["prompt"]) + ","
                                     self.style_ntag += str(style["negative_prompt"]) + ","
                                     tags_list.pop(org_tag_list.index(tag))
-                                    logger.info(info_style)
+                                    logger.info(self.info_style)
                                     break
         # 初始化实例
         self.args.tags = tags_list
-        fifo = AIDRAW(**vars(self.args), event=self.event)
-        fifo.read_tags = self.read_tags
-        fifo.extra_info += info_style
+        self.fifo = AIDRAW(**vars(self.args), event=self.event)
+        self.fifo.read_tags = self.read_tags
+        self.fifo.extra_info += self.info_style
 
-        if fifo.backend_index is not None and isinstance(fifo.backend_index, int):
-            fifo.backend_name = config.backend_name_list[fifo.backend_index]
+        if self.fifo.backend_index is not None and isinstance(self.fifo.backend_index, int):
+            self.fifo.backend_name = config.backend_name_list[self.fifo.backend_index]
         elif self.args.user_backend:
-            fifo.backend_name = '手动后端'
-            fifo.backend_site = self.args.user_backend
+            self.fifo.backend_name = '手动后端'
+            self.fifo.backend_site = self.args.user_backend
         else:
-            await fifo.load_balance_init()
+            await self.fifo.load_balance_init()
 
-        org_tag_list = fifo.tags
+        org_tag_list = self.fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
         if config.auto_match and not self.args.match and redis_client:
@@ -296,18 +315,18 @@ class AIDrawHandler:
                     all_emb_dict = r2.get("emb")
                     all_backend_lora_list = ast.literal_eval(all_lora_dict.decode("utf-8"))
                     all_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))
-                    cur_backend_lora_list = all_backend_lora_list[fifo.backend_name]
-                    cur_backend_emb_list = all_backend_emb_list[fifo.backend_name]
+                    cur_backend_lora_list = all_backend_lora_list[self.fifo.backend_name]
+                    cur_backend_emb_list = all_backend_emb_list[self.fifo.backend_name]
 
-                    if fifo.backend_name in all_backend_lora_list and all_backend_lora_list[fifo.backend_name] is None:
+                    if self.fifo.backend_name in all_backend_lora_list and all_backend_lora_list[self.fifo.backend_name] is None:
                         from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
                         logger.info("此后端没有lora数据,尝试重新载入")
-                        cur_backend_lora_list, _ = await get_and_process_lora(fifo.backend_site, fifo.backend_name)
-                        cur_backend_emb_list, _ = await get_and_process_emb(fifo.backend_site, fifo.backend_name)
+                        cur_backend_lora_list, _ = await get_and_process_lora(self.fifo.backend_site, self.fifo.backend_name)
+                        cur_backend_emb_list, _ = await get_and_process_emb(self.fifo.backend_site, self.fifo.backend_name)
 
                         pipe_ = r2.pipeline()
-                        all_backend_lora_list[fifo.backend_name] = cur_backend_lora_list
-                        all_backend_emb_list[fifo.backend_name] = cur_backend_emb_list
+                        all_backend_lora_list[self.fifo.backend_name] = cur_backend_lora_list
+                        all_backend_emb_list[self.fifo.backend_name] = cur_backend_emb_list
                         pipe_.set("lora", str(all_backend_lora_list))
                         pipe_.set("emb", str(all_backend_emb_list))
                         pipe_.execute()
@@ -349,11 +368,11 @@ class AIDrawHandler:
                     if turn_off_match:
                         new_tags_list = []
                         tags_list = org_list
-                        fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
+                        self.fifo.extra_info += "自动匹配到的模型过多\n已关闭自动匹配功能"
                         model_info = ""
                         raise RuntimeError("匹配到很多lora")
 
-                    fifo.extra_info += f"{model_info}\n"
+                    self.fifo.extra_info += f"{model_info}\n"
 
             except Exception as e:
                 logger.warning(str(traceback.format_exc()))
@@ -412,23 +431,18 @@ class AIDrawHandler:
 
         self.tags_list += lora_msg + emb_msg
 
-    async def fifo_gennerate(self, event, fifo: AIDRAW = None, bot: Bot = None):
+    async def fifo_gennerate(self, event, bot: Bot = None):
         # 队列处理
         global gennerating
         if not bot:
             bot = get_bot()
 
-        async def generate(fifo: AIDRAW):
+        async def generate(fifo=self.fifo):
             resp = {}
             id = fifo.user_id if config.novelai_antireport else bot.self_id
-            if isinstance(event, PrivateMessageEvent):
-                nickname = event.sender.nickname
-            else:
-                resp = await bot.get_group_member_info(group_id=fifo.group_id, user_id=fifo.user_id)
-                nickname = resp["card"] or resp["nickname"]
             # 开始生成
             try:
-                unimsg = await _run_gennerate(fifo, bot)
+                unimsg = await _run_gennerate(fifo, bot, self.event)
             except Exception as e:
                 logger.exception("生成失败")
                 message = f"生成失败，"
@@ -441,7 +455,7 @@ class AIDrawHandler:
             else:
                 await self.send_result_msg(bot, event, fifo, unimsg)
 
-        await generate(fifo)
+        await generate(self.fifo)
         await version.check_update()
 
     @staticmethod
@@ -450,7 +464,6 @@ class AIDrawHandler:
             if len(fifo.extra_info) != 0:
                 fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
             r = await unimsg.send(reply_to=True)
-            # UniMessage.
         except:
             r = await unimsg.send(reply_to=True)
         # 撤回图片
@@ -462,7 +475,7 @@ class AIDrawHandler:
                 event=event,
                 message=f"当前后端:{fifo.backend_name}\n采样器:{fifo.sampler}\nCFG Scale:{fifo.scale}\n{fifo.extra_info}\n{fifo.audit_info}"
             )
-            await revoke_msg(message_data, bot)
+            await revoke_msg(r)
         if fifo.video:
             await UniMessage.video(path=Path(fifo.video)).send(reply_to=True)
 
@@ -584,7 +597,7 @@ def wait_len():
     return list_len
 
 
-async def _run_gennerate(fifo: AIDRAW, bot: Bot) -> UniMessage:
+async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     # 处理单个请求
     try:
         await fifo.post()
@@ -597,20 +610,21 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot) -> UniMessage:
     # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
     # 构造消息体并保存图片
     message = UniMessage.text(f"{config.novelai_mode}绘画完成~")
-    message = await check_safe_method(fifo, fifo.result, message, bot.self_id)
+    # message2 = UniMessage.text(f"{config.novelai_mode}绘画完成~")
+    message = await check_safe_method(fifo, event, fifo.result, message, bot.self_id)
     # for i in fifo.format():
     #     message.append(i)
     try:
         if config.is_return_hash_info:
-            message.append("\n".join(fifo.img_hash))
+            message += UniMessage.text("\n".join(fifo.img_hash))
     except:
         pass
 
-    message.append(f"\n模型:{fifo.model}")
+    message += f"\n模型:{fifo.model}"
     # 扣除点数
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)
-    return "".join(message)
+    return message
 
 
 aidraw = on_shell_command(
@@ -618,7 +632,7 @@ aidraw = on_shell_command(
     aliases=config.novelai_command_start,
     parser=aidraw_parser,
     priority=5,
-    handlers=[AIDrawHandler.aidraw_get],
+    handlers=[AIDrawHandler().aidraw_get],
     block=True
 )
 

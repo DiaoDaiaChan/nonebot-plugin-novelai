@@ -44,7 +44,7 @@ async def add_qr_code(img_url, message: list):
     img.save(file_name)
     with open(file_name, 'rb') as f:
         bytes_img = f.read()
-    message.append(UniMessage.image(raw=bytes_img))
+    message += UniMessage.image(raw=bytes_img)
     os.remove(file_name)
     return message
 
@@ -71,11 +71,11 @@ async def check_safe_method(
     fifo,
     event,
     img_bytes, 
-    message: list, 
+    message: UniMessage,
     bot_id=None, 
     save_img_=True, 
     extra_lable="",
-) -> list:
+) -> UniMessage:
 
     is_obv11 = isinstance(event, ObV11MessageEvent)
 
@@ -127,9 +127,9 @@ async def check_safe_method(
 
             if label in ["safe", "general", "sensitive"]:
                 label = "_safe"
-                message.append(unimsg_img)
+                message += unimsg_img
             elif label == "unknown":
-                message.append("审核失败\n")
+                message += "审核失败\n"
                 if save_img_:
                     await run_later(
                         save_img(
@@ -139,7 +139,7 @@ async def check_safe_method(
                 return message
             else:
                 label = "_explicit"
-                message.append(f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n")
+                message += f"太涩了,让我先看, 这张图涩度{h_value:.1f}%\n"
                 fifo.video = None
                 nsfw_count += 1
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
@@ -193,7 +193,7 @@ async def check_safe_method(
                                 "send_private_msg",
                                 {
                                     "user_id": fifo.user_id,
-                                    "message": unimsg_img
+                                    "message": unimsg_img.export()
                                 }
                             )
                         except:
@@ -217,7 +217,7 @@ async def check_safe_method(
                         fifo, i, fifo.group_id + extra_lable
                     )
                 )
-            message.append(unimsg_img)
+            message += unimsg_img
             return message
         if save_img_:
             await run_later(
@@ -226,7 +226,7 @@ async def check_safe_method(
                 )
             )
     if nsfw_count:
-        message.append(f"有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了")
+        message += f"有{nsfw_count}张图片太涩了，{raw_message}帮你吃掉了"
     return message
 
 

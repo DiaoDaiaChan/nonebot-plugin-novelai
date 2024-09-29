@@ -3,11 +3,11 @@ from nonebot.adapters.onebot.v11 import (
     Bot,
     MessageEvent,
     Message,
-    ActionFailed,
-    MessageSegment,
     GroupMessageEvent,
     PrivateMessageEvent
 )
+from nonebot_plugin_alconna import UniMessage
+
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
@@ -79,12 +79,12 @@ async def risk_control(
 
     # 如果指定图片发送
     if md_temple:
-        img_list = []
+        img_list = UniMessage.text('')
         for img in new_list:
             msg_list = "".join(img) if isinstance(img, (list, tuple)) else str(img)
             markdown = await markdown_temple(bot, msg_list)
             img = await md_to_pic(md=markdown, width=width)
-            img_list.append(MessageSegment.image(img))
+            img_list.append(UniMessage.image(raw=img))
 
         if img_list:
             await send_forward_msg(bot, event, event.sender.nickname, event.user_id, img_list)

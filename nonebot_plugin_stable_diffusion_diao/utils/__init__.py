@@ -279,8 +279,15 @@ async def set_res(new_img: Image) -> str:
 
 
 async def revoke_msg(r, time=None):
-    if r.recallable:
+    async def recall():
         await r.recall(delay=time or random.randint(30, 100), index=0)
+
+    if r.recallable:
+        await run_later(
+            lambda: recall(),
+            random.randint(30, 100)
+        )
+
 
 async def run_later(func, delay=1):
     loop = get_running_loop()
