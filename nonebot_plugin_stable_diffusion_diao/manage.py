@@ -25,7 +25,7 @@ async def set_(bot: Bot, event: GroupMessageEvent, args= RegexGroup()):
             message = "当前群的设置为\t\n"
             for i, v in group_config.items():
                 message += f"{i}:{v}\t\n"
-            await risk_control(bot, event, message, False, True)
+            await risk_control(message, True)
     else:
         await set.send(f"权限不足！")
 

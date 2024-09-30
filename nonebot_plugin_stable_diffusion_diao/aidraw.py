@@ -19,19 +19,19 @@ from pathlib import Path
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
     MessageSegment,
-    Bot,
     PrivateMessageEvent,
     GroupMessageEvent
 )
 
-from nonebot.adapters.qq import Bot as QQbot
 from nonebot.adapters.qq import MessageEvent as QQMessageEvent
+
 
 from typing import Union
 
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
 from nonebot.params import ShellCommandArgs, Matcher
+from nonebot import Bot
 
 from nonebot_plugin_alconna import Target, UniMessage, SupportScope, on_alconna
 
@@ -82,9 +82,19 @@ async def get_message_at(data: str) -> int:
         return None
 
 
-async def send_msg_and_revoke(message):
-    r = await UniMessage.text(message).send()
-    await revoke_msg(r)
+async def send_msg_and_revoke(message, reply_to=False, r=None):
+
+    async def main(message, reply_to, r):
+        if r:
+            await revoke_msg(r)
+        else:
+            message += message
+            r = await UniMessage.text(message).send(reply_to=reply_to)
+            await revoke_msg(r)
+        return
+
+    await run_later(main(message, reply_to, r), 2)
+
 
 
 class AIDrawHandler:
@@ -103,7 +113,6 @@ class AIDrawHandler:
         self.event = None
         self.bot = None
         self.args = None
-        self.matcher = None
 
         self.event = None
         self.bot = None
@@ -124,21 +133,18 @@ class AIDrawHandler:
         self.nickname = None
 
 
-
     async def aidraw_get(
             self,
-            bot: Union[Bot, QQbot],
+            bot: Bot,
             event: Union[MessageEvent, QQMessageEvent],
-            matcher: Matcher,
             args: Namespace = ShellCommandArgs()
-    ):
+    ) -> AIDRAW:
 
         self.set_tasks_num(1)
 
         self.event = event
         self.bot = bot
 
-        self.matcher = matcher
         self.args = args
 
         logger.debug(self.args.tags)
@@ -160,9 +166,10 @@ class AIDrawHandler:
         build_msg = f"{random.choice(config.no_wait_list)}, {self.message}, 你前面还有{self.get_tasks_num()}个人"
 
         if not self.fifo.pure:
-            await run_later(send_msg_and_revoke(build_msg), 2)
+            await send_msg_and_revoke(build_msg)
 
         await self.fifo_gennerate(event, bot)
+        return self.fifo
 
     async def obv11_handler(self, bot, event):
         pass
@@ -202,7 +209,7 @@ class AIDrawHandler:
             if config.novelai_daylimit and not await SUPERUSER(bot, event):
                 left = await count(self.user_id, 1)
                 if left < 0:
-                    await self.matcher.finish(f"今天你的次数不够了哦")
+                    await UniMessage.text("今天你的次数不够了哦").finish()
                 else:
                     if config.novelai_daylimit_type == 2:
                         message_ = f"今天你还能画{left}秒"
@@ -216,7 +223,7 @@ class AIDrawHandler:
                 deltatime_ = nowtime - cd.get(self.group_id, 0)
                 gcd = int(config.novelai_group_cd)
                 if deltatime_ < gcd:
-                    await self.matcher.finish(f"本群共享剩余CD为{gcd - int(deltatime_)}s")
+                    await UniMessage.text(f"本群共享剩余CD为{gcd - int(deltatime_)}s").finish()
                 else:
                     cd[self.group_id] = nowtime
             # 群组CD
@@ -230,7 +237,7 @@ class AIDrawHandler:
             deltatime = nowtime - cd.get(self.user_id, 0)
             cd_ = int(await config.get_value(self.group_id, "cd"))
             if deltatime < cd_:
-                await self.matcher.finish(f"你冲的太快啦，请休息一下吧，剩余CD为{cd_ - int(deltatime)}s")
+                await UniMessage.text(f"你冲的太快啦，请休息一下吧，剩余CD为{cd_ - int(deltatime)}s").finish()
             else:
                 cd[self.user_id] = nowtime
 
@@ -476,7 +483,7 @@ class AIDrawHandler:
         if revoke:
             await run_later(revoke_msg(r, revoke), 2)
         if not fifo.pure:
-            await run_later(send_msg_and_revoke(
+            await send_msg_and_revoke(
 f'''
 当前后端:{fifo.backend_name}
 采样器:{fifo.sampler}
@@ -484,9 +491,7 @@ CFG Scale:{fifo.scale}
 {fifo.extra_info}
 {fifo.audit_info}
 '''
-                ),
-                revoke
-            )
+                )
         if fifo.video:
             await UniMessage.video(path=Path(fifo.video)).send(reply_to=True)
 
@@ -496,7 +501,6 @@ CFG Scale:{fifo.scale}
             tags_list: str = await prepocess_tags(self.tags_list, False, True)
         except Exception as e:
             logger.error(traceback.format_exc())
-            await self.matcher.finish("tag处理失败!可能是翻译API错误, 请稍后重试, 或者使用英文重试")
         self.fifo.ntags = await prepocess_tags(self.fifo.ntags)
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
@@ -510,7 +514,7 @@ CFG Scale:{fifo.scale}
                 hway = config.novelai_h
 
             if hway == 0 and re.search(htags, tags_list, re.IGNORECASE):
-                await self.matcher.finish(f"H是不行的!")
+                await UniMessage.text("H是不行的").finish()
 
             elif hway == 1:
                 re_list = pattern.findall(tags_list)
@@ -587,7 +591,7 @@ CFG Scale:{fifo.scale}
                             await self.fifo.add_image(await resp.read(), self.args.control_net)
                         self.message += f"，已切换至以图生图" + self.message
                 else:
-                    await self.matcher.finish(f"以图生图功能已禁用")
+                    await UniMessage.text(f"以图生图功能已禁用").finish()
         else:
             logger.info("官方QQBot不支持以图生图")
 

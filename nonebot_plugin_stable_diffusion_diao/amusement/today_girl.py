@@ -1340,7 +1340,7 @@ async def _(bot: Bot,
 画面{build_msg_zh[9]},{build_msg_zh[10]},
 '''.strip()
 
-    await run_later(send_msg_and_revoke(bot, event, f"锵锵~~~{to_user}\n正在为你生成二次元图像捏"))
+    await send_msg_and_revoke(f"锵锵~~~{to_user}\n正在为你生成二次元图像捏")
     args.match = True
     args.pure = True
     args.dtg = False

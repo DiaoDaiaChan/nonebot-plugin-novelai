@@ -108,7 +108,7 @@ async def _(
             speaker_name = speaker["name"]
             support_lang = speaker["lang"]
             to_user_list.append(f"音色名称: {speaker_name}, 音色id: {speaker_id}, 支持的语言: {support_lang}\n")
-        await risk_control(bot, event, to_user_list, True)
+        await risk_control(to_user_list)
 
     else:
         vits_instance.get_params()

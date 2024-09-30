@@ -6,9 +6,12 @@ from nonebot.adapters.onebot.v11 import (
     PrivateMessageEvent,
     GroupMessageEvent
 )
-from nonebot.adapters.qq import MessageEvent as QQMessageEvent
+
+from ..aidraw import send_msg_and_revoke
+from ..utils import run_later
 
 from nonebot_plugin_alconna import UniMessage
+from nonebot_plugin_alconna.uniseg import UniMsg
 from typing import Union
 
 require("nonebot_plugin_htmlrender")
@@ -45,10 +48,8 @@ async def send_forward_msg(
     )
 
 
-async def markdown_temple(bot: Bot, text):
-    bot_qq = bot.self_id
+async def markdown_temple( text):
     markdown = f'''
-<img width="100" src="https://q1.qlogo.cn/g?b=qq&nk={bot_qq}&s=640"/>
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 {text}
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
@@ -57,13 +58,11 @@ async def markdown_temple(bot: Bot, text):
 
 
 async def risk_control(
-    bot,
-    event: Union[ObV11MessageEvent, QQMessageEvent],
     message: Union[list, str],
-    is_forward=False, 
     md_temple=True,
     width: int=500,
-    reply_message=True
+    reply_message=True,
+    revoke_later=False,
 ):
     '''
     为防止风控的函数, is_forward True为发送转发消息
@@ -76,29 +75,36 @@ async def risk_control(
     else:
         new_list.append(message)
 
-    async def send_messages(bot, new_list, is_markdown=False, width=500, reply_message=None):
-        if is_markdown:
-            img_list = UniMessage.text('')
-            for img in new_list:
-                msg_list = "".join(img) if isinstance(img, (list, tuple)) else str(img)
-                markdown = await markdown_temple(bot, msg_list)
-                img = await md_to_pic(md=markdown, width=width)
-                img_list += UniMessage.image(raw=img)
-            if img_list:
-                await img_list.send(reply_to=reply_message)
-        else:
-            txt_msg = UniMessage.text("")
-            for msg in new_list:
-                txt_msg += msg
-            await UniMessage.text(txt_msg).send(reply_to=reply_message)
+    if md_temple:
+        img_list = UniMessage.text('')
+        for img in new_list:
+            msg_list = "".join(img) if isinstance(img, (list, tuple)) else str(img)
+            markdown = await markdown_temple(msg_list)
+            img = await md_to_pic(md=markdown, width=width)
+            img_list += UniMessage.image(raw=img)
+        if img_list:
+            r = await img_list.send(reply_to=reply_message)
+            if revoke_later:
+                await send_msg_and_revoke(message=None, reply_to=reply_message, r=r)
 
-    if is_forward and isinstance(event, QQMessageEvent):
-        await send_messages(bot, new_list, is_markdown=md_temple, width=width, reply_message=reply_message)
-    elif isinstance(event, ObV11MessageEvent) and is_forward:
-        msg_list = ["".join(message[i:i + 10]) for i in range(0, len(message), 10)]
-        await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
     else:
-        await send_messages(bot, new_list, is_markdown=md_temple, width=width, reply_message=reply_message)
+        txt_msg = UniMessage.text("")
+        for msg in new_list:
+            txt_msg += msg
+        r = await UniMessage.text(txt_msg).send(reply_to=reply_message)
+        if revoke_later:
+            await send_msg_and_revoke(message=None, reply_to=reply_message, r=r)
+
+#
+# async def obv11_forward(event: ObV11MessageEvent):
+#
+#     if is_forward and isinstance(event, QQMessageEvent):
+#         await send_messages(bot, new_list, is_markdown=md_temple, width=width, reply_message=reply_message)
+#     elif isinstance(event, ObV11MessageEvent) and is_forward:
+#         msg_list = ["".join(message[i:i + 10]) for i in range(0, len(message), 10)]
+#         await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
+#     else:
+#         await send_messages(bot, new_list, is_markdown=md_temple, width=width, reply_message=reply_message)
 
     #
     # # 转发消息或发送文本消息

@@ -38,12 +38,11 @@ require("nonebot_plugin_alconna")
 
 pyd_version = pydantic.__version__
 
-# 支持的适配器 support
+# 支持的适配器
 
 __SUPPORTED_ADAPTER__ = [QQAdapter, OnebotV11Adapter]
 __SUPPORTED_MESSAGEEVENT__ = Union[QQMessageEvent, OnebotV11MessageEvent]
-__SUPPORTED_BOT__ = Union[QQBot, OnebotV11Bot]
-__SUPPORTED_MESSAGE__ = Union[OnebotV11Message, QQMessage]
+message_event_type = (QQMessageEvent, OnebotV11MessageEvent)
 
 if version.parse(pyd_version) < version.parse("2.0"):
     from pydantic import BaseSettings
