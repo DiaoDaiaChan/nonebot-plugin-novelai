@@ -565,7 +565,7 @@ class CommandHandler(SdAPI):
                 fifo = AIDRAW(**fifo_info)
                 try:
                     await fifo.post()
-                except Exception:
+                except Exception:git
                     logger.error(traceback.format_exc())
                     await matcher.finish("出错惹, 快叫主人看控制台")
                 else:
