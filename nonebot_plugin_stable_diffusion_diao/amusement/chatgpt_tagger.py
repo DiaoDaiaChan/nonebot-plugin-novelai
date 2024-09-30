@@ -96,7 +96,7 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     if "yes" in resp:
         prompt = "1girl"
 
-    await run_later(risk_control(bot, event, ["这是chatgpt为你生成的prompt: \n"+prompt]), 2)
+    await run_later(risk_control(["这是chatgpt为你生成的prompt: \n" + prompt]), 2)
 
     args.match = True
     args.pure = True

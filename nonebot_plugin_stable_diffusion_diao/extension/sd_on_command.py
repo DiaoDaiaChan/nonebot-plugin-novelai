@@ -17,6 +17,8 @@ from .sd_extra_api_func import CommandHandler
 
 superuser = SUPERUSER if config.only_super_user else None
 
+__NEED__ = ["找图片", ]
+
 command_handler_instance = CommandHandler()
 
 on_command(
