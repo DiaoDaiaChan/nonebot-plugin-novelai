@@ -64,11 +64,7 @@ class SdAPI:
         self.backend_site = backend_sit
         self.backend_index = backend_index
         self.config = config
-        self.reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
-        self.backend_site_list = config.backend_site_list
-        self.backend_name_list = config.backend_name_list
-
-    async def change_model(
+        self.reverse_dict =
             self,
             model_index,
     ):
