@@ -1,19 +1,18 @@
-from nonebot import on_command, on_shell_command
-from nonebot.adapters.onebot.v11 import Bot, MessageEvent, Message, MessageSegment, ActionFailed, PrivateMessageEvent
-from nonebot.params import CommandArg, Arg, ArgPlainText, ShellCommandArgs, Matcher, RegexMatched
-from nonebot.plugin.on import on_regex
-from nonebot.typing import T_State
-from nonebot.rule import ArgumentParser
-from nonebot.permission import SUPERUSER
-from nonebot import logger
-# from nonebot_plugin_alconna import on_command
-from arclet.alconna import Alconna
 
 from re import I
 
-from ..config import config
+from ..config import config, message_type, __SUPPORTED_MESSAGEEVENT__, message_event_type
 from ..utils import aidraw_parser
-from .sd_extra_api_func import CommandHandler
+from .sd_extra_api_func import CommandHandler, SdAPI
+from ..aidraw import AIDrawHandler
+
+from nonebot import on_command, on_shell_command, logger, Bot
+from nonebot.plugin.on import on_regex
+from nonebot.rule import ArgumentParser
+from nonebot.permission import SUPERUSER
+from nonebot.params import T_State, Arg, Matcher, CommandArg
+
+from nonebot_plugin_alconna.uniseg import UniMsg
 
 superuser = SUPERUSER if config.only_super_user else None
 
@@ -108,10 +107,12 @@ on_command(
     handlers=[command_handler_instance.audit]
 )
 
-on_command(
+on_shell_command(
     "再来一张",
-    block=True,
-    handlers=[command_handler_instance.one_more_generate]
+    parser=aidraw_parser,
+    priority=5,
+    handlers=[command_handler_instance.one_more_generate],
+    block=True
 )
 
 on_regex(
@@ -175,34 +176,57 @@ read_png_info = on_command(
     block=True
 )
 
+aidraw = on_shell_command(
+    ".aidraw",
+    aliases=config.novelai_command_start,
+    parser=aidraw_parser,
+    priority=5,
+    handlers=[AIDrawHandler().aidraw_get],
+    block=True
+)
+
+on_command(
+    "获取链接",
+    block=True,
+    priority=5,
+    handlers=[command_handler_instance.get_url]
+)
+
 
 @super_res.handle()
-async def pic_fix(state: T_State, super_res: Message = CommandArg()):
+async def pic_fix(state: T_State, super_res: message_type[1] = CommandArg()):
     if super_res:
         state['super_res'] = super_res
     pass
 
 
 @super_res.got("super_res", "请发送你要修复的图片")
-async def _(matcher: Matcher, msg: Message = Arg("super_res")):
+async def super_res_obv11_handler(matcher: Matcher, msg: message_type[1] = Arg("super_res")):
 
     if msg[0].type == "image":
         logger.info("开始超分")
-        await command_handler_instance.super_res(msg, matcher)
+        await command_handler_instance.super_res(matcher, msg=msg)
 
     else:
         await super_res.reject("请重新发送图片")
 
 
+@super_res.handle()
+async def _(matcher: Matcher, event: message_event_type[0]):
+
+    url = await SdAPI.get_qq_img_url(event)
+    await command_handler_instance.super_res(matcher, url)
+
+
 @rembg.handle()
-async def rm_bg(state: T_State, rmbg: Message = CommandArg()):
+async def rm_bg(state: T_State, rmbg: message_type[1] = CommandArg()):
     if rmbg:
         state['rmbg'] = rmbg
     pass
 
 
 @rembg.got("rmbg", "请发送你要去背景的图片")
-async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
+async def _(event: message_event_type[1], bot: Bot, msg: message_type[1] = Arg("rmbg")):
 
     if msg[0].type == "image":
         await command_handler_instance.remove_bg(event, bot, msg)
@@ -212,13 +236,50 @@ async def _(event: MessageEvent, bot: Bot, msg: Message = Arg("rmbg")):
 
 
 @read_png_info.handle()
-async def __(state: T_State, png: Message = CommandArg()):
+async def __(state: T_State, png: message_type[1] = CommandArg()):
     if png:
         state['png'] = png
     pass
 
 
 @read_png_info.got("png", "请发送你要读取的图片,请注意,请发送原图")
-async def __(event: MessageEvent, bot: Bot, matcher: Matcher):
+async def __(event: message_event_type[1], bot: Bot, matcher: Matcher):
    await command_handler_instance.get_png_info(event, bot, matcher)
+
+#
+# @control_net.handle()
+# async def c_net(state: T_State, args: Namespace = ShellCommandArgs(), net: Message = CommandArg()):
+#     state["args"] = args
+#     if net:
+#         if len(net) > 1:
+#             state["tag"] = net
+#             state["net"] = net
+#         elif net[0].type == "image":
+#             state["net"] = net
+#             state["tag"] = net
+#         elif len(net) == 1 and not net[0].type == "image":
+#             state["tag"] = net
+#     else:
+#         state["tag"] = net
+#
+#
+# @control_net.got('tag', "请输入绘画的关键词")
+# async def __():
+#     pass
+#
+#
+# @control_net.got("net", "你的图图呢？")
+# async def _(
+#         event: __SUPPORTED_MESSAGEEVENT__,
+#         bot: __SUPPORTED_BOT__,
+#         args: Namespace = Arg("args"),
+#         msg: __SUPPORTED_MESSAGE__ = Arg("net")
+# ):
+#     for data in msg:
+#         if data.data.get("url"):
+#             args.pic_url = data.data.get("url")
+#     args.control_net = True
+#     await bot.send(event=event, message=f"control_net以图生图中")
+#     await aidraw_get(bot, event, args)
+#
 

@@ -100,8 +100,9 @@ async def check_safe_method(
                         fifo, i, fifo.group_id
                     )
                 )
-
-        return [UniMessage.image(raw=i) for i in img_bytes]
+        for i in img_bytes:
+            message += UniMessage.image(raw=i)
+        return message
 
     audit_result = await audit_all_image(fifo, img_bytes)
 
@@ -152,7 +153,7 @@ async def check_safe_method(
                         try:
                             message_data = await bot.send_private_msg(
                                 user_id=fifo.user_id,
-                                message=f"悄悄给你看哦{unimsg_img}\n{fifo.img_hash}+AI绘图模型根据用户QQ{fifo.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
+                                message=f"悄悄给你看哦{unimsg_img.export()}\n{fifo.img_hash}+AI绘图模型根据用户QQ{fifo.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
                             )
                         except:
                             message_data = await bot.send_group_msg(
@@ -169,7 +170,7 @@ async def check_safe_method(
                             try:
                                 message_data = await bot.send_private_msg(
                                     user_id=fifo.user_id,
-                                    message=f"悄悄给你看哦{unimsg_img}\n{fifo.img_hash}"
+                                    message=f"悄悄给你看哦{unimsg_img.export()}\n{fifo.img_hash}"
                                 )
                             except:
                                 try:
@@ -201,7 +202,7 @@ async def check_safe_method(
                     elif htype == 5:
                         await bot.send_group_msg(
                             group_id=fifo.group_id,
-                            message=f"是好康{unimsg_img}\n{fifo.img_hash}"
+                            message=f"是好康{unimsg_img.export()}\n{fifo.img_hash}"
                         )
 
                     revoke = await config.get_value(fifo.group_id, "revoke")

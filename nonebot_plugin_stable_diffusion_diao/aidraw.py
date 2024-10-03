@@ -1,9 +1,7 @@
-import asyncio
 import time
 import re
 import random
 import json
-import os
 import ast
 import aiofiles
 import traceback
@@ -15,32 +13,25 @@ from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
 from nonebot import get_bot, on_shell_command
 from pathlib import Path
+from typing import Union, Optional, List
 
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
-    MessageSegment,
     PrivateMessageEvent,
     GroupMessageEvent
 )
 
 from nonebot.adapters.qq import MessageEvent as QQMessageEvent
-
-
-from typing import Union
-
 from nonebot.permission import SUPERUSER
 from nonebot.log import logger
-from nonebot.params import ShellCommandArgs, Matcher
+from nonebot.params import ShellCommandArgs
 from nonebot import Bot
+from nonebot_plugin_alconna import UniMessage
 
-from nonebot_plugin_alconna import Target, UniMessage, SupportScope, on_alconna
-
-from .config import config, redis_client, nickname
-
-from .utils import aidraw_parser
+from .config import config, redis_client, __SUPPORTED_MESSAGEEVENT__
+from .utils import aidraw_parser, txt_audit
 from .utils.data import lowQuality, basetag, htags
-from .backend import AIDRAW, bing
-from .backend.bing import GetBingImageFailed
+from .backend import AIDRAW
 from .extension.anlas import anlas_set
 from .extension.daylimit import count
 from .extension.explicit_api import check_safe_method
@@ -48,7 +39,6 @@ from .utils.prepocess import prepocess_tags
 from .utils import revoke_msg, run_later
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
-from .extension.safe_method import send_forward_msg
 
 cd = {}
 user_models_dict = {}
@@ -82,24 +72,24 @@ async def get_message_at(data: str) -> int:
         return None
 
 
-async def send_msg_and_revoke(message, reply_to=False, r=None):
+async def send_msg_and_revoke(message: Union[UniMessage, str], reply_to=False, r=None):
+    if isinstance(message, str):
+        message = UniMessage(message)
 
     async def main(message, reply_to, r):
         if r:
             await revoke_msg(r)
         else:
-            message += message
-            r = await UniMessage.text(message).send(reply_to=reply_to)
+            r = await message.send(reply_to=reply_to)
             await revoke_msg(r)
         return
 
     await run_later(main(message, reply_to, r), 2)
 
 
-
 class AIDrawHandler:
 
-    tasks_num = 0
+    tasks_num = -1
 
     @classmethod
     def get_tasks_num(cls):
@@ -109,7 +99,7 @@ class AIDrawHandler:
     def set_tasks_num(cls, num):
         cls.tasks_num += num
 
-    def __init__(self):
+    def __init__(self, fifo=None, tags_list=None):
         self.event = None
         self.bot = None
         self.args = None
@@ -117,7 +107,7 @@ class AIDrawHandler:
         self.event = None
         self.bot = None
 
-        self.tags_list = []
+        self.tags_list = tags_list
         self.new_tags_list = []
         self.model_info_ = ""
         self.random_tags = ""
@@ -126,18 +116,17 @@ class AIDrawHandler:
         self.style_ntag = ""
         self.message = ""
         self.read_tags = False
-        self.fifo = None
+        self.fifo = fifo
 
         self.user_id = None
         self.group_id = None
         self.nickname = None
 
-
     async def aidraw_get(
             self,
             bot: Bot,
-            event: Union[MessageEvent, QQMessageEvent],
-            args: Namespace = ShellCommandArgs()
+            event: __SUPPORTED_MESSAGEEVENT__,
+            args: Namespace = ShellCommandArgs(),
     ) -> AIDRAW:
 
         self.set_tasks_num(1)
@@ -149,6 +138,8 @@ class AIDrawHandler:
 
         logger.debug(self.args.tags)
         logger.debug(self.fifo)
+
+        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}, 你前面还有{self.get_tasks_num()}个人"
 
         if isinstance(event, MessageEvent):
             self.user_id = event.user_id
@@ -162,9 +153,7 @@ class AIDrawHandler:
             self.user_id = event.get_user_id()
             self.group_id = event.get_session_id()
             await self.qq_handler(bot, event)
-
-        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}, 你前面还有{self.get_tasks_num()}个人"
-
+            
         if not self.fifo.pure:
             await send_msg_and_revoke(build_msg)
 
@@ -172,7 +161,7 @@ class AIDrawHandler:
         return self.fifo
 
     async def obv11_handler(self, bot, event):
-        pass
+        await self.exec_generate(event, bot)
 
     async def qq_handler(self, bot, event):
 
@@ -181,7 +170,6 @@ class AIDrawHandler:
         await self.auto_match()
         await self.match_models()
         await self.post_process_tags(event)
-
 
     async def pre_process_args(self):
         if self.args.pu:
@@ -204,6 +192,8 @@ class AIDrawHandler:
             self.read_tags = True
 
     async def cd_(self, event, bot):
+
+        self.message = ''
 
         if await config.get_value(self.group_id, "on"):
             if config.novelai_daylimit and not await SUPERUSER(bot, event):
@@ -282,8 +272,6 @@ class AIDrawHandler:
                         try:
                             style = ast.literal_eval(decoded_style)
                         except (ValueError, SyntaxError) as e:
-                            print(f"Error at index {index}: {e}")
-                            print(f"Failed content: {decoded_style}")
                             continue
                         else:
                             for tag in tags_list:
@@ -310,6 +298,34 @@ class AIDrawHandler:
         else:
             await self.fifo.load_balance_init()
 
+        self.fifo.backend_index = config.reverse_dict[self.fifo.backend_site]
+
+        if config.override_backend_setting_enable:
+            try:
+                # 从配置中获取覆写设置
+                params_dict = config.override_backend_setting[self.fifo.backend_index]
+            except IndexError:
+                logger.warning("覆写后端设置列表与后端长度不一致!")
+            else:
+                filtered_params_dict = {k: v for k, v in params_dict.items() if v is not None}
+
+                for key, value in filtered_params_dict.items():
+                    if hasattr(self.fifo, key):
+                        arg_value = getattr(self.args, key, None)
+
+                        if (
+                                arg_value is None or
+                                (isinstance(arg_value, str) and arg_value == "") or
+                                (isinstance(arg_value, int) and arg_value == 0) or
+                                (isinstance(arg_value, float) and arg_value == 0.0)
+                        ):
+                            if key == "tags":
+                                self.fifo.tags += f", {value}" if self.fifo.tags else value
+                            elif key == "ntags":
+                                self.fifo.ntags += f", {value}" if self.fifo.ntags else value
+                            else:
+                                setattr(self.fifo, key, value)
+
         org_tag_list = self.fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
@@ -328,7 +344,7 @@ class AIDrawHandler:
                     cur_backend_lora_list = all_backend_lora_list[self.fifo.backend_name]
                     cur_backend_emb_list = all_backend_emb_list[self.fifo.backend_name]
 
-                    if self.fifo.backend_name in all_backend_lora_list and all_backend_lora_list[self.fifo.backend_name] is None:
+                    if self.fifo.backend_name in all_backend_lora_list and all_backend_lora_list[self.fifo.backend_name] is None and config.reload_model:
                         from .extension.sd_extra_api_func import get_and_process_emb, get_and_process_lora
                         logger.info("此后端没有lora数据,尝试重新载入")
                         cur_backend_lora_list, _ = await get_and_process_lora(self.fifo.backend_site, self.fifo.backend_name)
@@ -392,6 +408,10 @@ class AIDrawHandler:
 
         self.new_tags_list = new_tags_list
         self.tags_list = tags_list
+
+        resp = await txt_audit(str(self.tags_list))
+        if 'yes' in resp:
+            await UniMessage.text("对不起, 请重新输入prompt").finish()
 
     async def match_models(self):
         emb_msg, lora_msg = "", ""
@@ -462,9 +482,10 @@ class AIDrawHandler:
                     event=event,
                     message=message,
                 )
-            else:
-                await self.send_result_msg(fifo, unimsg)
+            finally:
                 self.set_tasks_num(-1)
+                await self.send_result_msg(fifo, unimsg)
+
 
         await generate(self.fifo)
         await version.check_update()
@@ -491,7 +512,7 @@ CFG Scale:{fifo.scale}
 {fifo.extra_info}
 {fifo.audit_info}
 '''
-                )
+            )
         if fifo.video:
             await UniMessage.video(path=Path(fifo.video)).send(reply_to=True)
 
@@ -640,15 +661,3 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     if fifo.cost > 0:
         await anlas_set(fifo.user_id, -fifo.cost)
     return message
-
-
-aidraw = on_shell_command(
-    ".aidraw",
-    aliases=config.novelai_command_start,
-    parser=aidraw_parser,
-    priority=5,
-    handlers=[AIDrawHandler().aidraw_get],
-    block=True
-)
-
-aidraw_get = AIDrawHandler().aidraw_get

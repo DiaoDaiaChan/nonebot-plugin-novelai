@@ -1,9 +1,8 @@
 import aiohttp
 
-from ..config import config
+from ..config import config, __SUPPORTED_MESSAGEEVENT__
 
-from nonebot import on_shell_command
-from nonebot.adapters.onebot.v11 import MessageEvent, Bot
+from nonebot import on_shell_command, Bot
 from nonebot.params import ShellCommandArgs
 from argparse import Namespace
 
@@ -87,8 +86,12 @@ def get_user_session(user_id) -> Session:
 
 
 @chatgpt.handle()
-async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs()):
-    from ..aidraw import aidraw_get
+async def _(
+        event: __SUPPORTED_MESSAGEEVENT__,
+        bot: Bot,
+        args: Namespace = ShellCommandArgs()
+):
+    from ..aidraw import AIDrawHandler
     user_msg = str(args.tags)
     to_openai = user_msg + "prompt"
     prompt = await get_user_session(event.get_session_id()).main(to_openai)
@@ -96,10 +99,10 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
     if "yes" in resp:
         prompt = "1girl"
 
-    await run_later(risk_control(["这是chatgpt为你生成的prompt: \n" + prompt]), 2)
+    await run_later(risk_control(["这是LLM为你生成的prompt: \n" + prompt]), 2)
 
     args.match = True
     args.pure = True
     args.tags = tags_to_list(prompt)
 
-    await aidraw_get(bot, event, args)
+    await AIDrawHandler().aidraw_get(bot, event, args)

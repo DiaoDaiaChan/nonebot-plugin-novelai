@@ -300,6 +300,8 @@ async def txt_audit(
         如果没有则输出<no>
         '''
 ):
+    if config.enable_txt_audit is False:
+        return msg
 
     system = [
         {"role": "system",

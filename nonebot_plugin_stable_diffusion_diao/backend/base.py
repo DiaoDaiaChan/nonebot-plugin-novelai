@@ -46,9 +46,7 @@ class AIDRAW_BASE:
         steps: int = None,
         strength: float = None,
         noise: float = None,
-        shape: str = None,
         man_shape: str = None,
-        model: str = None,
         sampler: None or str = None,
         backend_index: str = None,
         disable_hr: bool = False if config.novelai_hr else True,
@@ -68,7 +66,6 @@ class AIDRAW_BASE:
         eye_fix: bool = False,
         pure: bool = False,
         xl: bool = True if config.enalbe_xl else False,
-        vae: str = None,
         dtg: bool = False,
         pu: bool = False,
         ni: bool = False,
@@ -109,7 +106,7 @@ class AIDRAW_BASE:
         self.accept_ratio = None
         if accept_ratio:
             self.accept_ratio = accept_ratio
-            self.width, self.height = self.extract_ratio()
+            self.width, self.height = self.extract_ratio(max_res=1024)
         else:
             if config.novelai_random_ratio:
                 random_shape = self.weighted_choice(config.novelai_random_ratio_list)
@@ -250,41 +247,42 @@ class AIDRAW_BASE:
         """
         更新cost
         """
-        if config.novelai_paid == 1:
-            anlas = 0
-            if (self.width * self.height > 409600) or self.image > 1:
-            # if (self.width * self.height > 409600) or self.image or self.batch > 1:
-                anlas = round(
-                    self.width
-                    * self.height
-                    * self.strength
-                    # * self.batch
-                    * self.steps
-                    / 2293750
-                )
-                if anlas < 2:
-                    anlas = 2
-            if self.user_id in get_driver().config.superusers:
-                self.cost = 0
-            else:
-                self.cost = anlas
-        elif config.novelai_paid == 2:
-            anlas = round(
-                self.width
-                * self.height
-                * self.strength
-                # * self.batch
-                * self.steps
-                / 2293750
-            )
-            if anlas < 2:
-                anlas = 2
-            if self.user_id in get_driver().config.superusers:
-                self.cost = 0
-            else:
-                self.cost = anlas
-        else:
-            self.cost = 0
+        self.cost = 0
+        # if config.novelai_paid == 1:
+        #     anlas = 0
+        #     if (self.width * self.height > 409600) or self.image > 1:
+        #     # if (self.width * self.height > 409600) or self.image or self.batch > 1:
+        #         anlas = round(
+        #             self.width
+        #             * self.height
+        #             * self.strength
+        #             # * self.batch
+        #             * self.steps
+        #             / 2293750
+        #         )
+        #         if anlas < 2:
+        #             anlas = 2
+        #     if self.user_id in get_driver().config.superusers:
+        #         self.cost = 0
+        #     else:
+        #         self.cost = anlas
+        # elif config.novelai_paid == 2:
+        #     anlas = round(
+        #         self.width
+        #         * self.height
+        #         * self.strength
+        #         # * self.batch
+        #         * self.steps
+        #         / 2293750
+        #     )
+        #     if anlas < 2:
+        #         anlas = 2
+        #     if self.user_id in get_driver().config.superusers:
+        #         self.cost = 0
+        #     else:
+        #         self.cost = anlas
+        # else:
+        #     self.cost = 0
 
     async def add_image(self, image: bytes, control_net=None):
         """

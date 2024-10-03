@@ -7,11 +7,7 @@ from nonebot.adapters.onebot.v11 import (
     GroupMessageEvent
 )
 
-from ..aidraw import send_msg_and_revoke
-from ..utils import run_later
-
 from nonebot_plugin_alconna import UniMessage
-from nonebot_plugin_alconna.uniseg import UniMsg
 from typing import Union
 
 require("nonebot_plugin_htmlrender")
@@ -59,7 +55,7 @@ async def markdown_temple( text):
 
 async def risk_control(
     message: Union[list, str],
-    md_temple=True,
+    md_temple=False,
     width: int=500,
     reply_message=True,
     revoke_later=False,
@@ -68,6 +64,7 @@ async def risk_control(
     为防止风控的函数, is_forward True为发送转发消息
     '''
 
+    from ..aidraw import send_msg_and_revoke
     n = 240
     new_list = []
     if isinstance(message, list) and len(message) > n:

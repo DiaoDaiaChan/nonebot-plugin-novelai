@@ -1,21 +1,22 @@
 import json
-from pathlib import Path
 import aiohttp
 import ast
 import asyncio
 import traceback
-from datetime import datetime
 import redis
 import yaml as yaml_
 import os
-from typing import Tuple, Union
-from ruamel.yaml import YAML
 import shutil
 import sys
 import uvicorn
 import threading
-
 import aiofiles
+
+from datetime import datetime
+from typing import Tuple, Union, Any
+from ruamel.yaml import YAML
+from pathlib import Path
+
 from nonebot import get_driver, require
 from nonebot.log import logger
 
@@ -24,9 +25,6 @@ from nonebot.adapters.onebot.v11 import Adapter as OnebotV11Adapter
 
 from nonebot.adapters.qq import MessageEvent as QQMessageEvent
 from nonebot.adapters.onebot.v11 import MessageEvent as OnebotV11MessageEvent
-
-from nonebot.adapters.qq import Bot as QQBot
-from nonebot.adapters.onebot.v11 import Bot as OnebotV11Bot
 
 from nonebot.adapters.qq import Message as QQMessage
 from nonebot.adapters.onebot.v11 import Message as OnebotV11Message
@@ -40,9 +38,11 @@ pyd_version = pydantic.__version__
 
 # 支持的适配器
 
-__SUPPORTED_ADAPTER__ = [QQAdapter, OnebotV11Adapter]
+__SUPPORTED_ADAPTER__ = Union[QQAdapter, OnebotV11Adapter]
 __SUPPORTED_MESSAGEEVENT__ = Union[QQMessageEvent, OnebotV11MessageEvent]
+__SUPPORTED_MESSAGE__ = Union[QQMessage, OnebotV11Message]
 message_event_type = (QQMessageEvent, OnebotV11MessageEvent)
+message_type = (QQMessage, OnebotV11Message)
 
 if version.parse(pyd_version) < version.parse("2.0"):
     from pydantic import BaseSettings
@@ -53,9 +53,7 @@ else:
         traceback.print_exc()
         import subprocess
         subprocess.run([sys.executable, "-m", "pip", "install", "pydantic_settings"])
-        logger.warning("请重启nb捏")
-        sys.exit()
-
+        from pydantic_settings import BaseSettings
 
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
@@ -123,6 +121,8 @@ class Config(BaseSettings):
     ai_trans: bool = False   # ai自动翻译/生成
     dbapi_build_in: bool = True  # 启动内置的dbapi进行生图
     send_to_bot: bool = True  # 涩图直接发给机器人本身(避免未配置superusers)
+    enable_txt_audit: bool = False  #启动LLM文字审核
+    reload_model: bool = False  # 是否自动重新加载lora/emb模型
     '''
     模式选择
     '''
@@ -146,6 +146,8 @@ class Config(BaseSettings):
         "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     backend_type: list = ["1.5", "xl", "flux", "1.5"]
+    override_backend_setting_enable: bool = True  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
+    override_backend_setting: list = []  # 覆写后端设置
     '''
     post参数设置
     '''
@@ -359,6 +361,8 @@ class Config(BaseSettings):
     novelai_max: int = 3  # 每次能够生成的最大数量
     novelai_limit: bool = False  # 是否开启限速!!!不要动!!!它!
     novelai_auto_icon: bool = True  # 机器人自动换头像(没写呢！)
+
+    reverse_dict: dict = {}
 
     # 允许单群设置的设置
     def keys(cls):
@@ -759,7 +763,7 @@ if config.dbapi_build_in:
     ).start()
 
     config.novelai_backend_url_dict.update(
-        {"内建DrawBridgeAPI": f"{config.dbapi_site[0]}:{config.dbapi_site[1]}"}
+        {"内建DrawBridgeAPI": f"127.0.0.1:{config.dbapi_site[1]}"}
     )
     config.backend_type.append("1.5")
     
@@ -768,6 +772,7 @@ if config.dbapi_build_in:
 
 config.backend_name_list = list(config.novelai_backend_url_dict.keys())
 config.backend_site_list = list(config.novelai_backend_url_dict.values())
+config.reverse_dict = {value: key for key, value in config.backend_url_dict.items()}
 
 if config.is_redis_enable:
     try:

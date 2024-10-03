@@ -51,6 +51,8 @@ auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于
 ai_trans: false  # ai自动翻译/生成
 dbapi_build_in: true  # 启动内置的dbapi进行生图
 send_to_bot: true  # 涩图直接发给机器人本身(避免未配置superusers)
+enable_txt_audit: false  # 启用LLM文本审核功能
+reload_model: false  # 是否自动重新加载lora/emb模型
 # --------------------------------
 # 模式选择
 # --------------------------------
@@ -78,9 +80,60 @@ backend_type:  # 这里的长度要和上面一样哦!
   - xl
   - 1.5
 # 后端跑的是什么类型的模型? ↑
+override_backend_setting_enable: true  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
+override_backend_setting:  #覆写后端设置
+# init函数支持的输入
+  #    "tags": ""
+  #    "ntags": ""
+  #    "seed": null
+  #    "scale": null
+  #    "steps": null
+  #    "strength": null
+  #    "noise": null
+  #    "man_shape": null
+  #    "sampler": null
+  #    "backend_index": null
+  #    "disable_hr": false
+  #    "hiresfix_scale": null
+  #    "event": null
+  #    "sr": null
+  #    "model_index": null
+  #    "custom_scripts": null
+  #    "scripts": null
+  #    "td": null
+  #    "xyz_plot": null
+  #    "open_pose": false
+  #    "sag": false
+  #    "accept_ratio": null
+  #    "outpaint": false
+  #    "cutoff": null
+  #    "eye_fix": false
+  #    "pure": false
+  #    "xl": false
+  #    "dtg": false
+  #    "pu": false
+  #    "ni": false
+  #    "batch": 1
+  #    "niter": 1
+  #    "override": false
+  #
+  -
+    "tags": ""
+    "ntags": "easynegative"
+    "scale": 7
+    "steps": 16
+    "sampler": Euler a
+  -
+    "steps": 4
+  -
+    "tags": "score_9,score_8_up,score_7_up,score_anime,"
+    "ntags": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
+  -
+
 # --------------------------------
 # post参数设置
 # --------------------------------
+# 注意!! 以下tags设置本人推荐使用override_backend_setting来为不同的后端单独设置
 novelai_tags: ""  # 内置的tag
 novelai_ntags: "easynegative"  # 内置的反tag
 novelai_steps: null  # 默认步数
@@ -138,11 +191,11 @@ xl_config:
     prompt: "score_9,score_8_up,score_7_up,score_anime,"
     negative_prompt: "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
     hr_config:         
-      denoising_strength: 0.3
+      denoising_strength: 0.7
       hr_scale: 1.5
       hr_upscaler: "Lanczos"
-      hr_second_pass_steps: 6
-    xl_base_factor: null
+      hr_second_pass_steps: 10
+    xl_base_factor: 1.5
 xl_sd_model_checkpoint: ""
 # --------------------------------
 # 插件设置

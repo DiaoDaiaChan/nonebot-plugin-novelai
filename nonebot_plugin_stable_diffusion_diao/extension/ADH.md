@@ -1,4 +1,4 @@
-# 更多详细说明请看 https://github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao
+# 更多详细说明请看 https://gitee.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao
 ### 快速画图: 绘画 白发,红色眼睛
 ### 请注意!!! 请用英文双引号把tags括起来 绘画"pink hair, red eye" 否则在带空格的情况下可能会意外解析
 ### 支持的插件和脚本

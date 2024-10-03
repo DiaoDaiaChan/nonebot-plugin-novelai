@@ -63,6 +63,7 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 - ### 自动匹配功能, 例如你有一个名为 胡桃.safetensors 的LORA模型, 你只需要输入 绘画胡桃 就能匹配到这个模型 ( 胡桃 -> '<lora:胡桃:1>'), 以及下面匹配的提示词预设功能
 - ### 提示词预设 [预设命令预览](#710-030更新)
 - ### 从civitai搜索模型/下载模型到sd后端/运行模型 [C站更新](#87-041更新-更新c站httpscivitaicom搜索-下载模型功能)
+- ### 支持为每个不同的后端单独设置参数(见配置项override_backend_setting), 比如请求到1号后端自动使用一套prompt和参数,2号后端又是另一套参数
 
 - ### 后端  
 ![后端](./docs/main/images/help/backend.png)  

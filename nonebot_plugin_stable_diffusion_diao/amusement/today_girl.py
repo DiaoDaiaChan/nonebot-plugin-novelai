@@ -1,20 +1,19 @@
-from nonebot import on_shell_command, logger
-from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, Bot, ActionFailed, PrivateMessageEvent, Message
+import nonebot.adapters.onebot.v11
+from nonebot import on_shell_command, logger, Bot
 from nonebot.params import ShellCommandArgs
 from argparse import Namespace
+from nonebot_plugin_alconna import UniMessage
 
 from ..backend.mj import AIDRAW as MJ_AIDRAW
 from ..extension.translation import translate
-from ..config import config
+from ..config import config, __SUPPORTED_MESSAGEEVENT__, message_event_type
 from ..utils.save import save_img
 from ..utils import revoke_msg, aidraw_parser, run_later, tags_to_list
-from ..aidraw import get_message_at, aidraw_get, send_msg_and_revoke
+from ..aidraw import get_message_at, AIDrawHandler, send_msg_and_revoke
 
 import random
 import time
 import re
-
-
 
 today_girl = on_shell_command(
     "二次元的",
@@ -1260,34 +1259,41 @@ replace_dict = {
 
 
 @today_girl.handle()
-async def _(bot: Bot, 
-            event: MessageEvent, 
+async def _(bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
             args: Namespace = ShellCommandArgs()
-):  
-    user_id = str(event.user_id)
-    message = args.tags[0]
+):
+
     mj_mode = False
-    if message.find('/mj') != -1 and hasattr(config, "novelai_mj_proxy") and config.novelai_mj_proxy:
-        # 可以使用mj代理
-        mj_mode = True
-        message = message.replace('/mj', '')
-    if message == "我":
-        if isinstance(event, PrivateMessageEvent):
-            user_name = event.sender.nickname
-        else:
-            get_info = await bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
-            user_name = get_info["nickname"]
-    else:
-        user_name = message
+    user_name = '我'
+    user_id = event.get_user_id()
     img_url = None
     random_int_str = str(random.randint(0, 65535))
 
-    at_id = await get_message_at(event.json())
-    if at_id:
-        img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
-        user_id = str(at_id)
-        if config.novelai_paid is False:
-            await today_girl.finish(f"以图生图功能已禁用")
+    if isinstance(event, message_event_type[1]):
+        message = args.tags[0]
+        mj_mode = False
+        if message.find('/mj') != -1 and hasattr(config, "novelai_mj_proxy") and config.novelai_mj_proxy:
+            # 可以使用mj代理
+            mj_mode = True
+            message = message.replace('/mj', '')
+        if message == "我":
+            if isinstance(event, nonebot.adapters.onebot.v11.PrivateMessageEvent):
+                user_name = event.sender.nickname
+            else:
+                get_info = await bot.get_group_member_info(group_id=event.group_id, user_id=user_id)
+                user_name = get_info["nickname"]
+        else:
+            user_name = message
+        img_url = None
+
+        at_id = await get_message_at(event.json())
+        if at_id:
+            img_url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+            user_id = str(at_id)
+            if config.novelai_paid is False:
+                await today_girl.finish(f"以图生图功能已禁用")
+
     user_name += random_int_str
     user_id_random = user_id + random_int_str
     build_msg_en = []
@@ -1361,15 +1367,10 @@ async def _(bot: Bot,
 
         # MJ一次出四张图，进行切图，切无需审核
         image_bytes = await MJ_AIDRAW.split_image(fifo.result[0])
-        img_msg = ''
+        img_msg = UniMessage.text('')
         for i in range(4):
-            img_msg += MessageSegment.image(image_bytes[i])
-
-        message_data = await bot.send(
-            event=event,
-            message=img_msg + f"\n{fifo.img_hash}",
-            at_sender=True, reply_message=True
-        )
+            img_msg += UniMessage.image(raw=image_bytes[i])
+        r = await img_msg.send(reply_to=True)
         await run_later(
             save_img(
             fifo=fifo,
@@ -1380,10 +1381,10 @@ async def _(bot: Bot,
 
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
-            await revoke_msg(message_data, bot, revoke)
+            await revoke_msg(r)
     
     else:
-        await aidraw_get(bot, event, args)
+        await AIDrawHandler().aidraw_get(bot, event, args)
 
 
 

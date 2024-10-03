@@ -6,13 +6,6 @@ from ..config import config, redis_client
 import time
 from tqdm import tqdm
 
-import ast
-import traceback
-import aiofiles
-import json
-import os
-
-
 async def get_progress(url):
     api_url = "http://" + url + "/sdapi/v1/progress"
     vram_usage, resp_code2 = await get_vram(url, True)
@@ -44,7 +37,7 @@ async def sd_LoadBalance(fifo=None):
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
     backend_url_dict = config.novelai_backend_url_dict
-    reverse_dict = {value: key for key, value in backend_url_dict.items()}
+    reverse_dict = config.reverse_dict
     tasks = []
     is_avaiable = 0
     status_dict = {}

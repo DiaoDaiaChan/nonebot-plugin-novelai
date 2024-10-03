@@ -1,3 +1,4 @@
+import nonebot_plugin_alconna
 from PIL import Image
 from PIL import ImageGrab
 import json
@@ -17,20 +18,21 @@ import ast
 from argparse import Namespace
 
 from ..config import config, redis_client, nickname
-from ..config import __SUPPORTED_MESSAGEEVENT__, __SUPPORTED_BOT__, __SUPPORTED_MESSAGE__
+from ..config import __SUPPORTED_MESSAGEEVENT__, message_event_type
 from .translation import translate
 from ..backend import AIDRAW
 from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_later, txt_audit
-from ..utils.save import save_img
-from ..utils.data import lowQuality, basetag
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils.prepocess import prepocess_tags
 from .safe_method import send_forward_msg, risk_control
-from ..aidraw import aidraw_get
-
-from nonebot import on_command, on_shell_command
+from ..aidraw import  send_msg_and_revoke, get_message_at, AIDrawHandler
+from nonebot import  on_shell_command
 from nonebot.params import CommandArg, Arg, ShellCommandArgs, Matcher, RegexGroup
-from nonebot_plugin_alconna import UniMessage
+
+from nonebot_plugin_alconna import UniMessage, CommandResult, AlconnaResult
+from nonebot_plugin_alconna.uniseg import UniMsg
+from nonebot import Bot
+
 from nonebot.typing import T_State
 from nonebot import logger
 from collections import Counter
@@ -64,7 +66,11 @@ class SdAPI:
         self.backend_site = backend_sit
         self.backend_index = backend_index
         self.config = config
-        self.reverse_dict =
+        self.reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
+        self.backend_site_list = config.backend_site_list
+        self.backend_name_list = config.backend_name_list
+
+    async def change_model(
             self,
             model_index,
     ):
@@ -180,6 +186,28 @@ class SdAPI:
         bytes_img = base64.b64decode(resp_img)
         return bytes_img, msg, sc, resp_img
 
+    @staticmethod
+    async def get_qq_img_url(event):
+        url_regex = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
+        if isinstance(event, message_event_type[0]):
+            url = re.findall(url_regex, str(event.get_message()))[0][:-1]
+
+        elif isinstance(event, message_event_type[1]):
+
+            reply = event.reply
+            for seg in event.message['image']:
+                url = seg.data["url"]
+            at_id = await get_message_at(event.json())
+            # 获取图片url
+            if at_id:
+                url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+            if reply:
+                for seg in reply.message['image']:
+                    url = seg.data["url"]
+
+        return url
+
 
 class CommandHandler(SdAPI):
     def __init__(self):
@@ -187,9 +215,7 @@ class CommandHandler(SdAPI):
 
     async def get_sd_models(
         self,
-        event: __SUPPORTED_MESSAGEEVENT__,
-        bot: __SUPPORTED_BOT__,
-        msg: __SUPPORTED_MESSAGE__ = CommandArg()
+        msg: UniMsg
     ):
         vae = False
         plain_text = msg.extract_plain_text()
@@ -198,67 +224,83 @@ class CommandHandler(SdAPI):
             vae = True
         else:
             if msg:
-                self.backend_index = int(plain_text)
+                self.backend_index = int(plain_text[-1])
             else:
                 self.backend_index = 0
         final_message = await self.get_models_api(self.backend_index, False, vae)
-        await risk_control(bot, event, final_message, True, False)
+
+        await risk_control(final_message, True, revoke_later=True)
 
     async def change_sd_model(
         self,
-        event: __SUPPORTED_MESSAGEEVENT__,
-        bot: __SUPPORTED_BOT__,
-        matcher: Matcher,
-        msg: __SUPPORTED_MESSAGE__ = CommandArg(),
+        msg: UniMsg,
     ):
         try:
             user_command = msg.extract_plain_text()
             self.backend_index = user_command.split("_")[0]
             index = user_command.split("_")[1]
         except:
-            await matcher.finish("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)")
+            await UniMessage.text("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)").finish()
 
-        await bot.send(
-            event=event,
-            message=f"收到指令，为后端 {self.backend_site} 更换模型中，后端索引-sd {self.backend_index}，请等待,期间无法出图",
-            at_sender=True
+        await risk_control(
+            f"收到指令，为后端 {self.backend_site} 更换模型中，后端索引-sd {self.backend_index}，请等待,期间无法出图",
+            False,
+            reply_message=True,
+            revoke_later=True
         )
 
         data, spend_time_msg, code = await self.change_model(index)
 
         if code in [200, 201]:
-            await bot.send(event=event, message=f"更换模型 {data} 成功{spend_time_msg}", at_sender=True)
-        else:
-            await bot.send(event=event, message=f"更换模型失败，错误代码 {code}", at_sender=True)
 
-        # await matcher.finish("输入错误, 索引错误")
-        #
+            await risk_control(
+                f"更换模型 {data} 成功{spend_time_msg}",
+                False,
+                reply_message=True,
+                revoke_later=True
+            )
+
+        else:
+
+            await risk_control(
+                f"更换模型失败，错误代码 {code}",
+                False,
+                reply_message=True,
+                revoke_later=True
+            )
 
     async def super_res(
-            self, msg, matcher: Matcher
+            self, matcher: Matcher, url=None, msg=None
     ):
+
         img_url_list = []
         img_byte_list = []
         text_msg = ""
         upscale = 0
 
-        if len(msg) > 1:
-            for i in msg:
-                img_url_list.append(i.data["url"])
-                upscale = 0
-        else:
-            img_url_list.append(msg[0].data["url"])
-            upscale = 1
+        if msg:
+            if len(msg) > 1:
+                for i in msg:
+                    img_url_list.append(i.data["url"])
+                    upscale = 0
+            else:
+                img_url_list.append(msg[0].data["url"])
+                upscale = 1
 
-        logger.info(f"总共{len(img_url_list)}张图片")
-        for i in img_url_list:
-            qq_img = await download_img(i)
+            logger.info(f"总共{len(img_url_list)}张图片")
+
+        if url:
+            qq_img = await download_img(url)
             qq_img, text_msg, status_code, _ = await self.super_res_api_func(qq_img[1], upscale)
+        else:
+            for i in img_url_list:
+                qq_img = await download_img(i)
+                qq_img, text_msg, status_code, _ = await self.super_res_api_func(qq_img[1], upscale)
 
-            if status_code not in [200, 201]:
-                await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
+                if status_code not in [200, 201]:
+                    await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
 
-            img_byte_list.append(qq_img)
+        img_byte_list.append(qq_img)
 
         if len(img_byte_list) == 1:
             await UniMessage.image(raw=img_byte_list[0]).send()
@@ -269,7 +311,7 @@ class CommandHandler(SdAPI):
 
             await uni_msg.send()
 
-    async def view_backend(self, event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
+    async def view_backend(self):
         n = -1
         backend_list = self.config.backend_name_list
         backend_site = self.config.backend_site_list
@@ -327,20 +369,18 @@ class CommandHandler(SdAPI):
             vram = await get_vram(backend_site[n])
             message.append(f"{vram}\t\n")
 
-        await risk_control(bot, event, message, True)
+        await risk_control(message, revoke_later=True, md_temple=True)
 
     async def get_emb(
             self,
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
-            msg: __SUPPORTED_MESSAGE__ = CommandArg()
+            msg: UniMsg
     ):
         text_msg = None
         index = 0
         msg = msg.extract_plain_text().strip()
         if msg:
             if "_" in msg:
-                index, text_msg = int(msg.split("_")[0]), msg.split("_")[1]
+                index, text_msg = int(msg.split("_")[0][-1]), msg.split("_")[1]
             else:
                 if msg.isdigit():
                     index = int(msg)
@@ -348,20 +388,18 @@ class CommandHandler(SdAPI):
                     text_msg = msg
         site_, site = self.backend_name_list[index], self.backend_site_list[index]
         emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
-        await risk_control(bot, event, embs_list, True, True)
+        await risk_control(embs_list, True, reply_message=True, revoke_later=True)
 
     async def get_lora(
             self,
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
-            msg: __SUPPORTED_MESSAGE__ = CommandArg()
+            msg: UniMsg
     ):
         text_msg = None
         index = 0
         msg = msg.extract_plain_text().strip()
         if msg:
             if "_" in msg:
-                index, text_msg = int(msg.split("_")[0]), msg.split("_")[1]
+                index, text_msg = int(msg.split("_")[0][-1]), msg.split("_")[1]
             else:
                 if msg.isdigit():
                     index = int(msg)
@@ -369,9 +407,9 @@ class CommandHandler(SdAPI):
                     text_msg = msg
         site_, site = self.config.backend_name_list[index], self.config.backend_site_list[index]
         lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
-        await risk_control(bot, event, loras_list, True, True)
+        await risk_control(loras_list, True, reply_message=True, revoke_later=True)
 
-    async def get_sampler(self, event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
+    async def get_sampler(self):
 
         lb_resp = await sd_LoadBalance(None)
         self.backend_site = lb_resp[1][0]
@@ -384,13 +422,11 @@ class CommandHandler(SdAPI):
             sampler = i["name"]
             sampler_list.append(f"{sampler}\t\n")
 
-        await risk_control(bot, event, sampler_list)
+        await risk_control(sampler_list, md_temple=False)
 
     @staticmethod
     async def translate(
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
-            msg: __SUPPORTED_MESSAGE__ = CommandArg()
+            msg: UniMsg
     ):
 
         txt_msg = msg.extract_plain_text()
@@ -399,37 +435,40 @@ class CommandHandler(SdAPI):
         if "yes" in resp:
             en = "1girl"
 
-        await risk_control(
-            bot=bot,
-            event=event,
-            message=[en,"自然语言模型根据发送者发送的文字生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."]
-        )
+        await risk_control(message=[en,
+                                    "自然语言模型根据发送者发送的文字生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."]
+                           )
 
     @staticmethod
     async def random_tags(
             event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
+            bot: Bot,
             args: Namespace = ShellCommandArgs()
     ):
 
         chose_tags_list = await get_random_tags()
-        await risk_control(bot, event, [f"以下是为你随机的tag:\n{''.join(chose_tags_list)}"])
+        resp = await txt_audit(
+            str(chose_tags_list)
+       )
+        if "yes" in resp:
+            chose_tags_list = ["1girl"]
+        await risk_control([f"以下是为你随机的tag:\n{''.join(chose_tags_list)}"])
 
         args.tags = chose_tags_list
         args.match = True
         args.pure = True
 
-        await aidraw_get(bot, event, args)
+        await AIDrawHandler().aidraw_get(bot, event, args)
 
     @staticmethod
     async def find_image(
             event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
+            bot: Bot,
             matcher: Matcher,
-            msg: __SUPPORTED_MESSAGE__ = CommandArg()
+            msg: UniMsg
     ):
 
-        hash_id = msg.extract_plain_text()
+        hash_id = msg.extract_plain_text().split("找图片")[1].strip()
         directory_path = "data/novelai/output"
         filenames = await asyncio.get_event_loop().run_in_executor(None, get_all_filenames, directory_path)
         txt_file_name, img_file_name = f"{hash_id}.txt", f"{hash_id}.jpg"
@@ -451,33 +490,50 @@ class CommandHandler(SdAPI):
         else:
             await matcher.finish("你要找的图不存在")
 
-        if isinstance(event, PrivateMessageEvent):
-            await risk_control(bot, event, msg_list)
-            return
+        result = await pic_audit_standalone(content, return_none=True)
 
-        if config.novelai_extra_pic_audit:
-            result = await pic_audit_standalone(content, return_none=True)
-            if result:
-                try:
-                    await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
-                except:
-                    await risk_control(bot, event, msg_list, True)
+        if isinstance(event, message_event_type[1]):
+            from nonebot.adapters.onebot.v11 import PrivateMessageEvent
+            if isinstance(event, PrivateMessageEvent):
+                await risk_control(msg_list)
+                return
+
+            if config.novelai_extra_pic_audit:
+                if not result:
+                    try:
+                        await send_forward_msg(
+                            bot,
+                            event,
+                            event.sender.nickname,
+                            str(event.get_user_id()),
+                            msg_list
+                        )
+                    except:
+                        await risk_control(msg_list)
+                else:
+                    await bot.send(event, message="哼！想看涩图，自己看私聊去！")
+                    try:
+                        await bot.send_private_msg(event.get_user_id(), UniMessage.image(raw=content).export())
+                    except:
+                        await bot.send(event, f"呜呜,{event.sender.nickname}你不加我好友我怎么发图图给你!")
             else:
-                await bot.send(event, message="哼！想看涩图，自己看私聊去！")
                 try:
-                    await bot.send_private_msg(event.user_id, MessageSegment.image(content))
+                    await send_forward_msg(bot, event, event.sender.nickname, str(event.get_user_id()), msg_list)
                 except:
-                    await bot.send(event, f"呜呜,{event.sender.nickname}你不加我好友我怎么发图图给你!")
-        else:
-            try:
-                await send_forward_msg(bot, event, event.sender.nickname, str(event.user_id), msg_list)
-            except:
-                await risk_control(bot, event, msg_list, True)
+                    await risk_control(msg_list)
+
+        elif isinstance(event, message_event_type[0]):
+            uni_msg = UniMessage.text('')
+            for msg in msg_list:
+                uni_msg += msg
+            if result:
+                await risk_control("检测到NSFW图片", reply_message=True, revoke_later=True)
+            else:
+
+                await send_msg_and_revoke(uni_msg)
 
     @staticmethod
     async def word_freq(
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
             matcher: Matcher
     ):
         msg_list = []
@@ -510,12 +566,10 @@ class CommandHandler(SdAPI):
         for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
             msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
 
-        await risk_control(bot, event, msg_list, True)
+        await risk_control(msg_list)
 
     @staticmethod
     async def screen_shot(
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
             matcher: Matcher
     ):
         if config.run_screenshot:
@@ -526,13 +580,13 @@ class CommandHandler(SdAPI):
             with open(file_name, "rb") as f:
                 pic_content = f.read()
                 bytes_img = io.BytesIO(pic_content)
-            await bot.send(event=event, message=MessageSegment.image(bytes_img))
+            await UniMessage.image(raw=bytes_img).send()
             os.remove(file_name)
         else:
             await matcher.finish("未启动屏幕截图")
 
     @staticmethod
-    async def audit(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
+    async def audit(event: __SUPPORTED_MESSAGEEVENT__):
         url = ""
         reply = event.reply
         for seg in event.message['image']:
@@ -546,39 +600,29 @@ class CommandHandler(SdAPI):
                     bytes = await resp.read()
             img_base64 = str(base64.b64encode(bytes), "utf-8")
             message = await pic_audit_standalone(img_base64)
-            await bot.send(event, message, at_sender=True, reply_message=True)
+
+            await risk_control(message, reply_message=True)
 
     @staticmethod
-    async def one_more_generate(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher):
+    async def one_more_generate(
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: Bot,
+            matcher: Matcher,
+            args: Namespace = ShellCommandArgs()
+    ):
         # 读取redis数据
         if redis_client:
             r = redis_client[0]
-            if r.exists(str(event.user_id)):
-                fifo_info = r.lindex(str(event.user_id), -1)
+            if r.exists(str(event.get_user_id())):
+                fifo_info = r.lindex(str(event.get_user_id()), -1)
                 fifo_info = fifo_info.decode("utf-8")
                 fifo_info = ast.literal_eval(fifo_info)
                 del fifo_info["seed"]
-                fifo = AIDRAW(**fifo_info)
-                try:
-                    await fifo.post()
-                except Exception:
-                    logger.error(traceback.format_exc())
-                    await matcher.finish("出错惹, 快叫主人看控制台")
-                else:
-                    img_msg = MessageSegment.image(fifo.result[0])
-                    result = await pic_audit_standalone(img_msg, return_none=True)
-                    if result:
-                        await bot.send(
-                            event=event,
-                            message=f"{nickname}又给你画了一张哦!" + img_msg + f"\n{fifo.img_hash}",
-                            at_sender=True,
-                            reply_message=True
-                        )
-                    await run_later(
-                        save_img(
-                            fifo, fifo.result[0], fifo.group_id
-                        )
-                    )
+
+                for key, value in fifo_info.items():
+                    setattr(args, key, value)
+
+                await AIDrawHandler().aidraw_get(bot, event, args)
             else:
                 await matcher.finish("你还没画过图, 这个功能用不了哦!")
         else:
@@ -587,11 +631,9 @@ class CommandHandler(SdAPI):
     @staticmethod
     async def another_backend_control(
             matcher: Matcher,
-            event: __SUPPORTED_MESSAGEEVENT__,
-            bot: __SUPPORTED_BOT__,
             regex_group: Annotated[tuple[Any, ...], RegexGroup()],
     ):
-            print(regex_group)
+
             operation = regex_group[0]
             msg = regex_group[1]
 
@@ -659,8 +701,8 @@ class CommandHandler(SdAPI):
                     if script_index:
                         select_script_args = resp[0][script_index]["args"]
                         print(select_script_args)
-                        await risk_control(bot, event, str(select_script_args), True)
-                    await risk_control(bot, event, script_name, True)
+                        await risk_control(str(select_script_args))
+                    await risk_control(script_name)
 
                 else:
                     await matcher.finish(
@@ -693,7 +735,7 @@ class CommandHandler(SdAPI):
                 await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
             img_byte_list.append(base64.b64decode(resp_data["image"]))
         if len(img_byte_list) == 1:
-            img_mes = MessageSegment.image(img_byte_list[0])
+            img_mes = UniMessage.image(raw=img_byte_list[0]).export()
             await bot.send(
                 event=event,
                 message=img_mes,
@@ -703,12 +745,12 @@ class CommandHandler(SdAPI):
         else:
             img_list = []
             for i in img_byte_list:
-                img_list.append(f"{MessageSegment.image(i)}")
+                img_list.append(f"{UniMessage.image(raw=i).export()}")
             await send_forward_msg(
                 bot,
                 event,
                 event.sender.nickname,
-                event.user_id,
+                event.get_user_id(),
                 img_list
             )
 
@@ -744,18 +786,17 @@ class CommandHandler(SdAPI):
 
             else:
                 parameters = ""
-                await risk_control(
-                    bot,
-                    event,
-                    [f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"],
-                    True
-                )
+                await risk_control([f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"])
 
         else:
             await matcher.reject("请重新发送图片")
 
     @staticmethod
-    async def random_pic(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher, msg: __SUPPORTED_MESSAGE__ = CommandArg()):
+    async def random_pic(
+            event: __SUPPORTED_MESSAGEEVENT__,
+            bot: Bot,
+            msg: UniMsg
+    ):
         init_dict = {}
         if msg:
             tags = msg.extract_plain_text()
@@ -771,49 +812,30 @@ class CommandHandler(SdAPI):
         index = config.backend_site_list.index(random_site)
         init_dict["backend_index"] = index
 
-        fifo = AIDRAW(**init_dict)
-        fifo.backend_site = random_site
-        fifo.is_random_model = True
-        fifo.model_index = "20204"
-        fifo.ntags = lowQuality
-        fifo.disable_hr = True
-        fifo.width, fifo.height = fifo.width * 1.25, fifo.height * 1.25
+        args = aidraw_parser
 
-        await bot.send(event=event, message=f"{nickname}祈祷中...让我们看看随机了什么好模型\nprompts: {fifo.tags}")
+        for key, value in init_dict.items():
+            setattr(args, key, value)
 
-        try:
-            await fifo.post()
-        except Exception as e:
-            await matcher.finish(f"服务端出错辣,{e.args},是不是后端设置被锁死了...")
-        else:
-            img_msg = MessageSegment.image(fifo.result[0])
-            to_user = f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n" + img_msg + f"\n{fifo.img_hash}" + f"\n后端索引是{fifo.backend_index}"
-            if config.novelai_extra_pic_audit:
-                result = await pic_audit_standalone(img_msg, return_none=True)
-                if result:
-                    await bot.send(event=event, message=to_user, at_sender=True, reply_message=True)
-            else:
-                try:
-                    await bot.send(
-                        event=event,
-                        message=to_user,
-                        at_sender=True,
-                        reply_message=True
-                    )
-                except ActionFailed:
-                    await bot.send(
-                        event=event,
-                        message=img_msg + f"\n{fifo.img_hash}",
-                        at_sender=True, reply_message=True
-                    )
-        await run_later(
-            save_img(
-                fifo=fifo, img_bytes=fifo.result[0], extra=fifo.group_id + "_random_model"
-            )
+        await risk_control(
+            f"{nickname}祈祷中...让我们看看随机了什么好模型\n",
+            reply_message=True,
+            revoke_later=True
         )
-    
+
+        fifo = await AIDrawHandler().aidraw_get(bot, event, args)
+
+        await risk_control(
+            f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n" + f"\n后端索引是{fifo.backend_index}",
+            reply_message=True,
+            revoke_later=True
+        )
+
     @staticmethod
-    async def set_config(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__, matcher: Matcher, args: Namespace = ShellCommandArgs()):
+    async def set_config(
+            matcher: Matcher,
+            args: Namespace = ShellCommandArgs()
+    ):
         msg_list = ["Stable-Diffusion-WebUI设置\ntips: 可以使用 -s 来搜索设置项, 例如 设置 -s model\n"]
         n = 0
         if args.backend_site is None and not isinstance(args.backend_site, int):
@@ -833,7 +855,7 @@ class CommandHandler(SdAPI):
             else:
                 msg_list.append(f"{n}.设置项: {i},设置值: {v}" + "\n")
         if args.index is None and args.value == None:
-            await risk_control(bot, event, msg_list, True)
+            await risk_control(msg_list)
         elif args.index is None:
             await matcher.finish("你要设置啥啊!")
         elif args.value is None:
@@ -847,10 +869,13 @@ class CommandHandler(SdAPI):
             except Exception as e:
                 await matcher.finish(f"出现错误,{str(e)}")
             else:
-                await bot.send(event=event, message=f"设置完成{payload}")
+                await risk_control(f"设置完成{payload}")
 
     @staticmethod
-    async def style(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__,  matcher: Matcher, args: Namespace = ShellCommandArgs()):
+    async def style(
+            matcher: Matcher,
+            args: Namespace = ShellCommandArgs()
+    ):
         message_list = []
         style_dict = {}
         if redis_client:
@@ -908,13 +933,16 @@ class CommandHandler(SdAPI):
                     matched_styles.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
 
             if matched_styles:
-                await risk_control(bot, event, matched_styles, True)
+                await risk_control(matched_styles)
             else:
                 await matcher.finish(f"没有找到预设 {args.find_style_name}")
 
         if len(args.tags) != 0:
             if args.tags and args.style_name:
                 tags = await prepocess_tags(args.tags, False)
+                resp = await txt_audit(tags)
+                if 'yes' in resp:
+                    await matcher.finish(f"提示词涉及违规")
                 ntags = "" if args.ntags is None else args.ntags
                 style_dict["name"] = args.style_name
                 style_dict["prompt"] = tags
@@ -927,7 +955,11 @@ class CommandHandler(SdAPI):
             for style in style_list:
                 name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
                 message_list.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
-            await risk_control(bot, event, message_list, True)
+            await risk_control(message_list)
+
+    async def get_url(self, event: __SUPPORTED_MESSAGEEVENT__):
+        url = await self.get_qq_img_url(event)
+        await UniMessage.text(f"图片url是: {url}\n接下来可以用它来进行图片操作了").send()
 
 
 async def get_random_tags(sample_num=12):
@@ -1088,42 +1120,6 @@ async def aiohttp_func(way, url, payload={}):
         return None
 
 
-@control_net.handle()
-async def c_net(state: T_State, args: Namespace = ShellCommandArgs(), net: Message = CommandArg()):
-    state["args"] = args
-    if net:
-        if len(net) > 1:
-            state["tag"] = net
-            state["net"] = net
-        elif net[0].type == "image":
-            state["net"] = net
-            state["tag"] = net
-        elif len(net) == 1 and not net[0].type == "image":
-            state["tag"] = net
-    else:
-        state["tag"] = net
-
-
-@control_net.got('tag', "请输入绘画的关键词")
-async def __():
-    pass
-
-
-@control_net.got("net", "你的图图呢？")
-async def _(
-        event: __SUPPORTED_MESSAGEEVENT__,
-        bot: __SUPPORTED_BOT__,
-        args: Namespace = Arg("args"),
-        msg: __SUPPORTED_MESSAGE__ = Arg("net")
-):
-    for data in msg:
-        if data.data.get("url"):
-            args.pic_url = data.data.get("url")
-    args.control_net = True
-    await bot.send(event=event, message=f"control_net以图生图中")
-    await aidraw_get(bot, event, args)
-
-
 
 
 #
@@ -1161,34 +1157,35 @@ async def _(
 #     module_list = "\n".join(module_list)
 #     await risk_control(bot, event, model_list+[module_list], True)
 
-
-llm_caption = on_command("llm", aliases={"图片分析"})
-
-
-@llm_caption.handle()
-async def __(state: T_State, png: Message = CommandArg()):
-    if png:
-        state['png'] = png
-    pass
-
-
-@llm_caption.got("png", "请发送你要分析的图片,请注意")
-async def __(event: __SUPPORTED_MESSAGEEVENT__, bot: __SUPPORTED_BOT__):
-    reply = event.reply
-    for seg in event.message['image']:
-        url = seg.data["url"]
-    if reply:
-        for seg in reply.message['image']:
-            url = seg.data["url"]
-    if url:
-        img, _ = await download_img(url)
-        payload = {
-            "image": img,
-            "threshold": 0.3
-        }
-        resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
-        if status_code not in [200, 201]:
-            await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
-        await risk_control(bot, event, [f"llm打标{resp_data['llm']}", "自然语言模型根据图片发送者发送的图片内容生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."], True)
-    else:
-        await llm_caption.reject("请重新发送图片")
+#
+# llm_caption = on_command("llm", aliases={"图片分析"})
+#
+#
+# @llm_caption.handle()
+# async def __(state: T_State, png: Message = CommandArg()):
+#     if png:
+#         state['png'] = png
+#     pass
+#
+#
+# @llm_caption.got("png", "请发送你要分析的图片,请注意")
+# async def __(event: __SUPPORTED_MESSAGEEVENT__):
+#     reply = event.reply
+#     for seg in event.message['image']:
+#         url = seg.data["url"]
+#     if reply:
+#         for seg in reply.message['image']:
+#             url = seg.data["url"]
+#     if url:
+#         img, _ = await download_img(url)
+#         payload = {
+#             "image": img,
+#             "threshold": 0.3
+#         }
+#         resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
+#         if status_code not in [200, 201]:
+#             await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
+#         await risk_control([f"llm打标{resp_data['llm']}",
+#                             "自然语言模型根据图片发送者发送的图片内容生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."])
+#     else:
+#         await llm_caption.reject("请重新发送图片")
