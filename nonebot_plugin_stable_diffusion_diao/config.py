@@ -772,7 +772,7 @@ if config.dbapi_build_in:
 
 config.backend_name_list = list(config.novelai_backend_url_dict.keys())
 config.backend_site_list = list(config.novelai_backend_url_dict.values())
-config.reverse_dict = {value: key for key, value in config.backend_url_dict.items()}
+config.reverse_dict = {value: key for key, value in config.novelai_backend_url_dict.items()}
 
 if config.is_redis_enable:
     try:

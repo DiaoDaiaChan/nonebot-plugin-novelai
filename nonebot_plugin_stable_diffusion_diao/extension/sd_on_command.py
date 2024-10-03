@@ -129,6 +129,12 @@ on_command(
     handlers=[command_handler_instance.random_pic]
 )
 
+on_command(
+    "查tag",
+    handlers=[command_handler_instance.danbooru],
+    block=True
+)
+
 rembg = on_command(
     "去背景",
     aliases={"rembg", "抠图"},

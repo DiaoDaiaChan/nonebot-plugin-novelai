@@ -268,6 +268,8 @@ class AIDRAW(AIDRAW_BASE):
 
         index = self.backend_index if self.backend_index is not None else self.current_backend_index
 
+        index = 0 if index is None else index
+
         if config.backend_type[index] == "xl" or self.xl:
             # XL模式
             # 图像宽高改为高清修复的倍率
@@ -308,6 +310,7 @@ class AIDRAW(AIDRAW_BASE):
 
         parameters["width"] = int(parameters["width"])
         parameters["height"] = int(parameters["height"])
+        parameters["steps"] = int(parameters["steps"])
 
         logger.debug(str(parameters))
         self.post_parms = parameters

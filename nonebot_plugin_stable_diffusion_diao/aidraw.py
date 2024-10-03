@@ -298,9 +298,8 @@ class AIDrawHandler:
         else:
             await self.fifo.load_balance_init()
 
-        self.fifo.backend_index = config.reverse_dict[self.fifo.backend_site]
-
-        if config.override_backend_setting_enable:
+        if config.override_backend_setting_enable and not self.args.user_backend:
+            self.fifo.backend_index = config.backend_site_list.index(self.fifo.backend_site)
             try:
                 # 从配置中获取覆写设置
                 params_dict = config.override_backend_setting[self.fifo.backend_index]

@@ -20,6 +20,7 @@ https://github.com/MicrosoftArchive/redis/releases
 
 ## 核心功能
 - ## 开箱即用(使用本人API) / 或者设置token使用在线服务 
+- ## 跨平台(目前支持官方QQ机器人以及obv11)
 - ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (本人用的比较少, 如有需要完善请加群或者留个issue)
 - ### ↓ 白嫖绘图, 人人有图画 ↓ 使用此项目
 - ## 整合一个支持调用各种在线网站的多功能API (支持FASTAPI适配器) https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
@@ -87,8 +88,34 @@ https://huggingface.co/diaodiao/DiaoDaia_Mix
 https://civitai.com/user/DiaoDaiaYoChan
 https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
 # 更新日志
+## 2024.10.03 0.5.4 更新
+支持跨平台(目前支持官方QQ机器人以及obv11)
+```
+# 新的配置项目
+override_backend_setting_enable: true  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
+override_backend_setting:  #覆写后端设置
+  -
+    "tags": ""
+    "ntags": "easynegative"
+    "scale": 7
+    "steps": 16
+    "sampler": Euler a
+  -
+    "steps": 4
+  -
+    "tags": "score_9,score_8_up,score_7_up,score_anime,"
+    "ntags": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
+  -
+-----
+enable_txt_audit: false  # 启用LLM文本审核功能,对输入输出的文本进行审核
+reload_model: false  # 是否自动重新加载lora/emb模型
+```
+```
+新命令, 查tag genshin 从d站上查找tag, 需要设置代理才能连接
+```
+
 ## 2024.09.24 0.5.3 更新
-内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 0.0.0.0:8000
+内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000
 ```
 dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
 dbapi_conf_file: ./config/dbapi_config.yaml  # 配置文件路径

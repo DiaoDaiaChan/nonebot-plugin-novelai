@@ -38,6 +38,7 @@ from nonebot import logger
 from collections import Counter
 from copy import deepcopy
 from typing import Any, Annotated
+from bs4 import BeautifulSoup
 
 current_date = datetime.now().date()
 day: str = str(int(datetime.combine(current_date, datetime.min.time()).timestamp()))
@@ -832,6 +833,30 @@ class CommandHandler(SdAPI):
         )
 
     @staticmethod
+    async def danbooru(msg: UniMsg):
+        msg = msg.extract_plain_text().strip().split("查tag")[1]
+        resp = await aiohttp_func(
+            "get",
+            f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit=20",
+            text=True
+        )
+
+        soup = BeautifulSoup(resp[0], 'html.parser')
+        tags = soup.find_all('li', class_='ui-menu-item')
+
+        data_values = []
+        for tag in tags:
+            data_value = tag['data-autocomplete-value']
+            data_value_space = data_value.replace('_', ' ') 
+            data_values.append(data_value_space)
+
+        resp = await txt_audit(str(data_values))
+        if 'yes' in resp:
+            data_values = ['1girl']
+
+        await UniMessage.text('\n'.join(data_values)).send()
+
+    @staticmethod
     async def set_config(
             matcher: Matcher,
             args: Namespace = ShellCommandArgs()
@@ -1103,16 +1128,20 @@ def get_all_filenames(directory, fileType=None) -> dict:
     return file_path_dict
 
 
-async def aiohttp_func(way, url, payload={}):
+async def aiohttp_func(way, url, payload={}, text=False):
     try:
         if way == "post":
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
-                async with session.post(url=url, json=payload) as resp:
+                async with session.post(url=url, json=payload, proxy=config.proxy_site) as resp:
+                    if text:
+                        return await resp.text(), resp.status
                     resp_data = await resp.json()
                     return resp_data, resp.status
         else:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
-                async with session.get(url=url) as resp:
+                async with session.get(url=url, proxy=config.proxy_site) as resp:
+                    if text:
+                        return await resp.text(), resp.status
                     resp_data = await resp.json()
                     return resp_data, resp.status
     except Exception:
