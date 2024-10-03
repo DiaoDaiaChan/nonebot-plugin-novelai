@@ -301,7 +301,7 @@ async def txt_audit(
         '''
 ):
     if config.enable_txt_audit is False:
-        return msg
+        return 'no'
 
     system = [
         {"role": "system",
