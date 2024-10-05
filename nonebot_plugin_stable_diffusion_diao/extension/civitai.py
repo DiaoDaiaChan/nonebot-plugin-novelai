@@ -16,7 +16,7 @@ from ..extension.sd_extra_api_func import aiohttp_func
 from ..config import config
 from ..backend import AIDRAW
 from ..utils.data import lowQuality
-from ..utils import pic_audit_standalone
+from ..utils import pic_audit_standalone, txt_audit
     
 
 civitai_parser = ArgumentParser()
@@ -121,7 +121,11 @@ async def _(event: MessageEvent, bot: Bot, args: Namespace = ShellCommandArgs())
         all_msg_list = []
         search_post_url = "https://meilisearch-v1-6.civitai.com/multi-search"
         key_word = args.search
-        
+
+        resp = await txt_audit(key_word)
+        if 'yes' in resp:
+            key_word = 'anime'
+
         search_payload = {
             "queries": 
                 [{"q":key_word, 

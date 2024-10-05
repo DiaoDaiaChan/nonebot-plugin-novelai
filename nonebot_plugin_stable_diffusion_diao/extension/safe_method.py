@@ -88,7 +88,7 @@ async def risk_control(
         txt_msg = UniMessage.text("")
         for msg in new_list:
             txt_msg += msg
-        r = await UniMessage.text(txt_msg).send(reply_to=reply_message)
+        r = await txt_msg.send(reply_to=reply_message)
         if revoke_later:
             await send_msg_and_revoke(message=None, reply_to=reply_message, r=r)
 

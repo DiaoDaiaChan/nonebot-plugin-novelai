@@ -191,12 +191,12 @@ aidraw = on_shell_command(
     block=True
 )
 
-on_command(
-    "获取链接",
-    block=True,
-    priority=5,
-    handlers=[command_handler_instance.get_url]
-)
+# on_command(
+#     "获取链接",
+#     block=True,
+#     priority=5,
+#     handlers=[command_handler_instance.get_url]
+# )
 
 
 @super_res.handle()
@@ -224,21 +224,21 @@ async def _(matcher: Matcher, event: message_event_type[0]):
     await command_handler_instance.super_res(matcher, url)
 
 
-@rembg.handle()
-async def rm_bg(state: T_State, rmbg: message_type[1] = CommandArg()):
-    if rmbg:
-        state['rmbg'] = rmbg
-    pass
-
-
-@rembg.got("rmbg", "请发送你要去背景的图片")
-async def _(event: message_event_type[1], bot: Bot, msg: message_type[1] = Arg("rmbg")):
-
-    if msg[0].type == "image":
-        await command_handler_instance.remove_bg(event, bot, msg)
-
-    else:
-        await rembg.reject("请重新发送图片")
+# @rembg.handle()
+# async def rm_bg(state: T_State, rmbg: message_type[1] = CommandArg()):
+#     if rmbg:
+#         state['rmbg'] = rmbg
+#     pass
+#
+#
+# @rembg.got("rmbg", "请发送你要去背景的图片")
+# async def _(event: message_event_type[1], bot: Bot, msg: message_type[1] = Arg("rmbg")):
+#
+#     if msg[0].type == "image":
+#         await command_handler_instance.remove_bg(event, bot, msg)
+#
+#     else:
+#         await rembg.reject("请重新发送图片")
 
 
 @read_png_info.handle()

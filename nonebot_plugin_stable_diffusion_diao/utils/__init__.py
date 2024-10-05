@@ -12,6 +12,7 @@ from ..config import config
 from asyncio import get_running_loop
 from nonebot.rule import ArgumentParser
 from nonebot import logger
+from nonebot.adapters.onebot.v11 import PrivateMessageEvent
 
 aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
@@ -26,7 +27,7 @@ aidraw_parser.add_argument("-s", "--seed", "-种子",
 aidraw_parser.add_argument("-t", "--steps", "-步数",
                            type=int, help="步数", dest="steps")
 aidraw_parser.add_argument("-u", "--ntags", "-排除",
-                           default=" ", nargs="*", help="负面标签", dest="ntags")
+                           default=" ", nargs="*", help="负面标签", dest="ntags", type=str)
 aidraw_parser.add_argument("-e", "--strength", "-强度",
                            type=float, help="修改强度", dest="strength")
 aidraw_parser.add_argument("-n", "--noise", "-噪声",
@@ -300,6 +301,7 @@ async def txt_audit(
         如果没有则输出<no>
         '''
 ):
+
     if config.enable_txt_audit is False:
         return 'no'
 
@@ -323,6 +325,7 @@ async def txt_audit(
                 response_data = await response.json()
             try:
                 res: str = remove_punctuation(response_data['choices'][0]['message']['content'].strip())
+                logger.info(f'进行文字审核审核,输入{msg}, 输出{res}')
                 return res
             except:
                 traceback.print_exc()

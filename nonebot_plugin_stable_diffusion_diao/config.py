@@ -132,6 +132,7 @@ class Config(BaseSettings):
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图, 5为直接发送！爆了！
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
     novelai_picaudit: int = 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    tagger_model_path: str = ''  # 本地审核模型路径
     novelai_todaygirl: int = 1  # 可选值 1 和 2 两种不同的方式
     '''
     负载均衡设置
@@ -506,7 +507,7 @@ async def get_redis_client():
     logger.info("开始读取webui的预设")
     all_style_list, all_emb_list, all_lora_list = [], [], []
     backend_emb, backend_lora = {}, {}
-    all_resp_style = await this_is_a_func(0)
+    all_resp_style = await sd_api(0)
 
     for backend_style in all_resp_style:
         if backend_style is not None:
@@ -516,7 +517,7 @@ async def get_redis_client():
     logger.info("读取webui的预设完成")
     logger.info("开始读取webui的embs")
     normal_backend_index = -1
-    all_emb_list = await this_is_a_func(1)
+    all_emb_list = await sd_api(1)
 
     for back_emb in all_emb_list:
         normal_backend_index += 1
@@ -531,7 +532,7 @@ async def get_redis_client():
             backend_emb[config.backend_name_list[normal_backend_index]] = None
 
     logger.info("开始读取webui的loras")
-    all_lora_list = await this_is_a_func(2)
+    all_lora_list = await sd_api(2)
     normal_backend_index = -1
 
     for back_lora in all_lora_list:
@@ -562,7 +563,7 @@ async def get_redis_client():
 
 async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=100)) as session:
             async with session.get(url=f"http://{site}{end_point}") as resp:
                 if resp.status in [200, 201]:
                     resp_json: list = await resp.json()
@@ -605,7 +606,7 @@ def check_yaml_is_changed(source_template):
         return True
 
 
-async def this_is_a_func(end_point_index):
+async def sd_api(end_point_index):
     task_list = []
     end_point_list = ["/sdapi/v1/prompt-styles", "/sdapi/v1/embeddings", "/sdapi/v1/loras", "/sdapi/v1/interrupt"]
     for site in config.backend_site_list:
@@ -699,12 +700,6 @@ config.novelai_cndm = {
     "controlnet_threshold_b": 250
 }
 
-try:
-    import tensorflow
-except ImportError:
-    logger.warning("未能成功导入tensorflow")
-    logger.warning("novelai_picaudit为2时本地图片审核不可用")
-
 
 def format_config(config: Config):
     msg = ''
@@ -722,14 +717,15 @@ if config.novelai_picaudit == 2:
         import onnxruntime
     except ModuleNotFoundError:
         logger.info("正在安装本地审核需要的依赖和模型")
-        os.system("pip install pandas numpy pillow huggingface_hub onnxruntime")
+        subprocess.run([sys.executable, "-m", "pip", "install", "pandas", "numpy", "pillow", "huggingface_hub"])
+        subprocess.run([sys.executable, "-m", "pip", "install", "onnxruntime"])
 
     logger.info("正在加载实例")
     from .utils.tagger import WaifuDiffusionInterrogator
 
     wd_instance = WaifuDiffusionInterrogator(
         name='WaifuDiffusion',
-        repo_id='SmilingWolf/wd-v1-4-convnextv2-tagger-v2',
+        repo_id=config.tagger_model_path,
         revision='v2.0',
         model_path='model.onnx',
         tags_path='selected_tags.csv'

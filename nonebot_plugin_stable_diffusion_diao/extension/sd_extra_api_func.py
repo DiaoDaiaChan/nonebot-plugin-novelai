@@ -377,17 +377,11 @@ class CommandHandler(SdAPI):
             msg: UniMsg
     ):
         text_msg = None
-        index = 0
         msg = msg.extract_plain_text().strip()
-        if msg:
-            if "_" in msg:
-                index, text_msg = int(msg.split("_")[0][-1]), msg.split("_")[1]
-            else:
-                if msg.isdigit():
-                    index = int(msg)
-                else:
-                    text_msg = msg
-        site_, site = self.backend_name_list[index], self.backend_site_list[index]
+        index = msg.split('lora')[1]
+        if "_" in msg:
+            index, text_msg = msg.split("_")[0][-1], msg.split("_")[1]
+        site_, site = self.backend_name_list[int(index)], self.backend_site_list[int(index)]
         emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
         await risk_control(embs_list, True, reply_message=True, revoke_later=True)
 
@@ -396,17 +390,11 @@ class CommandHandler(SdAPI):
             msg: UniMsg
     ):
         text_msg = None
-        index = 0
         msg = msg.extract_plain_text().strip()
-        if msg:
-            if "_" in msg:
-                index, text_msg = int(msg.split("_")[0][-1]), msg.split("_")[1]
-            else:
-                if msg.isdigit():
-                    index = int(msg)
-                else:
-                    text_msg = msg
-        site_, site = self.config.backend_name_list[index], self.config.backend_site_list[index]
+        index = msg.split('lora')[1]
+        if "_" in msg:
+            index, text_msg = msg.split("_")[0][-1], msg.split("_")[1]
+        site_, site = self.config.backend_name_list[int(index)], self.config.backend_site_list[int(index)]
         lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
         await risk_control(loras_list, True, reply_message=True, revoke_later=True)
 
@@ -487,6 +475,11 @@ class CommandHandler(SdAPI):
 
             async with aiofiles.open(img_file_path, "rb") as f:
                 content = await f.read()
+
+            resp = await txt_audit(str(txt_content))
+            if 'yes' in resp:
+                txt_content = ''
+
             msg_list = [f"这是你要找的{hash_id}的图\n", txt_content, UniMessage.image(raw=content)]
         else:
             await matcher.finish("你要找的图不存在")
@@ -537,37 +530,38 @@ class CommandHandler(SdAPI):
     async def word_freq(
             matcher: Matcher
     ):
-        msg_list = []
-        if redis_client:
-            r = redis_client[0]
-            if r.exists("prompts"):
-                word_list_str = []
-                word_list = []
-                byte_word_list = r.lrange("prompts", 0, -1)
-                for byte_tag in byte_word_list:
-                    word_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
-                for list_ in word_list:
-                    word_list_str += list_
-                word_list = word_list_str
-            else:
-                await matcher.finish("画几张图图再来统计吧!")
-        else:
-            word_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list, False)
-
-        def count_word_frequency(word_list):
-            word_frequency = Counter(word_list)
-            return word_frequency
-
-        def sort_word_frequency(word_frequency):
-            sorted_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
-            return sorted_frequency
-
-        word_frequency = count_word_frequency(word_list)
-        sorted_frequency = sort_word_frequency(word_frequency)
-        for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
-            msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
-
-        await risk_control(msg_list)
+        pass
+        # msg_list = []
+        # if redis_client:
+        #     r = redis_client[0]
+        #     if r.exists("prompts"):
+        #         word_list_str = []
+        #         word_list = []
+        #         byte_word_list = r.lrange("prompts", 0, -1)
+        #         for byte_tag in byte_word_list:
+        #             word_list.append(ast.literal_eval(byte_tag.decode("utf-8")))
+        #         for list_ in word_list:
+        #             word_list_str += list_
+        #         word_list = word_list_str
+        #     else:
+        #         await matcher.finish("画几张图图再来统计吧!")
+        # else:
+        #     word_list = await asyncio.get_event_loop().run_in_executor(None, get_tags_list, False)
+        #
+        # def count_word_frequency(word_list):
+        #     word_frequency = Counter(word_list)
+        #     return word_frequency
+        #
+        # def sort_word_frequency(word_frequency):
+        #     sorted_frequency = sorted(word_frequency.items(), key=lambda x: x[1], reverse=True)
+        #     return sorted_frequency
+        #
+        # word_frequency = count_word_frequency(word_list)
+        # sorted_frequency = sort_word_frequency(word_frequency)
+        # for word, frequency in sorted_frequency[0:240] if len(sorted_frequency) >= 240 else sorted_frequency:
+        #     msg_list.append(f"prompt:{word},出现次数:{frequency}\t\n")
+        #
+        # await risk_control(msg_list)
 
     @staticmethod
     async def screen_shot(
@@ -777,7 +771,7 @@ class CommandHandler(SdAPI):
             resp_data, status_code = await aiohttp_func(
                 "post",
                 f"http://{fifo.backend_site}/sdapi/v1/png-info",
-                payload
+                payload=payload
             )
             if status_code not in [200, 201]:
                 await matcher.finish(f"出错了,错误代码{status_code},请检查服务器")
@@ -787,6 +781,9 @@ class CommandHandler(SdAPI):
 
             else:
                 parameters = ""
+                resp = await txt_audit(str(info))
+                if 'yes' in resp:
+                    info = ''
                 await risk_control([f"这是图片的元数据信息: {info}\n", f"参数: {parameters}"])
 
         else:
@@ -838,7 +835,8 @@ class CommandHandler(SdAPI):
         resp = await aiohttp_func(
             "get",
             f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit=20",
-            text=True
+            text=True,
+            proxy=True
         )
 
         soup = BeautifulSoup(resp[0], 'html.parser')
@@ -951,11 +949,11 @@ class CommandHandler(SdAPI):
                 await matcher.finish(f"没有找到预设{delete_name},是不是打错了!\n另外不支持删除从webui中导入的预设")
 
         if args.find_style_name:
-            matched_styles = []
+            matched_styles = UniMessage.text('')
             for style in style_list:
                 if args.find_style_name.lower() in style["name"].lower():
                     name, tags, ntags = style["name"], style["prompt"], style["negative_prompt"]
-                    matched_styles.append(f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n")
+                    matched_styles += f"预设名称: {name}\n\n正面提示词: {tags}\n\n负面提示词: {ntags}\n\n"
 
             if matched_styles:
                 await risk_control(matched_styles)
@@ -1011,6 +1009,7 @@ async def get_random_tags(sample_num=12):
     except:
         logger.error(traceback.format_exc())
         return None
+
 
 async def get_and_process_lora(site, site_, text_msg=None):
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
@@ -1128,22 +1127,37 @@ def get_all_filenames(directory, fileType=None) -> dict:
     return file_path_dict
 
 
-async def aiohttp_func(way, url, payload={}, text=False):
+async def aiohttp_func(way, url, payload={}, text=False, proxy=False):
     try:
         if way == "post":
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
-                async with session.post(url=url, json=payload, proxy=config.proxy_site) as resp:
-                    if text:
-                        return await resp.text(), resp.status
-                    resp_data = await resp.json()
-                    return resp_data, resp.status
+                async with session.post(
+                        url=url,
+                        json=payload,
+                        proxy=config.proxy_site if proxy else None
+                ) as resp:
+                    if resp.status in [200, 201]:
+                        if text:
+                            return await resp.text(), resp.status
+                        resp_data = await resp.json()
+                        return resp_data, resp.status
+                    else:
+                        logger.warning(f"http post请求失败，状态码为{resp.status}，返回内容为{await resp.text()}")
+                        return None, resp.status
         else:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1800)) as session:
-                async with session.get(url=url, proxy=config.proxy_site) as resp:
-                    if text:
-                        return await resp.text(), resp.status
-                    resp_data = await resp.json()
-                    return resp_data, resp.status
+                async with session.get(
+                        url=url,
+                        proxy=config.proxy_site if proxy else None
+                ) as resp:
+                    if resp.status in [200, 201]:
+                        if text:
+                            return await resp.text(), resp.status
+                        resp_data = await resp.json()
+                        return resp_data, resp.status
+                    else:
+                        logger.warning(f"http get请求失败，状态码为{resp.status}，返回内容为{await resp.text()}")
+                        return None, resp.status
     except Exception:
         traceback.print_exc()
         return None

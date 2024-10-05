@@ -146,7 +146,7 @@ async def check_safe_method(
                 htype = await config.get_value(fifo.group_id, "htype") or config.novelai_htype
                 if is_obv11:
                     message_data = await sendtosuperuser(
-                        f"让我看看谁又画色图了{unimsg_img}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}",
+                        f"让我看看谁又画色图了{await unimsg_img.export()}\n来自群{fifo.group_id}的{fifo.user_id}\n{fifo.img_hash}",
                         bot_id)
                     img_url = await get_img_url(message_data, bot)
                     if htype == 1:
