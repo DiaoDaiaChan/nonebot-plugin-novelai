@@ -6,287 +6,946 @@ tag:
   - Markdown
 ---
 
-:::warning
 目前插件正处于快速迭代阶段，功能随时可能增加，也随时可能废弃，如果你发现之前的设置不起作用，请回到本页查看最新内容
-:::
-插件的设置全部需要在你的项目根目录的 env 文件中写好(通常是 env.dev)。在运行时，插件会一次性读入，如果你需要更改全局配置，必须重新启动 bot 才能够更新设置。
+# 需要注意的插件配置文件路径
+#### 配置文件路径 机器人所在路径/config/novelai/config.yaml
+- [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)
+#### DrawBridgeAPI默认配置文件路径  机器人所在路径/config/dbapi_config.yaml
+- [DBAPI](./DrawBridgeAPI.md) (DBAPI启动时会自动将自己添加到后端列表里, 不需要再额外配置)
 
-下面是一份配置文件的示例，包含了 nonebot 自带的配置
+# 后端准备
+## 秋叶启动器 / 使用自己的API
+![后端](../main/images/help/aki-webui.png)  
+请注意, API选项一定要打开, 然后我们记住端口和地址, 这里为(127.0.0.1:7860)  
 
+- [修改画图后端](#novelai_backend_url_dict)  
+
+![后端](../main/images/help/set_backend_site.png)  
+## 使用LibLibAI / DrawBridgeAPI  
+### 插件默认打开DBAPI, 不需要手动添加到后端字典里面, 需要根据以下来修改配置文件设置token↓
+
+- [DBAPI](./DrawBridgeAPI.md)
+
+## 不进行设置, 使用雕雕后端 (开箱即用)
+### la.20020026.xyz:8000 (DBAPI)
+### api.diaodiao.online:7860 (SD-WEBUI)
+### 下面是一份配置文件(ENV)的示例，包含了 nonebot 自带的配置
+### 注意 COMMAND_START=["/","","#"] , 需要这个机器人才能响应命令
 ```
 HOST=127.0.0.1
 PORT=8081
 LOG_LEVEL=DEBUG
 FASTAPI_RELOAD=false
 
+# 以下和本插件相关
 SUPERUSERS=[""]  # 配置 NoneBot 超级用户
 NICKNAME=["Mutsuki"]  # 配置机器人的昵称
-COMMAND_START=["/",""]  # 配置命令起始字符
-COMMAND_SEP=["#"]  # 配置命令分割字符
-
-NOVELAI_TOKEN="eyJhbGciOiJI..."
-NOVELAI_TAG="loli,1 girl,cute,kawaii,"
-NOVELAI_PAID=1
-NOVELAI_DAYLIMIT=0
-NOVELAI_MODE="naifu"
-NOVELAI_SITE="127.0.0.1:6969"
+COMMAND_START=["/","","#"]  # 配置命令起始字符  # 机器人响应什么开头的命令, 如此例子, 响应 /绘画 ; 绘画 ; #绘画
 ```
 
-## 必要设置
+## 需要留意的配置项(插件默认配置已经为你配置好了, 可以启动即画, 如果你想要使用自己的API的话, 请留意以下配置)
+### 以下配置config.yaml中均有备注
+- [修改画图后端](#novelai_backend_url_dict)
+- [修改后端模型类型(1.5/XL/FLUX)](#backend_type)
+### 如果我有两个后端, 1号后端性能比较差, 我希望它绘图的时候使用较低的步数, 2号后端性能强大, 我想要设置比较高的分辨率, 应该怎么办呢?
+- [分别为各个后端设置参数](#override_backend_setting)
+### 如果你跑机器人的机器配置不错(2G内存双核CPU即可;CPU审核,速度还算可观), 可以设置2使用本地的审核(需要安装新的依赖和下载模型300MB)
+- [设置本地审核](#novelai_picaudit)
+### 为了增加趣味性, 插件提供了一些参数的随机功能
+- [随机画幅比例](#novelai_random_ratio)
 
-::: warning
-为支持负载均衡，这部分将在 0.6.0 版本废弃并重写
-:::
-必要设置是用来连接后端服务器的，如果你没有正确配置，那么插件将无法正常工作。如果你使用该插件的扩展，也必须正确配置这些设置。
+## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
+### 发送 绘画帮助 , 获取详细帮助
+[各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)
 
-### NOVELAI_MODE（将在 0.6.0 版本废弃）
 
-- 类型: **"novelai"|"naifu"|"sd"**
-- 默认值: **"novelai"**
+# 完整配置详解↓ - [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)
+### novelai_mj_proxy
 
-运行模式。分别对应三种不同的后端。使用 **novelai** 时，你必须配置 **NOVELAI_TOKEN** 才能正常运行
+- 类型: **字符串**
+- 默认值: **""**
 
-如果你要使用 sd 作为后端，请确保 webui-user.bat 文件设置了**set COMMANDLINE_ARGS=--api**
+Midjourney代理地址，当使用 Midjourney 功能时必须填写。参考项目 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy)。
 
-### NOVELAI_SITE（将在 0.6.0 版本废弃）
+---
 
-- 类型：**string**
-- 当插件运行在**naifu**或**sd**模式时需要使用该设置
-  它对应着你的服务器地址，格式为 **"IP:端口号"** ，如果你使用 sd 的公网地址，格式为 **"一串字母数字.gradio.app"**
+### novelai_mj_token
 
-如果该设置留空，则会根据运行模式，使用对应模式默认的地址，naifu 对应**127.0.0.1:6969**，sd 对应**127.0.0.1:7860**
+- 类型: **字符串**
+- 默认值: **""**
 
-### NOVELAI_TOKEN（将在 0.6.0 版本废弃）
+Midjourney 的鉴权 token，选填。
 
-- 类型: **string**
-- 当插件运行在**novelai**模式时必填
-  这是 novelai 的授权令牌，一长串字母。有了这个令牌插件就可以在不需要你账号密码的情况下访问 novelai。换而言之，这是一个和你账号密码同等重要的东西，请不要把它告诉他人。
+---
 
-获取方式如下：
+### bing_key
 
-1. 通过代码获取：
-1. 在网页中登录你的 NovelAI 账号
-1. 打开控制台 (F12)，并切换到控制台 (Console) 标签页
-1. 输入下面的代码并按下回车运行
+- 类型: **字符串|null**
+- 默认值: **null**
 
-```js
-console.log(JSON.parse(localStorage.session).auth_token);
+Bing 翻译功能的 API Key。
+
+---
+
+### deepl_key
+
+- 类型: **字符串|null**
+- 默认值: **null**
+
+DeepL 翻译功能的 API Key。
+
+---
+
+### baidu_translate_key
+
+- 类型: **对象**
+- 默认值: **{"SECRET_KEY": "", "API_KEY": ""}**
+
+百度翻译的 API Key，包含 `SECRET_KEY` 和 `API_KEY`。可以在 [百度云机器翻译](https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index) 控制台获取。
+
+---
+
+### novelai_tagger_site
+
+- 类型: **字符串**
+- 默认值: **api.diaodiao.online:7865**
+
+分析功能的地址，用于处理图像标注等任务。例如：`127.0.0.1:7860`。
+
+---
+
+### tagger_model
+
+- 类型: **字符串**
+- 默认值: **wd14-vit-v2-git**
+
+分析功能和审核功能使用的模型名称。
+
+---
+
+### vits_site
+
+- 类型: **字符串**
+- 默认值: **api.diaodiao.online:5877**
+
+VITS 模型的运行地址。
+
+---
+
+### novelai_pic_audit_api_key
+
+- 类型: **对象**
+- 默认值: **{"SECRET_KEY": "", "API_KEY": ""}**
+
+百度云用于图片审核功能的 API Key，包含 `SECRET_KEY` 和 `API_KEY`。
+
+---
+
+### openai_api_key
+
+- 类型: **字符串**
+- 默认值: **""**
+
+如果你想使用 ChatGPT 的 prompt 生成功能，请填写你的 OpenAI API Key。
+
+---
+
+### openai_proxy_site
+
+- 类型: **字符串**
+- 默认值: **api.openai.com**
+
+使用代理时填写的 OpenAI API 地址。
+
+---
+
+### proxy_site
+
+- 类型: **字符串**
+- 默认值: **""**
+
+用于访问 C 站、OpenAI、翻译等功能的 HTTP 代理地址。请填写完整的 URL，例如 `http://192.168.5.1:11082`。
+
+---
+
+### trans_api
+
+- 类型: **字符串**
+- 默认值: **api.diaodiao.online:50000**
+
+自建翻译 API 的地址。
+
+---
+
+### redis_host
+
+- 类型: **列表**
+- 默认值: **["127.0.0.1", 6379]**
+
+Redis 服务的主机地址和端口，默认是 `127.0.0.1` 和端口 `6379`。
+
+---
+
+### bing_cookie
+
+- 类型: **列表**
+- 默认值: **[]**
+
+Bing 的 cookie 列表，已失效，由于原项目不再维护，此功能不可使用。
+
+---
+
+### dbapi_site
+
+- 类型: **列表**
+- 默认值: **["127.0.0.1", 8000]**
+
+SD-DrawBridgeAPI 的地址和端口，用于模型管理和任务操作。
+
+---
+
+### dbapi_conf_file
+
+- 类型: **字符串**
+- 默认值: **'./config/dbapi_config.yaml'**
+
+SD-DrawBridgeAPI 的配置文件路径。
+
+### novelai_antireport
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+玄学选项。开启后，合并消息中的发送者将会显示为调用指令的人，而不是机器人。
+
+---
+
+### novelai_on
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+控制全局是否开启画图功能。
+
+---
+
+### novelai_save_png
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否保存图片为 PNG 格式。
+
+---
+
+### novelai_pure
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否启用简洁返回模式。启用后，只返回图片，不返回 tag 等数据。
+
+---
+
+### novelai_extra_pic_audit
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否为 ChatGPT 生成的 tag 等功能添加审核功能，适用于二次元内容。
+
+---
+
+### run_screenshot
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否获取服务器的屏幕截图。
+
+---
+
+### is_redis_enable
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否启动 Redis。启用 Redis 可以获得更多功能。
+
+---
+
+### auto_match
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否自动匹配设置，例如根据标签自动匹配相关内容。
+
+---
+
+### hr_off_when_cn
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+使用 ControlNet 功能时，是否关闭高清修复。
+
+---
+
+### only_super_user
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否仅允许超级用户永久更换模型。
+
+---
+
+### tiled_diffusion
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否使用 tiled-diffusion 来生成图片。
+
+---
+
+### save_img
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否在 API 侧保存生成的图片。
+
+---
+
+### openpose
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否使用 OpenPose 来生成图片，减少肢体崩坏的概率。
+
+---
+
+### sag
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+每张图片使用 Self Attention Guidance 来生成，可一定程度上提升图片质量。
+
+---
+
+### negpip
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+负面提示词用法。允许在提示词中添加类似 `(black:-1.8)` 以减少不想要的元素。
+
+---
+
+### zero_tags
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+当发送绘画命令时未提供提示词，是否自动生成随机提示词进行绘图。
+
+---
+
+### show_progress_bar
+
+- 类型: **列表**
+- 默认值: **[false, 2]**
+
+是否显示进度条。第一个参数控制是否显示，第二个参数为显示频率。
+
+---
+
+### is_trt_backend
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否使用 TensorRT 后端。开启此选项时，分辨率必须为 64 的倍数，系统会自动调整分辨率和高清修复倍率。
+
+---
+
+### is_return_hash_info
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否返回图片的哈希信息，避免被群管家撤回图片。
+
+---
+
+### auto_dtg
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+当 prompt 少于 10 时，是否自动启用 dtg 功能来补全 tag，同时适用于二次元内容。
+
+---
+
+### ai_trans
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否启用 AI 自动翻译或生成功能。
+
+---
+
+### dbapi_build_in
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+是否启动内置的 SD-DrawBridgeAPI 来生成图片。
+
+---
+
+### send_to_bot
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+当生成涩图时，是否直接发送给机器人本身，避免未配置超级用户时出现问题。
+
+---
+
+### enable_txt_audit
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否启用 LLM 文本审核功能。
+
+---
+
+### reload_model
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否自动重新加载 Lora/Emb 模型。
+
+### novelai_save
+
+- 类型: **整数**
+- 默认值: **2**
+
+是否保存图片至本地:
+- 0：不保存。
+- 1：保存图片。
+- 2：保存图片及追踪信息。
+
+---
+
+### novelai_daylimit_type
+
+- 类型: **整数**
+- 默认值: **2**
+
+限制模式选择:
+- 1：按张数限制。
+- 2：按画图所用时间计算（推荐）。
+
+---
+
+### novelai_htype
+
+- 类型: **整数**
+- 默认值: **1**
+
+涩图处理方式:
+- 1：发现 H 图后私聊用户返回图片。
+- 2：返回群消息，仅返回图片 URL，主人直接私吞 H 图。
+- 3：发送二维码（无论参数如何都会保存图片到本地）。
+- 4：不发送涩图。
+
+---
+
+### novelai_h
+
+- 类型: **整数**
+- 默认值: **2**
+
+涩涩 prompt 检测，是否允许 H 图:
+- 0：不允许。
+- 1：删除屏蔽词。
+- 2：允许（推荐使用图片审核功能）。
+
+---
+
+### novelai_picaudit
+
+- 类型: **整数**
+- 默认值: **4**
+
+图片审核方式:
+- 1：百度云图片审核。
+- 2：本地审核功能。
+- 3：关闭审核。
+- 4：使用 webui 的 API，地址为 `novelai_tagger_site` 设置的。
+
+---
+
+### tagger_model_path
+
+- 类型: **字符串**
+- 默认值: `'SmilingWolf/wd-v1-4-convnextv2-tagger-v2'`
+
+本地审核模型路径或仓库路径。
+
+---
+
+### novelai_todaygirl
+
+- 类型: **整数**
+- 默认值: **1**
+
+两种不同的方式选择:
+- 1：方式一。
+- 2：方式二。
+
+---
+
+### novelai_load_balance
+
+- 类型: **布尔值**
+- 默认值: **true**
+
+负载均衡是否启用，使用前需要关闭队列限速，目前只支持 `stable-diffusion-webui`，且仅在 `novelai_mode = "sd"` 时可用。
+
+---
+
+### novelai_load_balance_mode
+
+- 类型: **整数**
+- 默认值: **1**
+
+负载均衡模式:
+- 1：随机选择后端。
+- 2：加权随机选择后端。
+
+---
+
+### novelai_load_balance_weight
+
+- 类型: **列表**
+- 说明: 列表中的每个值代表后端的随机权重，长度必须与后端数量一致。例如 `[0.2, 0.5, 0.3]`。
+
+---
+
+### novelai_backend_url_dict
+
+- 类型: **字典**
+- 默认值: 
+```yaml
+    "雕雕的后端": "api.diaodiao.online:7860"
+    "雕雕的后端2": "api.diaodiao.online:7863"
+    "雕雕的后端3": "api.diaodiao.online:7864"
+    "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
 ```
 
-4. 你会看到如下的输出，这部分就是你的 token
-   ![console](./images/console.png)
-5. 通过抓包获取:
-6. 在网页中登录你的 NovelAI 账号
-7. 打开控制台 (F12)，并切换到网络 (Network) 标签页
-8. 随便生成一个什么东西，你会看到左侧多了两个 generate-image 的请求，点击下面那个，右侧会弹出它的信息
-9. 在标头 (Header) 一栏中寻找 authorization 一项，你会看到类似以 Bearer 开头的一长串字符
-10. 在 Bearer 后面的一长串就是你的 token，如果没有就在另一个请求里找
-    ![catch](./images/catch.png)
+你能够使用的后端地址，键为后端名称，值为后端的 URL（无 HTTP 头）。
 
-### NOVELAI（将在 0.6.0 版本引入）
+---
 
-- 类型： **dict**
-- 必填
-  这是一个包含着你所有后端数据的字典，它的完整示例格式如下：
+### backend_type
 
-```json
-{
-  //最简配置方式
-  "novelai": "token", // 加入一个novelai后端，并起名为novelai
-  "novelai-standby": "token", //加入一个novelai后端，并起名为standby
-  "naifu": "", //加入一个naifu后端，使用默认地址，并起名为naifu
-  "sd-single": "", //加入一个sd后端，使用默认地址，使用默认模型，并起名为single
+- 类型: **列表**
+- 默认值: **`[1.5, flux, xl, 1.5]`**
 
-  //高级配置方式，包含sd的模型指定和隐藏模型，可以和上方配置混用
-  "sd": [
-    "", //加入一个sd后端，使用默认地址
-    {
-      "": "", //使用默认模型，并起名为sd
-      "nahita": "nahita", //使用nahita模型，并起名为nahita
-      "/刑": "blue_archive" //使用blue_archive模型，起名为"刑"，并将该模型设置为仅能手动指定调用
-    }
-  ],
-  "/naifu": "127.0.0.1:6970", //加入一个naifu后端，使用指定地址，并起名为naifu，由于与上方重名，会自动更名为naifu_1，并将该模型设置为仅能手动指定调用
-  "sd-2": ["xxxxx.gradio.app", { "final": "final-prune" }] //使用final_prune模型，并起名为2_final
-}
+后端跑的模型类型，长度必须与 `novelai_backend_url_dict` 一致。
+
+---
+
+### override_backend_setting_enable
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+是否启用后端设置覆写功能，覆写功能的长度必须与后端字典长度一致。
+
+---
+
+### override_backend_setting
+
+- 类型: **列表**
+- 用于覆写后端的初始化设置参数，可以设置 `tags`、`ntags`、`scale`、`steps`、`sampler` 等，支持多个配置。
+
+例如：
 ```
-
-当然一般情况下，你并不需要写那么多东西，你只需要写:
-
-```json
-{ "novelai": "token" }
-```
-
-这样就完成了配置 novelai 的过程
-
-如果你希望在保持队列限制的情况下，让某个后端同时进行两个工作，你可以加入两个不同名字的后端，而它们指向同一个地址。
-
-如果你希望
-
-如果你开启了队列限制，除非手动指定调用，否则运行时按照从上至下依次调用，当所有后端都在忙时将会进入等待。
-
-如果你关闭了队列限制，则默认会将所有工作塞给位置第一个的后端，除非用户手动指定。
-
-## 后台设置
-
-这部分参数决定了 bot 的运行行为，大部分情况下保持默认即可，也可以根据自己的需求进行调整
-
-### NOVELAI_SAVE
-
-- 类型: **int**
-- 默认值: 1
-  - 0: 禁用本地保存
-  - 1: 启动本地保存
-  - 2: 启动本地保存,并保存追踪文件
-    用于设置文件保存的选项,文件将会保存至"你的 Bot 文件夹/data/novelai/output/群号",并以图片的 md5 值命名
-
-由于插件采用了占用空间更小的 jpg 格式保存文件，无法保留原图片(png)的 chunk 信息，所以将追踪信息以同名 txt 保存。追踪文件将请求的用户、群号、关键词等内容保存下来，方便追踪图片的来源和信息。下面是一份完整的追踪文件内容：
-
-```
-time=2022-11-20 15:20:41
-user_id=123456789
-group_id=123456789
-cost=0
-count=3
-seed=[444314745]
-tags= masterpiece
-ntags=
-scale=11
-strength=0.7
-noise=0.2
-samper=k_euler_ancestral
-model=safe-diffusion
-steps=28
-width=512
-height=768
-img2img=False
+# 支持覆写的参数
+"tags": ""  #
+"ntags": ""
+"seed": null
+"scale": null  # cfg scale
+"steps": null  
+"strength": null  # denoize_strength
+"noise": null  # 
+"man_shape": null  # 画布形状/分辨率 例: 512x768  / p
+"sampler": null  # 采样器
+"backend_index": null  # 后端索引
+"disable_hr": false  # 关闭高清修复
+"hiresfix_scale": null  # 高清修复倍率
+"event": null
+"sr": null  # 超分/支持输入 ['fast']/['slow']
+"model_index": null  # 模型索引
+"custom_scripts": null
+"scripts": null
+"td": null  # tilled diffusion
+"xyz_plot": null
+"open_pose": false  
+"sag": false
+"accept_ratio": null  # 画幅比例 '2:3'
+"outpaint": false
+"cutoff": null
+"eye_fix": false  # ad修复器
+"pure": false  # 纯净模式
+"xl": false 
+"dtg": false 
+"pu": false
+"ni": false+
+"batch": 1  # 每批张数
+"niter": 1  # 批数
+"override": false,
+"model": null  # 使用的模型
 
 ```
 
-### NOVELAI_PAID
+```yaml
+- tags: ""
+  ntags: "easynegative"
+  scale: 7
+  steps: 16
+  sampler: Euler a
+- steps: 4
+  model: null
+- tags: "score_9..."
+  ntags: "score_3..."
+```
 
-- 类型: **int**
-- 默认值: 0
-  - 0: 禁用付费模式
-  - 1: 模拟点数模式
-  - 2: 严格点数模式
-  - 3: 无限制模式
+### post 参数设置
 
-该选项用于精准控制如果限制用户花费点数的行为。除了无限制模式，均会对用户以图生图、生成大图、高于 28 步等官网需要付费的行为进行限制。
+---
 
-禁用付费模式下以图生图的行为会被拒绝，而其他操作会通过一些处理被插件自动处理为符合官网免费规则的范围，例如降低分辨率或者将步数重置为默认值
+### novelai_tags
 
-模拟点数模式和严格点数模式会按照 novelai 官网的点数计算方法，用户需要消耗点数来进行官网需要付费的行为。具体见点数模式一章。不同的是，严格点数模式下免费行为也会进行点数计算.
+- 类型: **字符串**
+- 默认值: **""**
 
-### NOVELAI_PURE
+内置的 tag (标签)，推荐使用 `override_backend_setting` 来为不同的后端单独设置。
 
-- 类型: **bool**
-- 默认值: False
+---
 
-该选项决定了是否开启简洁返回模式，当该选项开启时，插件将只会返回图片，而不会返回其他数据。当该选项关闭时，插件会将安全的追踪信息一并打包为转发消息。
+### novelai_ntags
 
-当你的 bot 因为风控等原因无法发送转发消息或者长消息时，可以尝试开启该选项
+- 类型: **字符串**
+- 默认值: **"easynegative"**
 
-### NOVELAI_LIMIT
+内置的反 tag (负面标签)。
 
-- 类型: **bool**
-- 默认值: True
+---
 
-该选项决定了是否开启全局队列限速。当该选项开启时，请求会按照先进先出的算法，保障服务器仅会同时处理一个请求。对于自己的服务器来说，这可以有效防止同时进行多个生成而暴毙。对于 novelai 来说，可能更多的是玄学上的安慰，因为目前并没有证据证明 novelai 会因为并发请求而封号。
+### novelai_steps
 
-### NOVELAI_DAYLIMIT
+- 类型: **整数**
+- 默认值: **null**
 
-- 类型: **int**
-- 默认值: 0 (关闭功能)
+生成图像的默认步数。
 
-该值确定了每个人每天最多生成多少张图，当该值为 0 时，不会对每个人每天的请求次数进行限制。
+---
 
-### NOVELAI_H
+### novelai_max_steps
 
-- 类型: **bool**
-- 默认值: False
+- 类型: **整数**
+- 默认值: **36**
 
-该选项确定了插件是否允许 r18。当该选项开启后，r18 屏蔽词将会失效。如果你使用的是 novelai，该选项还会将模型自动切换至 r18 模型。
+生成图像的最大步数限制。
 
-::: warning
-开启该选项后，bot 可能会发出 r18 限制的图，这可能会导致你的 bot 被风控甚至封号。开启该选项表示你已经知道了可能会导致这种后果。
-:::
+---
 
-### NOVELAI_ANTIREPORT
+### novelai_scale
 
-- 类型: **bool**
-- 默认值: True
+- 类型: **整数**
+- 默认值: **7**
 
-该选项决定了合并消息中的发送者显示的是谁。该选项开启时，发送者将会显示为发出绘图指令的用户。该选项关闭时，发送者将会显示为 bot。该选项可能对反举报具有一些玄学上的效果。
+CFG Scale，用于调节图像生成时的控制强度，每个模型的适用值可能不同。
 
-### NOVELAI_MAX
+---
 
-- 类型: **int**
-- 默认值: 3
+### novelai_random_scale
 
-该值确定了每次用户能够指定的最大同时生成数量。即便插件无论何时都会一张一张生成，但是如果用户设置的生成数量过大，会导致插件堵塞。
+- 类型: **布尔值**
+- 默认值: **false**
 
-### NOVELAI_SIZE
+是否开启随机 CFG Scale。
 
-- 类型: **int**
-- 默认值: 1024
+---
 
-该值确定了允许生成的图片最大分辨率，对应的像素数量为该值的平方。用户的分辨率请求都会被等比例降低至小于限制的像素数为止。在禁用付费模式下，则会以该值和 640 中较小的值为标准。
+### novelai_random_scale_list
 
-如果你的服务器比较寄，无法承受大图的生成，建议改成 640 或者其他自己测试能够承受的值。
-::: warning
-naifu 和 novelai 后台不会接受长宽大于 1024 的值，插件会自动通过等比降低的方式，将长宽限制在 1024 以内。sd 则限制在 2048 以内。如果你的 sd 是经过魔改的，支持更大的长宽值，那么请自行修改代码 "/backend/sd.py" 第 9 行 的 max_resolution 值
-:::
+- 类型: **列表**
 
-## 预设配置
+随机 CFG Scale 列表，包含每个 scale 值及其出现的概率。例如：
+```yaml
+- - 5
+  - 0.4
+- - 6
+  - 0.4
+- - 7
+  - 0.2
+```
 
-这部分参数允许管理员、群主使用管理指令对每个群进行针对性设置。写在配置文件中的值是在没有经过管理指令设置的群中所使用的默认值。
+---
 
-### NOVELAI_TAGS
+### novelai_random_ratio
 
-- 类型: **str**
+- 类型: **布尔值**
+- 默认值: **true**
 
-该值是所有请求中默认添加的基础词条，会添加在内置的优化词条之后，用户的词条之前。如果用户使用了-o 指令，那么基础词条和内置优化词条将被忽略
+是否开启随机比例。
 
-### NOVELAI_NTAGS
+---
 
-- 类型: **str**
+### novelai_random_ratio_list
 
-该值是所有请求中默认添加的基础排除词条，会添加在用户的词条之前。如果用户使用了-o 指令，那么基础排除词条将被忽略
+- 类型: **列表**
 
-### NOVELAI_CD
+随机比例列表，每个比例值和其对应的概率。例如：
+```yaml
+- - p
+  - 0.7  # 70%概率随机到 p , 即为人像构图
+- - s
+  - 0.1
+- - l
+  - 0.1
+- - uw
+  - 0.05
+- - uwp
+  - 0.05
+```
 
-- 类型: **int**
-- 默认值: 60
+---
 
-该值限制了单个用户两次指令之间的间隔时间（单位秒）。当该值设置为 0 时，用户将不会被 CD 限制（实际上当该值比较小时，也基本是如此）
+### novelai_random_sampler
 
-### NOVELAI_ON
+- 类型: **布尔值**
+- 默认值: **false**
 
-- 类型: **bool**
-- 默认值: True
+是否开启随机采样器。
 
-该选项决定了插件是否默认全局开启，结合管理指令可以做到群黑白名单的效果
+---
 
-### NOVELAI_REVOKE
+### novelai_random_sampler_list
 
-- 类型: **int**
-- 默认值: 0
+- 类型: **列表**
 
-该值为插件自动撤回的时间（单位秒）。当该值为 0 时，插件不会自动撤回。如果你担心被举报可以设置一个值。
+随机采样器列表，每个采样器和其对应的概率。例如：
+```yaml
+- - Euler a
+  - 0.9
+- - DDIM
+  - 0.1
+```
 
-## 翻译 API 配置
+---
 
-这部分设置用于翻译 API，获取 API 的方法请自行百度。即便你不配置下面的值，插件也有内置的谷歌翻译和有道翻译可以使用，但是下面几种 API 相比于前者具有显然更高的翻译质量。
+### novelai_sampler
 
-### BING_KEY
+- 类型: **字符串**
+- 默认值: **null**
 
-- 类型: **string**
+默认采样器，如果不设置，则默认使用 `Euler a`。`Euler a` 更适合画人物，而 `DDIM` 系采样器适合生成丰富的背景，`DPM` 系采样器速度较慢，需自行尝试。
 
-这是 BING 翻译需要使用的 KEY，请确保你在申请 API 时，实例范围选择的是全球。
+---
 
-### DEEPL_KEY
+### novelai_hr
 
-- 类型: **string**
+- 类型: **布尔值**
+- 默认值: **true**
 
-这是 DeepL 翻译需要使用的 KEY。DeepL 拥有最好的翻译质量，但是并不对国内用户开放，如果你有条件我建议搞一个。
+是否启动高清修复。
+
+---
+
+### novelai_hr_scale
+
+- 类型: **浮点数**
+- 默认值: **1.5**
+
+高清修复时的放大比例。
+
+---
+
+### novelai_hr_payload
+
+高清修复的详细设置：
+
+```yaml
+enable_hr: true  # 启用高清修复
+denoising_strength: 0.4  # 重绘幅度
+hr_scale: 1.5  # 高清修复比例
+hr_upscaler: "R-ESRGAN 4x+ Anime6B"  # 超分模型
+hr_second_pass_steps: 7  # 高清修复步数
+```
+
+---
+
+### novelai_SuperRes_MaxPixels
+
+- 类型: **整数**
+- 默认值: **2000**
+
+超分辨率最大像素值，对应的是 `(值)^2`。限制超高分辨率图像的生成，防止显存爆炸。
+
+---
+
+### novelai_SuperRes_generate
+
+- 类型: **布尔值**
+- 默认值: **false**
+
+图片生成后是否再次进行超分辨率处理。
+
+---
+
+### novelai_SuperRes_generate_way
+
+- 类型: **字符串**
+- 默认值: **"fast"**
+
+超分模式，可选值为 `fast` 和 `slow`。`slow` 模式使用 `Ultimate SD upscale` 脚本。
+
+---
+
+### novelai_SuperRes_generate_payload
+
+超分处理的详细设置：
+
+```yaml
+upscaling_resize: 1.2  # 超分倍率
+upscaler_1: "Lanczos"  # 第一次超分使用的方法
+upscaler_2: "R-ESRGAN 4x+ Anime6B"  # 第二次超分使用的方法
+extras_upscaler_2_visibility: 0.6  # 第二层 upscaler 的力度
+```
+
+---
+
+### novelai_ControlNet_post_method
+
+- 类型: **整数**
+- 默认值: **0**
+
+`ControlNet` 后处理方法的选择。
+
+---
+
+### control_net
+
+- 类型: **列表**
+
+`ControlNet` 模型列表，用于生成时指定模型。
+
+例如：
+```yaml
+- "lineart_anime"
+- "control_v11p_sd15s2_lineart_anime [3825e83e]"
+```
+
+---
+
+### xl_config
+
+SDXL 模型的配置项：
+
+```yaml
+sd_vae: "sdxl_vae.safetensors"
+prompt: ""
+negative_prompt: ""
+hr_config:         
+  denoising_strength: 0.7
+  hr_scale: 1.5
+  hr_upscaler: "Lanczos"
+  hr_second_pass_steps: 10
+xl_base_factor: 1.5  # XL 模型基础分辨率放大倍数
+```
+
+### novelai_command_start
+
+- 类型: **列表**
+
+机器人响应的命令列表。用户发送的命令中包含这些关键词时，机器人会触发绘图功能。例如：
+```yaml
+- "绘画"
+- "咏唱"
+- "召唤"
+- "约稿"
+- "aidraw"
+- "画"
+- "绘图"
+- "AI绘图"
+- "ai绘图"
+```
+
+---
+
+### novelai_retry
+
+- 类型: **整数**
+- 默认值: **4**
+
+post 请求失败后重试的次数。
+
+---
+
+### novelai_daylimit
+
+- 类型: **整数**
+- 默认值: **24**
+
+每日画图次数的限制，0 表示不限制。
+
+---
+
+### novelai_cd
+
+- 类型: **整数**
+- 默认值: **60**
+
+默认的冷却时间 (单位：秒)，每次生成图像后的等待时间。
+
+---
+
+### novelai_group_cd
+
+- 类型: **整数**
+- 默认值: **3**
+
+群聊中的共享冷却时间 (单位：秒)，表示多人群体绘图功能的冷却时间。
+
+---
+
+### novelai_revoke
+
+- 类型: **整数**
+- 默认值: **0**
+
+是否自动撤回生成的消息，值为 0 表示不撤回。非 0 时，表示撤回的时间间隔（单位：秒）。
+
+---
+
+### novelai_size_org
+
+- 类型: **整数**
+- 默认值: **640**
+
+图片生成的最大分辨率 (单位：像素)，对应的总分辨率为 `(值)^2`。  
+默认最大值为 1024x1024。对于服务器性能较低的情况，建议将其调整为 640x640 或根据实际承受能力进行设置。

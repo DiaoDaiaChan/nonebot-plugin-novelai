@@ -356,10 +356,12 @@ class AIDrawHandler:
 
         if config.override_backend_setting_enable and not self.args.user_backend:
 
-            self.fifo.backend_index = int((config.backend_site_list.index(self.fifo.backend_site)
-                                       if not self.fifo.backend_index
-                                       else self.fifo.backend_index
-                                       ))
+            self.fifo.backend_index = int(
+                (config.backend_site_list.index(self.fifo.backend_site)
+                if not self.fifo.backend_index
+                else self.fifo.backend_index
+                )
+            )
             try:
                 # 从配置中获取覆写设置
                 params_dict = config.override_backend_setting[self.fifo.backend_index]
@@ -683,6 +685,7 @@ CFG Scale:{fifo.scale}
         await self.match_models()
         await self.post_process_tags(event)
         await self.img2img(event)
+
 
 def wait_len():
     # 获取剩余队列长度

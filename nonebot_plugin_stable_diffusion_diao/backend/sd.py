@@ -184,8 +184,7 @@ class AIDRAW(AIDRAW_BASE):
                 self.model_index = random.randint(1, len(list(model_dict.keys())))
 
             self.model = model_dict[int(self.model_index)]
-            parameters["override_settings_restore_afterwards"] = True
-            parameters["override_settings"].update({"sd_model_checkpoint": self.model})
+
         # 图生图
         if self.img2img:
             if self.control_net["control_net"] and config.novelai_hr:
@@ -290,7 +289,7 @@ class AIDRAW(AIDRAW_BASE):
             # 使用XL VAE
             parameters["override_settings_restore_afterwards"] = True
             parameters["override_settings"].update(
-                {"sd_vae": config.xl_config["sd_vae"], "sd_model_checkpoint": config.xl_sd_model_checkpoint}
+                {"sd_vae": config.xl_config["sd_vae"]}
             )
 
             parameters["prompt"] = "" if self.override else config.xl_config["prompt"] + self.tags
@@ -311,6 +310,9 @@ class AIDRAW(AIDRAW_BASE):
         parameters["width"] = int(parameters["width"])
         parameters["height"] = int(parameters["height"])
         parameters["steps"] = int(parameters["steps"])
+
+        parameters["override_settings_restore_afterwards"] = True
+        parameters["override_settings"].update({"sd_model_checkpoint": self.model})
 
         logger.debug(str(parameters))
         self.post_parms = parameters
@@ -364,7 +366,7 @@ class AIDRAW(AIDRAW_BASE):
                 if match:
                     model_name = match.group(1).strip()
                     model_hash = match2.group(1).strip()
-                self.model = f"{model_name} {model_hash}"
+                self.model = f"{model_name} [{model_hash}]"
                 self.extra_info += res_msg
                 break
 

@@ -1,10 +1,9 @@
 # 首先 这个项目fork自https://github.com/sena-nana/nonebot-plugin-novelai
 ### 感谢 sena喵 感谢 sena喵 感谢 sena喵
-因为懒得更改其他地方了，所以有不少nonebot-plugin-novelai的地方，凑合用就行(
 
 # 支持中文关键词的基于nonebot2的stable-diffusion绘图插件支持多种webui插件和脚本以及更多玩法, 接入API, 支持白嫖绘图
 ### 插件讨论反馈群：687904502  
-### 雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀  
+### 雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀 
 
 # 简要说明
 推荐使用nonebot插件管理进行安装
@@ -17,14 +16,15 @@ windows用户请看,下载msi安装即可
 https://github.com/MicrosoftArchive/redis/releases
 成熟的linux用户会自己安装（
 ```
-
+## 基础配置在这
+### [基础配置](./docs/main/config.md) (请先看这里)
 ## 核心功能
 - ## 开箱即用(使用本人API) / 或者设置token使用在线服务 
 - ## 跨平台(目前支持官方QQ机器人以及obv11)
-- ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (本人用的比较少, 如有需要完善请加群或者留个issue)
-- ### ↓ 白嫖绘图, 人人有图画 ↓ 使用此项目
-- ## 整合一个支持调用各种在线网站的多功能API (支持FASTAPI适配器) https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
-- ## [DrawBridgeAPI使用教程](docs/main/DrawBridgeAPI.md)
+- ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (使用DrawBridgeAPI提供comfyui支持本人用的比较少, 如有需要完善请加群或者留个issue)
+- ### ↓ 白嫖绘图, 人人有图画 ↓ 使用此项目 (插件已整合)
+- ## 整合一个支持调用各种在线网站的多功能API https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
+
 - ### 支持多后端负载均衡. 2种模式, 随机和加权随机, 以及你可以手动选择后端
 ![添加了sd负载均衡功能](./docs/main/images/help/load_balance.png)
 - ## 支持SD1.5, SDXL, FLUX, MJ(需要token), novelai (需要token, 但雕雕没有token来测试, 很久没有维护)
@@ -74,25 +74,29 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 添加了更多的追踪信息  
 还有挺多细节的更改就不一一列出力
 敬请阅读下面的日志或者来雕雕的银趴玩(  
+  
 ## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
-###  当然, 如果想快速使用的本插件也是配置好了,可以开箱即用
 ### 发送 绘画帮助 , 获取详细帮助
 [各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)
 
-#### 配置文件路径 机器人所在路径/config/novelai/config.yaml
-[配置文件](nonebot_plugin_stable_diffusion_diao/config_example.yaml)  
 
-### 注意, 需要配置SUPERUSER, 来获取图片链接
 ### 本人模型站链接, 请支持!))
-https://huggingface.co/diaodiao/DiaoDaia_Mix
-https://civitai.com/user/DiaoDaiaYoChan
+https://huggingface.co/diaodiao/DiaoDaia_Mix  
+https://civitai.com/user/DiaoDaiaYoChan  
 https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
+
+## 插件版本推荐:
+```shell
+# 跨平台大改前最后一个版本
+ pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
+```
+
 # 更新日志
 ## 2024.10.03 0.5.4 更新
-支持跨平台(目前支持官方QQ机器人以及obv11)
+支持跨平台(目前支持官方QQ机器人以及obv11)(堪堪能用, 还在学习alc,正在迁移)
 ```
 # 新的配置项目
-override_backend_setting_enable: true  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
+override_backend_setting_enable: true  # 是否启用后端设置覆写功能(默认关闭), 注意,长度要和后端字典长度一致
 override_backend_setting:  #覆写后端设置
   -
     "tags": ""
@@ -102,6 +106,7 @@ override_backend_setting:  #覆写后端设置
     "sampler": Euler a
   -
     "steps": 4
+    "model": "flux1-schnell-bnb-nf4.safetensors"
   -
     "tags": "score_9,score_8_up,score_7_up,score_anime,"
     "ntags": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
@@ -117,7 +122,7 @@ reload_model: false  # 是否自动重新加载lora/emb模型
 ## 2024.09.24 0.5.3 更新
 内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000
 ```
-dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
+dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI监听地址以及端口
 dbapi_conf_file: ./config/dbapi_config.yaml  # 配置文件路径
 dbapi_build_in: true  # 启动内置的dbapi进行生图
 ```

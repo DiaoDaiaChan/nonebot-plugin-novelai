@@ -25,13 +25,13 @@ async def deepdanbooru_handle(event: __SUPPORTED_MESSAGEEVENT__, bot: Bot):
 
     if isinstance(event, message_event_type[1]):
 
-        reply = event.reply
         for seg in event.message['image']:
             url = seg.data["url"]
         at_id = await get_message_at(event.json())
         # 获取图片url
         if at_id:
             url = f"https://q1.qlogo.cn/g?b=qq&nk={at_id}&s=640"
+        reply = event.reply
         if reply:
             for seg in reply.message['image']:
                 url = seg.data["url"]

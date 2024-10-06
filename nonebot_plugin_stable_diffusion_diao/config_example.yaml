@@ -10,8 +10,6 @@ baidu_translate_key:
     API_KEY: ""
 # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
 novelai_tagger_site: api.diaodiao.online:7865  # 分析功能的地址 例如 127.0.0.1:7860
-tagger_model: wd14-vit-v2-git  # 分析功能, 审核功能使用的模型
-vits_site: api.diaodiao.online:5877
 novelai_pic_audit_api_key:
     SECRET_KEY: ""
     API_KEY: ""
@@ -21,8 +19,7 @@ openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填�
 proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
 trans_api: api.diaodiao.online:50000  # 自建翻译API
 redis_host: ["127.0.0.1", 6379]  # redis地址和端口
-bing_cookie: []  # bing的cookie们, 注意, 由于原项目已经跑路, 此功能已经不可以使用
-dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
+dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI监听地址以及端口
 dbapi_conf_file: './config/dbapi_config.yaml'  # SD-DrawBridgeAPI配置文件
 # --------------------------------
 # 开关设置
@@ -37,32 +34,33 @@ is_redis_enable: true  # 是否启动redis, 启动redis以获得更多功能
 auto_match: true  # 是否自动匹配
 hr_off_when_cn: true  # 使用controlnet功能的时候关闭高清修复
 only_super_user: true  # 只有超级用户才能永久更换模型
-tiled_diffusion: false  # 使用tiled-diffusion来生成图片
-save_img: true  # 是否保存图片(API侧)
-openpose: false  # 使用openpose dwopen生图，大幅度降低肢体崩坏
-sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
-negpip: false  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
-zero_tags: false  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
 show_progress_bar: [false, 2]  # 是否显示进度条
-is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
+save_img: true  # 是否保存图片(API侧)
 is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
-enalbe_xl: false # 是否默认使用xl模式
-auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
 ai_trans: false  # ai自动翻译/生成
 dbapi_build_in: true  # 启动内置的dbapi进行生图
 send_to_bot: true  # 涩图直接发给机器人本身(避免未配置superusers)
 enable_txt_audit: false  # 启用LLM文本审核功能
 reload_model: false  # 是否自动重新加载lora/emb模型
 # --------------------------------
+# 插件开关
+# --------------------------------
+tiled_diffusion: false  # 使用tiled-diffusion来生成图片
+openpose: false  # 使用openpose dwopen生图，大幅度降低肢体崩坏
+sag: false  # 每张图片使用Self Attention Guidance进行生图(能一定程度上提升图片质量)
+is_trt_backend: false  # 是否有使用了TensorRT的后端(分辨率必须为64的倍数), 打开此设置之后,会自动更改分辨率和高清修复倍率
+negpip: false  # 用法 正面提示词添加 (black:-1.8) 不想出现黑色
+zero_tags: false  # 发送绘画命令不添加prompt的时候自动随机prompt来进行绘图
+auto_dtg: false # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
+# --------------------------------
 # 模式选择
 # --------------------------------
 novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2, 同时保存追踪信息
-novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算
-novelai_paid: 3  # 不要动.. 历史遗留
-novelai_htype: 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
-novelai_h: 2  # 涩涩prompt检测, 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
+novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算(推荐)
+novelai_htype: 1  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
+novelai_h: 2  # 涩涩prompt检测, 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许(推荐直接使用图片审核功能)
 novelai_picaudit: 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
-tagger_model_path: 'SmilingWolf/wd-v1-4-convnextv2-tagger-v2'  # 本地审核模型路径
+tagger_model_path: 'SmilingWolf/wd-v1-4-convnextv2-tagger-v2'  # 本地审核模型路径/仓库路径
 novelai_todaygirl: 1  # 可选值 1 和 2 两种不同的方式
 # --------------------------------
 # 负载均衡设置
@@ -75,49 +73,51 @@ novelai_backend_url_dict: # 你能用到的后端, 无http头 , 键为名称, �
     "雕雕的后端2": "api.diaodiao.online:7863"
     "雕雕的后端3": "api.diaodiao.online:7864"
     "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
+    "本地后端": "127.0.0.1:7860"
 backend_type:  # 这里的长度要和上面一样哦!
   - 1.5
   - flux
   - xl
   - 1.5
+  - 1.5
 # 后端跑的是什么类型的模型? ↑
-override_backend_setting_enable: true  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
+override_backend_setting_enable: false  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
 override_backend_setting:  #覆写后端设置
 # init函数支持的输入
-  #    "tags": ""
-  #    "ntags": ""
-  #    "seed": null
-  #    "scale": null
-  #    "steps": null
-  #    "strength": null
-  #    "noise": null
-  #    "man_shape": null
-  #    "sampler": null
-  #    "backend_index": null
-  #    "disable_hr": false
-  #    "hiresfix_scale": null
-  #    "event": null
-  #    "sr": null
-  #    "model_index": null
-  #    "custom_scripts": null
-  #    "scripts": null
-  #    "td": null
-  #    "xyz_plot": null
-  #    "open_pose": false
-  #    "sag": false
-  #    "accept_ratio": null
-  #    "outpaint": false
-  #    "cutoff": null
-  #    "eye_fix": false
-  #    "pure": false
-  #    "xl": false
-  #    "dtg": false
-  #    "pu": false
-  #    "ni": false
-  #    "batch": 1
-  #    "niter": 1
-  #    "override": false
-  #
+# "tags": ""  #
+# "ntags": ""
+# "seed": null
+# "scale": null  # cfg scale
+# "steps": null  
+# "strength": null  # denoize_strength
+# "noise": null  # 
+# "man_shape": null  # 画布形状/分辨率 例: 512x768
+# "sampler": null  # 采样器
+# "backend_index": null  # 后端索引
+# "disable_hr": false  # 关闭高清修复
+# "hiresfix_scale": null  # 高清修复倍率
+# "event": null
+# "sr": null  # 超分/支持输入 ['fast']/['slow']
+# "model_index": null  # 模型索引
+# "custom_scripts": null
+# "scripts": null
+# "td": null  # tilled diffusion
+# "xyz_plot": null
+# "open_pose": false  
+# "sag": false
+# "accept_ratio": null  # 画幅比例 '2:3'
+# "outpaint": false
+# "cutoff": null
+# "eye_fix": false  # ad修复器
+# "pure": false  # 纯净模式
+# "xl": false 
+# "dtg": false 
+# "pu": false
+# "ni": false
+# "batch": 1  # 每批张数
+# "niter": 1  # 批数
+# "override": false,
+# "model": null  # 使用的模型
   -
     "tags": ""
     "ntags": "easynegative"
@@ -126,9 +126,10 @@ override_backend_setting:  #覆写后端设置
     "sampler": Euler a
   -
     "steps": 4
+    "model": "flux1-schnell-bnb-nf4.safetensors"
   -
-    "tags": "score_9,score_8_up,score_7_up,score_anime,"
-    "ntags": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
+    "tags": "score_9..."
+    "ntags": "score_3..."
   -
 
 # --------------------------------
@@ -143,7 +144,7 @@ novelai_scale: 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
 novelai_random_scale: false  # 是否开启随机CFG
 novelai_random_scale_list:
 - - 5
-  - 0.4
+  - 0.4  # (40%概率随机到5, 20%概率随机到7)
 - - 6
   - 0.4
 - - 7
@@ -151,7 +152,7 @@ novelai_random_scale_list:
 novelai_random_ratio: true  # 是否开启随机比例
 novelai_random_ratio_list: 
 - - p
-  - 0.7
+  - 0.7  # 70%概率随机到 p , 即为人像构图
 - - s
   - 0.1
 - - l
@@ -189,15 +190,14 @@ control_net:
     - "control_v11p_sd15s2_lineart_anime [3825e83e]"  # 处理器和模型
 xl_config:
     sd_vae: "sdxl_vae.safetensors"
-    prompt: "score_9,score_8_up,score_7_up,score_anime,"
-    negative_prompt: "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
+    prompt: ""
+    negative_prompt: ""
     hr_config:         
       denoising_strength: 0.7
       hr_scale: 1.5
       hr_upscaler: "Lanczos"
       hr_second_pass_steps: 10
-    xl_base_factor: 1.5
-xl_sd_model_checkpoint: ""
+    xl_base_factor: 1.5  # xl基础分辨率
 # --------------------------------
 # 插件设置
 # --------------------------------
@@ -212,7 +212,6 @@ novelai_command_start:   # 机器人响应什么命令
     - "AI绘图"
     - "ai绘图"
 novelai_retry: 4  # post失败后重试的次数
-novelai_site: "api.diaodiao.online:7863"
 novelai_daylimit: 24  # 每日画图次数限制，0为禁用
 # 可运行更改的设置
 novelai_cd: 60  # 默认的cd
@@ -220,7 +219,6 @@ novelai_group_cd: 3  # 默认的群共享cd
 novelai_revoke: 0  # 是否自动撤回，该值不为0时，则为撤回时间
 novelai_size_org: 640  # 最大分辨率
 # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
-no_wait_list: []
 # --------------------------------
 # 脚本设置
 # --------------------------------
@@ -306,7 +304,7 @@ scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制
   - 2048
   - 2048
   - 2.0
-# 没有用的东西（ 不过不要删掉它们!
+# 没有用的东西/不要乱改（ 不过不要删掉它们!
 novelai_ControlNet_payload:
 novelai_limit: false
 novelai_token:
@@ -317,3 +315,11 @@ novelai_mode: sd
 novelai_max: 3
 novelai_cndm:
 novelai_auto_icon: false
+enalbe_xl: false # 是否默认使用xl模式(已废弃, 现在使用新的backend_type和override_backend_setting来设置)
+novelai_paid: 3  # 不要动.. 历史遗留
+xl_sd_model_checkpoint: ""   # 废弃, 无用
+novelai_site: "api.diaodiao.online:7863"
+bing_cookie: []  # bing的cookie们, 注意, 由于原项目已经跑路, 此功能已经不可以使用
+tagger_model: wd14-vit-v2-git  # 分析功能, 审核功能使用的模型
+no_wait_list: []
+vits_site: api.diaodiao.online:5877

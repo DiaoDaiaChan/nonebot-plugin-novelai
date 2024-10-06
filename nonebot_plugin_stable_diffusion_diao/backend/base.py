@@ -55,7 +55,7 @@ class AIDRAW_BASE:
         custom_scripts: int = None,
         scripts: int = None,
         td: bool = None,
-        xyz_plot = None,
+        xyz_plot=None,
         open_pose: bool = False,
         sag: bool = False,
         accept_ratio: str = None,
@@ -70,6 +70,7 @@ class AIDRAW_BASE:
         batch: int = 1,
         niter: int = 1,
         override: bool = False,
+        model: str = None,
         **kwargs,
     ):
         """
@@ -136,7 +137,7 @@ class AIDRAW_BASE:
         self.ntags: str = ntags
         self.img2img: bool = False
         self.image: str = None
-        self.model: str = None
+        self.model: str = model
         if config.novelai_random_sampler:
             self.sampler: str = (
                 sampler if sampler else 
