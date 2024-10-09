@@ -18,6 +18,7 @@ from nonebot.permission import SUPERUSER
 from nonebot import logger
 from datetime import datetime
 from tqdm import tqdm
+from pathlib import Path
 from argparse import Namespace
 from ..config import config, redis_client, superusers
 from ..utils import (
@@ -33,6 +34,9 @@ from ..utils.gradio_ import paints_undo
 class AIDRAW_BASE:
     max_resolution: int = 16
     sampler: str
+    backend_avg_dict: dict = {}
+    write_count: dict = {}
+    backend_avg_json: Path = Path("./data/novelai/backend_avg.json")
 
     def __init__(
         self,
@@ -393,6 +397,9 @@ class AIDRAW_BASE:
         
         spend_time = time.time() - self.start_time
         self.spend_time = f"{spend_time:.2f}秒"
+
+        await self.set_backend_work_time()
+
         image_byte_list = []
         hash_list = []
 
@@ -509,6 +516,9 @@ class AIDRAW_BASE:
         return self.__repr__().replace("\n", ";")
     
     def weighted_choice(self, choices):
+        """
+        权重随机选择
+        """
         total = sum(w for c, w in choices)
         r = random.uniform(0, total)
         upto = 0
@@ -518,6 +528,9 @@ class AIDRAW_BASE:
             upto += w
 
     async def get_webui_config(self, url: str):
+        """
+        获取webui配置
+        """
         api = "http://" + url + "/sdapi/v1/options"
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as session:
@@ -531,6 +544,9 @@ class AIDRAW_BASE:
             return ""
         
     async def re_posting(self, header, payload, img_base64, img2img=False):
+        """
+        2次posting主函数
+        """
         async with aiohttp.ClientSession(
                 headers=header, 
                 timeout=aiohttp.ClientTimeout(total=1800)
@@ -548,6 +564,9 @@ class AIDRAW_BASE:
                     return img
         
     async def dwpose(self, img_base64, header):
+        """
+        dwpose处理函数
+        """
         logger.info("开始进行dwpose处理")
         
         payload = self.post_parms
@@ -565,6 +584,9 @@ class AIDRAW_BASE:
         return img
 
     async def super_res(self, img_base64, header, way="fast"):
+        """
+        超分函数
+        """
         logger.info(f"开始使用{way}方式进行超分")
         if way == "fast":
             from ..extension.sd_extra_api_func import SdAPI
@@ -596,6 +618,10 @@ class AIDRAW_BASE:
             return img
 
     def extract_ratio(self, max_res=None):
+        """
+        提取宽高比为分辨率
+        """
+
         if ":" in self.accept_ratio:
             width_ratio, height_ratio = map(int, self.accept_ratio.split(':'))
         else:
@@ -613,6 +639,9 @@ class AIDRAW_BASE:
         return width, height
 
     async def show_progress_bar(self):
+        """
+        追踪进度显示进度条
+        """
         show_str = f"[{self.time}] 用户{self.user_id}: {self.seed}"
         show_str = show_str.ljust(25, "-")
         with tqdm(total=1, desc=show_str + "-->", bar_format="{l_bar}{bar}|{postfix}") as pbar:
@@ -624,6 +653,9 @@ class AIDRAW_BASE:
                 await asyncio.sleep(config.show_progress_bar[1])
                 
     async def post_request(self, header, post_api, payload):
+        """
+        核心post api请求函数
+        """
         img = None
         async with aiohttp.ClientSession(
                     headers=header, 
@@ -666,6 +698,9 @@ class AIDRAW_BASE:
         return img, resp_dict["info"]
     
     async def update_progress(self):
+        """
+        更新后端工作进度
+        """
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url="http://" + self.backend_site + "/sdapi/v1/progress") as resp:
@@ -676,6 +711,9 @@ class AIDRAW_BASE:
             return 0.404
         
     async def get_dtg_pre_prompt(self):
+        """
+        设置DTG预prompt
+        """
         new_tags = f'''
         {self.tags}
         \n
@@ -687,6 +725,9 @@ class AIDRAW_BASE:
         pass
 
     async def override_backend_setting_func(self):
+        """
+        覆写后端设置
+        """""
         if config.override_backend_setting_enable and not self.args.user_backend:
 
             self.backend_index = int(
@@ -723,3 +764,42 @@ class AIDRAW_BASE:
                                 setattr(self, key, value)
 
                 self.update_class_var()
+
+    @classmethod
+    async def get_backend_avg_work_time(cls):
+        backend_sites = config.backend_site_list
+
+        if cls.backend_avg_json.exists():
+            async with aiofiles.open(cls.backend_avg_json, 'r') as f:
+                contents = await f.read()
+                cls.backend_avg_dict = json.loads(contents)
+
+        avg_time_dict = {}
+        for backend_site in backend_sites:
+            spend_time_list = cls.backend_avg_dict.get(backend_site, [])
+            if spend_time_list and len(spend_time_list) > 10:
+                sorted_list = sorted(spend_time_list)
+                trimmed_list = sorted_list[1:-1]
+                avg_time = sum(trimmed_list) / len(trimmed_list) if trimmed_list else None
+                avg_time_dict[backend_site] = avg_time
+            else:
+                avg_time_dict[backend_site] = None
+
+        return avg_time_dict
+
+    @classmethod
+    async def set_backend_work_time(cls, spend_time, backend_site):
+        spend_time_list = cls.backend_avg_dict.get(backend_site, [])
+        spend_time_list.append(spend_time)
+
+        if len(spend_time_list) > 10:
+            spend_time_list = spend_time_list[-10:]
+
+        cls.backend_avg_dict[backend_site] = spend_time_list
+
+        cls.write_count[backend_site] = cls.write_count.get(backend_site, 0) + 1
+
+        if cls.write_count[backend_site] >= 10:
+            async with aiofiles.open(cls.backend_avg_json, 'w') as f:
+                await f.write(json.dumps(cls.backend_avg_dict))
+            cls.write_count[backend_site] = 0

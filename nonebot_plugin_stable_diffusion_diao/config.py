@@ -643,7 +643,6 @@ else:
         yaml_ = YAML()
         logger.info("插件新的配置已更新, 正在更新")
 
-
         with open(config_file_path, 'r', encoding="utf-8") as f:
             old_config = yaml_.load(f)
 
