@@ -21,14 +21,12 @@ Prompts are used to guide artificial intelligence in generating images. They hav
 If the user doesn't provide detailed descriptions, I will fill in the details when translating the image descriptions into English. Let me know if you'd like to try it with a specific image description!
 '''.strip()
 
-
 conversation = [
     "生成一个海边的和服少女",
     "1girl,fullbody, kimono,white color stockings,slippers, white hair,pony tail ,hair bow, hair ribbons, simle, hands on her mouth,by the sea, water reflection, beautiful cloud, floating flowers ",
     "一个女仆",
     "1girl,halfbody, main,black color stockings,marry jans, black hair,braids ,hair flowers, blushing, hands on her dress,in the bed room,desk, flower on the desk,birdcage"
 ]
-
 
 
 chatgpt = on_shell_command(

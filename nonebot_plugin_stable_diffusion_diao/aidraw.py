@@ -666,12 +666,14 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     # 处理单个请求
     try:
         await fifo.post()
-    except ClientConnectorError:
-        await sendtosuperuser(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
-        raise RuntimeError(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
-    except ClientOSError:
-        await sendtosuperuser(f"远程服务器崩掉了欸……")
-        raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
+    except RuntimeError:
+        await UniMessage.text("").send()
+    # except ClientConnectorError:
+    #     await sendtosuperuser(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
+    #     raise RuntimeError(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
+    # except ClientOSError:
+    #     await sendtosuperuser(f"远程服务器崩掉了欸……")
+    #     raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
 
     message = UniMessage.text(f"{config.novelai_mode}绘画完成~")
     message = await check_safe_method(fifo, event, fifo.result, message, bot.self_id)

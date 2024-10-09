@@ -337,6 +337,7 @@ class AIDRAW(AIDRAW_BASE):
         for retry_times in range(config.novelai_retry):
             self.start_time = time.time()
             try:
+                self.set_backend_image(self.total_images, self.backend_site)
                 parameters_tuple = await self.post_parameters(failed)
                 await self.post_(*parameters_tuple)
             except Exception:
@@ -354,8 +355,10 @@ class AIDRAW(AIDRAW_BASE):
                     await asyncio.sleep(10)
 
                 if retry_times > config.novelai_retry:
+                    self.set_backend_image(-self.total_images, self.backend_site)
                     raise RuntimeError(f"重试{config.novelai_retry}次后仍然发生错误, 请检查服务器")
             else:
+                self.set_backend_image(-self.total_images, self.backend_site)
                 if config.novelai_load_balance is False:
                     try:
                         self.backend_name = (

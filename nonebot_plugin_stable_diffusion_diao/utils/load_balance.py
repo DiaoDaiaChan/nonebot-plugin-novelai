@@ -2,6 +2,8 @@ import aiohttp
 import asyncio 
 import random
 from nonebot import logger
+
+from .. import AIDRAW
 from ..config import config, redis_client
 import time
 from tqdm import tqdm
@@ -32,7 +34,7 @@ async def get_vram(ava_url, get_code=False):
     return vram_usage
 
 
-async def sd_LoadBalance(fifo=None):
+async def sd_LoadBalance(fifo: AIDRAW=None):
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
@@ -95,29 +97,33 @@ async def sd_LoadBalance(fifo=None):
                 pbar.update(progress)
 
     if config.novelai_load_balance_mode == 1:
+
         if is_avaiable == 0:
-            n = -1
-            y = 0
-            normal_backend = list(status_dict.keys())
             logger.info("没有空闲后端")
             if len(normal_backend) == 0:
                 raise RuntimeError("没有可用后端")
-            else:
-                eta_list = list(status_dict.values())
-                for t, b in zip(eta_list, normal_backend):
-                    if int(t) < defult_eta:
-                        y += 1
-                        ava_url = b
-                        logger.info(f"已选择后端{reverse_dict[ava_url]}")
-                        break
-                    else:
-                        y += 0
-                if y == 0:
-                    reverse_sta_dict = {value: key for key, value in status_dict.items()}
-                    eta_list.sort()
-                    ava_url = reverse_sta_dict[eta_list[0]]
-        if len(idle_backend) >= 1:
-            ava_url = random.choice(idle_backend)
+
+        backend_total_work_time = {}
+        avg_time_dict = await fifo.get_backend_avg_work_time()
+        backend_image = fifo.set_backend_image(get=True)
+
+        for site, time_, site_, image_count in zip(avg_time_dict.items(), backend_image):
+            logger.info(f"后端: {site}, 平均工作时间: {time_}秒")
+            if site in normal_backend:
+                if time_ is not None:
+                    backend_total_work_time[site] = time_ * image_count
+                else:
+                    backend_total_work_time[site] = 1
+
+        total_time_dict = list(backend_total_work_time.values())
+        rev_dict = {}
+        for key, value in backend_total_work_time.items():
+            rev_dict[value] = key
+
+        sorted_list = total_time_dict.sort(reverse=False)
+        fastest_backend = sorted_list[0]
+        ava_url = rev_dict[fastest_backend]
+        logger.info(f"后端{ava_url}最快, 已经选择")
 
     elif config.novelai_load_balance_mode == 2:
         

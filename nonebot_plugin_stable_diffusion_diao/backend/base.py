@@ -19,6 +19,7 @@ from nonebot import logger
 from datetime import datetime
 from tqdm import tqdm
 from pathlib import Path
+from typing import Union
 from argparse import Namespace
 from ..config import config, redis_client, superusers
 from ..utils import (
@@ -29,13 +30,15 @@ from ..utils import (
 )
 from ..utils.data import shapemap
 from ..utils.gradio_ import paints_undo
-
+from ..utils.aidraw_exceptions import AIDrawExceptions
+from fastapi import HTTPException
 
 class AIDRAW_BASE:
     max_resolution: int = 16
     sampler: str
     backend_avg_dict: dict = {}
     write_count: dict = {}
+    backend_images: dict = {}
     backend_avg_json: Path = Path("./data/novelai/backend_avg.json")
 
     def __init__(
@@ -207,16 +210,16 @@ class AIDRAW_BASE:
         self.current_backend_index = None
         self.batch = batch or 1
         self.niter = niter or 1
+        self.total_images = self.batch * self.niter
         self.override = override
 
         self.args = args
-
         self.pre_tags = ''
         self.pre_ntags = ''
 
-        total_images = self.batch * self.niter
+        self.exceptions = AIDrawExceptions
 
-        if total_images > config.novelai_max:
+        if self.total_images > config.novelai_max:
             self.niter = config.novelai_max // self.batch
 
         # 数值合法检查
@@ -398,7 +401,7 @@ class AIDRAW_BASE:
         spend_time = time.time() - self.start_time
         self.spend_time = f"{spend_time:.2f}秒"
 
-        await self.set_backend_work_time()
+        await self.set_backend_work_time(spend_time, self.backend_site, self.total_images)
 
         image_byte_list = []
         hash_list = []
@@ -766,7 +769,7 @@ class AIDRAW_BASE:
                 self.update_class_var()
 
     @classmethod
-    async def get_backend_avg_work_time(cls):
+    async def get_backend_avg_work_time(cls) -> dict:
         backend_sites = config.backend_site_list
 
         if cls.backend_avg_json.exists():
@@ -788,9 +791,9 @@ class AIDRAW_BASE:
         return avg_time_dict
 
     @classmethod
-    async def set_backend_work_time(cls, spend_time, backend_site):
+    async def set_backend_work_time(cls, spend_time, backend_site, total_images=1):
         spend_time_list = cls.backend_avg_dict.get(backend_site, [])
-        spend_time_list.append(spend_time)
+        spend_time_list.append(int(spend_time/total_images))
 
         if len(spend_time_list) > 10:
             spend_time_list = spend_time_list[-10:]
@@ -803,3 +806,16 @@ class AIDRAW_BASE:
             async with aiofiles.open(cls.backend_avg_json, 'w') as f:
                 await f.write(json.dumps(cls.backend_avg_dict))
             cls.write_count[backend_site] = 0
+
+    @classmethod
+    def set_backend_image(cls, num=0, backend_site=None, get=False) -> Union[None, dict]:
+        all_backend_dict = {}
+
+        if backend_site:
+            working_images = cls.backend_images.get(backend_site, 1)
+            working_images += num
+            cls.backend_images[backend_site] = working_images
+        if get:
+            for site in config.backend_site_list:
+                all_backend_dict[site] = cls.backend_images.get(site, 1)
+            return  all_backend_dict

@@ -44,7 +44,7 @@ async def send_forward_msg(
     )
 
 
-async def markdown_temple( text):
+async def markdown_temple(text):
     markdown = f'''
 <div style="background-color:rgba(12, 0, 0, 0.5);">&nbsp</div>
 {text}
