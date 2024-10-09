@@ -3,20 +3,19 @@
 # --------------------------------
 novelai_mj_proxy: "" # 使用mj必填，midjourney 代理地址，参考项目 https://github.com/novicezk/midjourney-proxy
 novelai_mj_token: "" # 选填，鉴权用
-bing_key: null  # bing的翻译key
-deepl_key: null  # deepL的翻译key
+bing_key: ""  # bing的翻译key
+deepl_key: ""  # deepL的翻译key
 baidu_translate_key:
     SECRET_KEY: ""
     API_KEY: ""
 # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
 novelai_tagger_site: api.diaodiao.online:7865  # 分析功能的地址 例如 127.0.0.1:7860
-novelai_pic_audit_api_key:
+novelai_pic_audit_api_key:  # 你的百度云API Key
     SECRET_KEY: ""
     API_KEY: ""
-# 你的百度云API Key
 openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
 openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填写这里
-proxy_site:   # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
+proxy_site: ""  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
 trans_api: api.diaodiao.online:50000  # 自建翻译API
 redis_host: ["127.0.0.1", 6379]  # redis地址和端口
 dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI监听地址以及端口
@@ -138,7 +137,7 @@ override_backend_setting:  #覆写后端设置
 # 注意!! 以下tags设置本人推荐使用override_backend_setting来为不同的后端单独设置
 novelai_tags: ""  # 内置的tag
 novelai_ntags: "easynegative"  # 内置的反tag
-novelai_steps: null  # 默认步数
+novelai_steps: 20  # 默认步数
 novelai_max_steps: 36  # 默认最大步数
 novelai_scale: 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
 novelai_random_scale: false  # 是否开启随机CFG
@@ -167,9 +166,9 @@ novelai_random_sampler_list:
   - 0.9
 - - DDIM
   - 0.1
-novelai_sampler: null  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
-novelai_hr: true  # 是否启动高清修复
-novelai_hr_scale: 1.5  # 高清修复放大比例
+novelai_sampler: Euler a  # 默认采样器,不写的话默认Euler a, Euler a系画人物可能比较好点, DDIM系, 如UniPC画出来的背景比较丰富, DPM系采样器一般速度较慢, 请你自己尝试(以上为个人感觉
+novelai_hr: true  # 是否启动高清修复, 推荐使用override_backend_setting 来为后端启动高清修复
+novelai_hr_scale: 1.5  # 高清修复放大比例, 推荐使用override_backend_setting 来为后端设置高清修复比例
 novelai_hr_payload:   # 新版的webui和旧版的webui高清修复是不一样的哦! 雕雕下面写的还是旧版的
     enable_hr: true
     denoising_strength: 0.4  # 重绘幅度
@@ -217,7 +216,7 @@ novelai_daylimit: 24  # 每日画图次数限制，0为禁用
 novelai_cd: 60  # 默认的cd
 novelai_group_cd: 3  # 默认的群共享cd
 novelai_revoke: 0  # 是否自动撤回，该值不为0时，则为撤回时间
-novelai_size_org: 640  # 最大分辨率
+novelai_size_org: 1024  # 最大分辨率
 # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
 # --------------------------------
 # 脚本设置
@@ -305,15 +304,15 @@ scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制
   - 2048
   - 2.0
 # 没有用的东西/不要乱改（ 不过不要删掉它们!
-novelai_ControlNet_payload:
+novelai_ControlNet_payload: []
 novelai_limit: false
-novelai_token:
-backend_site_list:
-backend_name_list:
-novelai_size:
+novelai_token: ""
+backend_site_list: []
+backend_name_list: []
+novelai_size: 1024
 novelai_mode: sd
 novelai_max: 3
-novelai_cndm:
+novelai_cndm: {}
 novelai_auto_icon: false
 enalbe_xl: false # 是否默认使用xl模式(已废弃, 现在使用新的backend_type和override_backend_setting来设置)
 novelai_paid: 3  # 不要动.. 历史遗留

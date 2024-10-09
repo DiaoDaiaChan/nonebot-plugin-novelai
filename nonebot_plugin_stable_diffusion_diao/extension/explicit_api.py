@@ -1,6 +1,6 @@
 import traceback
 
-from ..config import config, nickname
+from ..config import nickname
 from ..utils import revoke_msg
 from ..utils.save import save_img
 from ..utils import sendtosuperuser, pic_audit_standalone, run_later
@@ -15,12 +15,10 @@ import re
 import qrcode
 import time
 import asyncio
-from PIL import Image
 
 from nonebot.adapters.onebot.v11 import PrivateMessageEvent, MessageEvent as ObV11MessageEvent
-from nonebot.adapters.qq import MessageEvent as QQMessageEvent
 from nonebot.log import logger
-from nonebot_plugin_alconna import Target, UniMessage
+from nonebot_plugin_alconna import UniMessage
 
 from ..config import config
 
@@ -107,10 +105,10 @@ async def check_safe_method(
     audit_result = await audit_all_image(fifo, img_bytes)
 
     for index, (i, audit_result) in enumerate(zip(img_bytes, audit_result)):
-        label, h_value, fifo.audit_info = audit_result
+
         unimsg_img = UniMessage.image(raw=i)
         if await config.get_value(fifo.group_id, "picaudit") in [1, 2, 4] or config.novelai_picaudit in [1, 2, 4]:
-
+            label, h_value, fifo.audit_info = audit_result
             if not label:
                 logger.warning(f"审核调用失败，错误代码为{traceback.format_exc()}，为了安全期间转为二维码发送图片")
                 label = "unknown"
@@ -252,48 +250,52 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
             return possibilities
         return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100, message
 
-    async def get_file_content_as_base64(path, urlencoded=False):
-        # 不知道为啥, 不用这个函数处理的话API会报错图片格式不正确, 试过不少方法了,还是不行(
-        """
-        获取文件base64编码
-        :param path: 文件路径
-        :param urlencoded: 是否对结果进行urlencoded 
-        :return: base64编码信息
-        """
-        with open(path, "rb") as f:
-            content = base64.b64encode(f.read()).decode("utf8")
-            if urlencoded:
-                content = urllib.parse.quote_plus(content)
-        return content
+    elif picaudit == 3:
+        return
 
-    async def get_access_token():
-        """
-        使用 AK，SK 生成鉴权签名（Access Token）
-        :return: access_token，或是None(如果错误)
-        """
-        url = "https://aip.baidubce.com/oauth/2.0/token"
-        params = {"grant_type": "client_credentials", 
-                "client_id": config.novelai_pic_audit_api_key["API_KEY"], 
-                "client_secret": config.novelai_pic_audit_api_key["SECRET_KEY"]}
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url=url, params=params) as resp:
-                json = await resp.json()
-                return json["access_token"]
+    elif picaudit == 1:
+        async def get_file_content_as_base64(path, urlencoded=False):
+            # 不知道为啥, 不用这个函数处理的话API会报错图片格式不正确, 试过不少方法了,还是不行(
+            """
+            获取文件base64编码
+            :param path: 文件路径
+            :param urlencoded: 是否对结果进行urlencoded
+            :return: base64编码信息
+            """
+            with open(path, "rb") as f:
+                content = base64.b64encode(f.read()).decode("utf8")
+                if urlencoded:
+                    content = urllib.parse.quote_plus(content)
+            return content
 
-    async with aiofiles.open("image.jpg", "wb") as f:
-        await f.write(img_bytes)
-    base64_pic = await get_file_content_as_base64("image.jpg", True)
-    payload = 'image=' + base64_pic
-    token = await get_access_token()
-    baidu_api = "https://aip.baidubce.com/rest/2.0/solution/v1/img_censor/v2/user_defined?access_token=" + token
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.post(baidu_api, data=payload) as resp:
-            result = await resp.json()
-            logger.info(f"审核结果:{result}")
-            if is_check:
-                return result
-            if result['conclusionType'] == 1:
-                return "safe", result['data'][0]['probability'] * 100, ""
-            else:
-                return "", result['data'][0]['probability'] * 100
-            
+        async def get_access_token():
+            """
+            使用 AK，SK 生成鉴权签名（Access Token）
+            :return: access_token，或是None(如果错误)
+            """
+            url = "https://aip.baidubce.com/oauth/2.0/token"
+            params = {"grant_type": "client_credentials",
+                    "client_id": config.novelai_pic_audit_api_key["API_KEY"],
+                    "client_secret": config.novelai_pic_audit_api_key["SECRET_KEY"]}
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url=url, params=params) as resp:
+                    json = await resp.json()
+                    return json["access_token"]
+
+        async with aiofiles.open("image.jpg", "wb") as f:
+            await f.write(img_bytes)
+        base64_pic = await get_file_content_as_base64("image.jpg", True)
+        payload = 'image=' + base64_pic
+        token = await get_access_token()
+        baidu_api = "https://aip.baidubce.com/rest/2.0/solution/v1/img_censor/v2/user_defined?access_token=" + token
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.post(baidu_api, data=payload) as resp:
+                result = await resp.json()
+                logger.info(f"审核结果:{result}")
+                if is_check:
+                    return result
+                if result['conclusionType'] == 1:
+                    return "safe", result['data'][0]['probability'] * 100, ""
+                else:
+                    return "", result['data'][0]['probability'] * 100
+

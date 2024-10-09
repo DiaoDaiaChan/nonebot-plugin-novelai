@@ -4,7 +4,9 @@ import base64
 from nonebot import on_command, Bot
 from nonebot.log import logger
 
-from nonebot_plugin_alconna import UniMessage
+from nonebot_plugin_alconna import UniMessage, Alconna, on_alconna, Args
+from nonebot_plugin_alconna.uniseg import Reply, Image
+from typing import Union
 
 from .translation import translate
 from .safe_method import send_forward_msg, risk_control
@@ -63,10 +65,10 @@ async def deepdanbooru_handle(event: __SUPPORTED_MESSAGEEVENT__, bot: Bot):
             message_list = message_list + [h_]
         if isinstance(event, message_event_type[1]):
             await send_forward_msg(
-                bot, 
-                event, 
-                event.sender.nickname, 
-                str(event.get_user_id()), 
+                bot,
+                event,
+                event.sender.nickname,
+                str(event.get_user_id()),
                 message_list
             )
             return

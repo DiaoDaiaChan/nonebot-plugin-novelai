@@ -12,14 +12,13 @@ import ast
 import math
 
 import aiohttp
-from nonebot import get_driver
-from nonebot.log import logger
 from PIL import Image
 from nonebot.adapters.onebot.v11 import MessageEvent, PrivateMessageEvent
 from nonebot.permission import SUPERUSER
 from nonebot import logger
 from datetime import datetime
 from tqdm import tqdm
+from argparse import Namespace
 from ..config import config, redis_client, superusers
 from ..utils import (
     png2jpg, 
@@ -71,6 +70,7 @@ class AIDRAW_BASE:
         niter: int = 1,
         override: bool = False,
         model: str = None,
+        args: Namespace=None,
         **kwargs,
     ):
         """
@@ -155,14 +155,18 @@ class AIDRAW_BASE:
         self.backend_name: str = ''
         self.backend_index: int = backend_index
         self.vram: str = ""
-        self.hiresfix_scale: float = hiresfix_scale or config.novelai_hr_scale
-        self.man_hr_scale: bool = True if hiresfix_scale else False
         self.xl = xl or config.enalbe_xl
         self.dtg = dtg
-        self.img2img_hr = hiresfix_scale
+        # hr参数
+        self.man_hr_scale = bool(hiresfix_scale)
+        if hiresfix_scale:
+            self.hiresfix_scale = hiresfix_scale
+        elif config.novelai_hr_scale and config.novelai_hr:
+            self.hiresfix_scale = config.novelai_hr_scale
+        else:
+            self.hiresfix_scale = 0
         self.novelai_hr_payload = config.novelai_hr_payload
-        self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
-        self.hiresfix: bool = True if config.novelai_hr else False
+        self.hiresfix = bool(self.hiresfix_scale)
         self.super_res_after_generate: bool = config.novelai_SuperRes_generate
         self.control_net = {
             "control_net": False,
@@ -191,7 +195,6 @@ class AIDRAW_BASE:
         self.post_event = None
         self.current_process = None
         self.pure = pure
-        self.pre_tags = None
         self.pu = pu
         self.result_img = None
         self.video = None
@@ -201,6 +204,11 @@ class AIDRAW_BASE:
         self.batch = batch or 1
         self.niter = niter or 1
         self.override = override
+
+        self.args = args
+
+        self.pre_tags = ''
+        self.pre_ntags = ''
 
         total_images = self.batch * self.niter
 
@@ -222,6 +230,15 @@ class AIDRAW_BASE:
         #     self.seed.append(random.randint(0, 4294967295))
         # 计算cost
         self.update_cost()
+
+    def update_class_var(self):
+        """构建 hiresfix payload"""
+        # 根据 hiresfix_scale 动态计算
+        self.man_hr_scale: bool = bool(self.hiresfix_scale)
+        self.img2img_hr = self.hiresfix_scale
+        self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
+        self.hiresfix = bool(self.hiresfix_scale)
+        self.hiresfix_scale = 1 if self.hiresfix_scale is None else self.hiresfix_scale
 
     def extract_shape(self, shape: str):
         """
@@ -660,11 +677,49 @@ class AIDRAW_BASE:
         
     async def get_dtg_pre_prompt(self):
         new_tags = f'''
-        {self.pre_tags[2]}
+        {self.tags}
         \n
-        {self.pre_tags[0]}
+        {self.pre_tags}
         '''
         self.tags = new_tags
 
     async def process_pu_video(self):
         pass
+
+    async def override_backend_setting_func(self):
+        if config.override_backend_setting_enable and not self.args.user_backend:
+
+            self.backend_index = int(
+                (config.backend_site_list.index(self.backend_site)
+                 if not self.backend_index
+                 else self.backend_index
+                 )
+            )
+            try:
+                # 从配置中获取覆写设置
+                params_dict = config.override_backend_setting[self.backend_index]
+            except IndexError:
+                logger.warning("覆写后端设置列表与后端长度不一致!")
+            else:
+                filtered_params_dict = {k: v for k, v in params_dict.items() if v is not None}
+
+                for key, arg_value in vars(self.args).items():
+                    if hasattr(self, key):
+                        value = filtered_params_dict.get(key, None)
+
+                        print(f"{key}: {arg_value} - {value}")
+
+                        if key == "tags":
+                            # 直接接收变量
+                            self.pre_tags = value if value is not None else ''
+
+                        elif key == "ntags":
+                            self.pre_ntags = value if value is not None else ''
+
+                        if arg_value:
+                            pass
+                        else:
+                            if value is not None:
+                                setattr(self, key, value)
+
+                self.update_class_var()

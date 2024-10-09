@@ -101,7 +101,7 @@ class AIDRAW(AIDRAW_BASE):
         self.current_backend_index = resp_tuple[0]
         return resp_tuple
 
-    async def post_parameters(self):
+    async def post_parameters(self, failed=False):
         '''
         获取post参数
         '''
@@ -123,6 +123,9 @@ class AIDRAW(AIDRAW_BASE):
                         or "127.0.0.1:7860"
                 )
 
+        if failed:
+            await self.override_backend_setting_func()
+
         post_api = (
             f"http://{site}/sdapi/v1/img2img" if self.img2img
             else f"http://{site}/sdapi/v1/txt2img"
@@ -141,6 +144,14 @@ class AIDRAW(AIDRAW_BASE):
                 self.hiresfix_scale
             )
             logger.info(f"因设置TRT后端自动处理分辨率: {self.width, self.height, self.novelai_hr_payload['hr_scale']}")
+
+        if self.args.override:
+            logger.info("不使用优化参数")
+            self.tags = self.tags
+            self.ntags = self.ntags
+        else:
+            self.tags = self.pre_tags + self.tags
+            self.ntags = self.pre_ntags + self.ntags
 
         parameters = {
             "prompt": self.tags,
@@ -187,7 +198,7 @@ class AIDRAW(AIDRAW_BASE):
 
         # 图生图
         if self.img2img:
-            if self.control_net["control_net"] and config.novelai_hr:
+            if self.control_net["control_net"]:
                 parameters.update(self.novelai_hr_payload)
             parameters.update(
                 {
@@ -196,10 +207,7 @@ class AIDRAW(AIDRAW_BASE):
                 }
             )
         else:
-            if config.novelai_hr and self.disable_hr is False:
-                parameters.update(self.novelai_hr_payload)
-            else:
-                self.hiresfix = False
+            parameters.update(self.novelai_hr_payload)
 
         # 脚本以及插件
         if self.xyz_plot:
@@ -236,7 +244,7 @@ class AIDRAW(AIDRAW_BASE):
             parameters["alwayson_scripts"].update(cutoff_payload)
 
         # controlnet相关
-        if self.control_net["control_net"] == True and config.novelai_hr:
+        if self.control_net["control_net"] is True:
             if config.hr_off_when_cn:
                 parameters.update({"enable_hr": False})
             else:
@@ -282,7 +290,7 @@ class AIDRAW(AIDRAW_BASE):
             )
             # 如果没有设置手动高清修复倍率，关闭高清修复
             if self.man_hr_scale is False:
-                parameters.update({"enable_hr": "false"})
+                parameters.update({"enable_hr": False})
             else:
                 config.xl_config['hr_config']["hr_scale"] = self.hiresfix_scale
                 parameters.update(config.xl_config['hr_config'])
@@ -299,7 +307,6 @@ class AIDRAW(AIDRAW_BASE):
             parameters['sampler_name'] = 'Euler'
             parameters['scheduler'] = 'Simple'
             scale = parameters.get('hr_scale', 1) if parameters.get('enable_hr', 1) else 1
-            parameters['enable_hr'] = False
             parameters['width'] = int(self.width * scale)
             parameters['height'] = int(self.height * scale)
             parameters['cfg_scale'] = 1
@@ -314,6 +321,9 @@ class AIDRAW(AIDRAW_BASE):
         parameters["override_settings_restore_afterwards"] = True
         parameters["override_settings"].update({"sd_model_checkpoint": self.model})
 
+        if self.disable_hr:
+            parameters["enable_hr"] = False
+
         logger.debug(str(parameters))
         self.post_parms = parameters
 
@@ -322,11 +332,12 @@ class AIDRAW(AIDRAW_BASE):
     async def post(self):
         global defult_site
         defult_site = None  # 所有后端失效后, 尝试使用默认后端
+        failed = False
         # 失效自动重试
         for retry_times in range(config.novelai_retry):
             self.start_time = time.time()
             try:
-                parameters_tuple = await self.post_parameters()
+                parameters_tuple = await self.post_parameters(failed)
                 await self.post_(*parameters_tuple)
             except Exception:
                 logger.info(f"第{retry_times + 1}次尝试")
@@ -334,10 +345,13 @@ class AIDRAW(AIDRAW_BASE):
                 await asyncio.sleep(2)
                 # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
                 if retry_times >= 1:
+                    logger.warning("失败请求超过2次,10秒后将使用负载均衡自动获取后端")
+                    failed = True
                     defult_site = config.novelai_site
                     self.backend_index = None
                     self.backend_site = None
-                    await asyncio.sleep(30)
+
+                    await asyncio.sleep(10)
 
                 if retry_times > config.novelai_retry:
                     raise RuntimeError(f"重试{config.novelai_retry}次后仍然发生错误, 请检查服务器")

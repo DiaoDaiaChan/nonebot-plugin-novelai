@@ -27,6 +27,9 @@ from nonebot.log import logger
 from nonebot.params import ShellCommandArgs
 from nonebot import Bot
 from nonebot_plugin_alconna import UniMessage
+from nonebot_plugin_alconna.matcher import  AlconnaMatcher
+from nonebot_plugin_alconna.model import Match
+
 
 from .config import config, redis_client, __SUPPORTED_MESSAGEEVENT__
 from .utils import aidraw_parser, txt_audit
@@ -307,7 +310,6 @@ class AIDrawHandler:
         tags_str = await prepocess_tags(self.args.tags, False)
         tags_list = tags_to_list(tags_str)
         # 匹配预设
-
         if (
                 redis_client
                 and config.auto_match
@@ -340,78 +342,28 @@ class AIDrawHandler:
                                     logger.info(self.info_style)
                                     break
         # 初始化实例
-        self.args.tags = tags_list
-        self.fifo = AIDRAW(**vars(self.args), event=self.event)
-        self.fifo.read_tags = self.read_tags
-        self.fifo.extra_info += self.info_style
-
-        if self.fifo.backend_index is not None and isinstance(self.fifo.backend_index, int):
-            self.fifo.backend_name = config.backend_name_list[self.fifo.backend_index]
-            self.fifo.backend_site = config.backend_site_list[self.fifo.backend_index]
-        elif self.args.user_backend:
-            self.fifo.backend_name = '手动后端'
-            self.fifo.backend_site = self.args.user_backend
-        else:
-            await self.fifo.load_balance_init()
-
-        if config.override_backend_setting_enable and not self.args.user_backend:
-
-            self.fifo.backend_index = int(
-                (config.backend_site_list.index(self.fifo.backend_site)
-                if not self.fifo.backend_index
-                else self.fifo.backend_index
-                )
-            )
-            try:
-                # 从配置中获取覆写设置
-                params_dict = config.override_backend_setting[self.fifo.backend_index]
-            except IndexError:
-                logger.warning("覆写后端设置列表与后端长度不一致!")
-            else:
-                filtered_params_dict = {k: v for k, v in params_dict.items() if v is not None}
-
-                for key, value in filtered_params_dict.items():
-                    if hasattr(self.fifo, key):
-                        arg_value = getattr(self.args, key, None)
-
-                        if key == "tags":
-                            if isinstance(self.fifo.tags, list):
-                                self.fifo.tags.insert(0, value)
-                            else:
-                                self.fifo.tags = f"{value}, {self.fifo.tags}" if self.fifo.tags else value  # 拼接到字符串前面
-
-                        elif key == "ntags":
-                            if isinstance(self.fifo.ntags, list):
-                                self.fifo.ntags.insert(0, value)
-                            else:
-                                self.fifo.ntags = f"{value}, {self.fifo.ntags}" if self.fifo.ntags else value  # 拼接到字符串前面
-
-                        if (
-                                arg_value is None or
-                                (isinstance(arg_value, str) and arg_value == "") or
-                                (isinstance(arg_value, int) and arg_value == 0) or
-                                (isinstance(arg_value, float) and arg_value == 0.0)
-                        ):
-                            setattr(self.fifo, key, value)
+        await self.init_instance(tags_list)
+        await self.fifo.override_backend_setting_func()
 
         org_tag_list = self.fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
 
         r2 = redis_client[1]
-
         model_info = ""
-        all_lora_dict = r2.get("lora")
-        all_emb_dict = r2.get("emb")
-        all_backend_lora_list = ast.literal_eval(all_lora_dict.decode("utf-8"))
-        all_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))
-        cur_backend_lora_list = all_backend_lora_list[self.fifo.backend_name]
-        cur_backend_emb_list = all_backend_emb_list[self.fifo.backend_name]
 
         if config.auto_match and not self.args.match and redis_client:
             turn_off_match = False
 
             try:
+
+                all_lora_dict = r2.get("lora")
+                all_emb_dict = r2.get("emb")
+                all_backend_lora_list = ast.literal_eval(all_lora_dict.decode("utf-8"))
+                all_backend_emb_list = ast.literal_eval(all_emb_dict.decode("utf-8"))
+                cur_backend_lora_list = all_backend_lora_list[self.fifo.backend_name]
+                cur_backend_emb_list = all_backend_emb_list[self.fifo.backend_name]
+
                 tag = ""
 
                 if (
@@ -431,6 +383,9 @@ class AIDrawHandler:
                     pipe_.set("lora", str(all_backend_lora_list))
                     pipe_.set("emb", str(all_backend_emb_list))
                     pipe_.execute()
+
+                self.lora_dict = cur_backend_lora_list
+                self.emb_dict = cur_backend_emb_list
 
                 # 匹配lora模型
                 tag_index = -1
@@ -482,11 +437,23 @@ class AIDrawHandler:
                 self.tags_list = org_list
                 logger.warning(f"tag自动匹配失效,出现问题的: {tag}, 或者是prompt里自动匹配到的模型过多")
 
-        self.lora_dict = cur_backend_lora_list
-        self.emb_dict = cur_backend_emb_list
-
         self.new_tags_list = new_tags_list
         self.tags_list = tags_list
+
+    async def init_instance(self, tags_list):
+        self.args.tags = tags_list
+        self.fifo = AIDRAW(**vars(self.args), event=self.event, args=self.args)
+        self.fifo.read_tags = self.read_tags
+        self.fifo.extra_info += self.info_style
+
+        if self.fifo.backend_index is not None and isinstance(self.fifo.backend_index, int):
+            self.fifo.backend_name = config.backend_name_list[self.fifo.backend_index]
+            self.fifo.backend_site = config.backend_site_list[self.fifo.backend_index]
+        elif self.args.user_backend:
+            self.fifo.backend_name = '手动后端'
+            self.fifo.backend_site = self.args.user_backend
+        else:
+            await self.fifo.load_balance_init()
 
     async def match_models(self):
         emb_msg, lora_msg = "", ""
@@ -614,12 +581,6 @@ CFG Scale:{fifo.scale}
         # 如果使用xl, 覆盖预设提示词，使用xl设置提示词
         basetag, lowQuality = '', ''
 
-        if not self.args.override:
-            pre_tags = basetag + await config.get_value(self.group_id, "tags")
-            pre_ntags = lowQuality + await config.get_value(self.group_id, "ntags")
-        else:
-            pre_tags = ""
-            pre_ntags = ""
         # 拼接最终prompt
         raw_tag = tags_list + "," + ",".join(self.new_tags_list) + str(self.style_tag) + self.random_tags
 
@@ -635,14 +596,20 @@ CFG Scale:{fifo.scale}
         if check_tag_length(raw_tag) is False and config.auto_dtg and self.fifo.xl:
             self.fifo.dtg = True
 
-        self.fifo.tags = pre_tags + "," + raw_tag + self.extra_model
-        self.fifo.ntags = pre_ntags + "," + self.fifo.ntags + str(self.style_ntag)
+        # if not self.args.override:
+        pre_tags = basetag + await config.get_value(self.group_id, "tags")
+        pre_ntags = lowQuality + await config.get_value(self.group_id, "ntags")
+
+        self.fifo.tags = raw_tag
+        self.fifo.ntags = "," + self.fifo.ntags + str(self.style_ntag)
+
+        self.fifo.pre_tags += pre_tags + "," + self.extra_model
+        self.fifo.pre_ntags += pre_ntags
 
         resp = await txt_audit(str(self.fifo.tags)+str(self.fifo.ntags))
         if 'yes' in resp:
             await UniMessage.text("对不起, 请重新输入prompt").finish()
 
-        self.fifo.pre_tags = [basetag, lowQuality, raw_tag]
         if self.fifo.dtg:
             await self.fifo.get_dtg_pre_prompt()
         # 记录prompt
@@ -705,13 +672,10 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     except ClientOSError:
         await sendtosuperuser(f"远程服务器崩掉了欸……")
         raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
-    # 若启用ai检定，取消注释下行代码，并将构造消息体部分注释
-    # 构造消息体并保存图片
+
     message = UniMessage.text(f"{config.novelai_mode}绘画完成~")
-    # message2 = UniMessage.text(f"{config.novelai_mode}绘画完成~")
     message = await check_safe_method(fifo, event, fifo.result, message, bot.self_id)
-    # for i in fifo.format():
-    #     message.append(i)
+
     try:
         if config.is_return_hash_info:
             message += UniMessage.text("\n".join(fifo.img_hash))

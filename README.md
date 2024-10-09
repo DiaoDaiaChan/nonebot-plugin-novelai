@@ -74,10 +74,13 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 添加了更多的追踪信息  
 还有挺多细节的更改就不一一列出力
 敬请阅读下面的日志或者来雕雕的银趴玩(  
-  
+
 ## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
 ### 发送 绘画帮助 , 获取详细帮助
-[各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)
+- [各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)
+
+### 配置文件路径 机器人所在路径/config/novelai/config.yaml
+- [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)
 
 
 ### 本人模型站链接, 请支持!))
@@ -92,8 +95,8 @@ https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
 ```
 
 # 更新日志
-## 2024.10.03 0.5.4 更新
-支持跨平台(目前支持官方QQ机器人以及obv11)(堪堪能用, 还在学习alc,正在迁移)
+## 2024.10.03 0.5.4 更新 (未发包)
+- 支持跨平台(目前支持官方QQ机器人以及obv11)(堪堪能用, 还在学习alc,正在迁移)
 ```
 # 新的配置项目
 override_backend_setting_enable: true  # 是否启用后端设置覆写功能(默认关闭), 注意,长度要和后端字典长度一致
@@ -115,10 +118,10 @@ override_backend_setting:  #覆写后端设置
 enable_txt_audit: false  # 启用LLM文本审核功能,对输入输出的文本进行审核
 reload_model: false  # 是否自动重新加载lora/emb模型
 ```
-```
-新命令, 查tag genshin 从d站上查找tag, 需要设置代理才能连接
-```
 
+- 新命令, 查tag genshin 从d站上查找tag, 需要设置代理才能连接
+- 优化AI prompter,确保AI输出的prompt更加SD-like
+- post失败后的重新尝试也能自动覆写参数
 ## 2024.09.24 0.5.3 更新
 内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000
 ```

@@ -53,7 +53,27 @@ COMMAND_START=["/","","#"]  # 配置命令起始字符  # 机器人响应什么�
 - [设置本地审核](#novelai_picaudit)
 ### 为了增加趣味性, 插件提供了一些参数的随机功能
 - [随机画幅比例](#novelai_random_ratio)
+### 关于高清修复
+#### novelai_hr: false  # 推荐设置为false, 是否启动高清修复, 这个设置是全局打开高清修复, 缺乏一定灵活性, 请看以下例子
 
+```yaml
+override_backend_setting:
+  - 
+    "tags": "<lora:flux-test-lora16G-fb:1>,<lora:flux-test-lora16G-taya:1>"
+    "steps": 4
+    "disable_hr": true  # 全局关闭高清修复(优先级最高)
+  
+  - 
+    "tags": "score_9,score_8_up,score_7_up,score_anime,"
+    "ntags": "score_3,poorly drawn,bad anatomy,bad proportions, watercolor painting, brush strokes,3d,2.5d,signature,watermark,bad face,distorted face,messed up eyes,deformed,(low quality, bad quality, worst quality:1.2),bad hand"
+    "hiresfix_scale": 1.2  # 默认使用1.2倍高清修复, 可以通过 -hr_off 参数关闭
+    "steps": 20
+  
+  - 
+    "tags": "best quality, masterpiece (quality)"
+    "ntags": "worst quality, comic, multiple views, bad quality, low quality, lowres, displeasing, very displeasing, bad anatomy, bad hands, scan artifacts, monochrome, greyscale, signature, twitter username, jpeg artifacts, 2koma, 4koma, guro, extra digits, fewer digits"
+    "steps": 20  # 默认不使用高清修复, 但是可以手动启用(通过 -hr 1.2 参数来进行1.2倍修复)
+```
 ## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
 ### 发送 绘画帮助 , 获取详细帮助
 [各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)

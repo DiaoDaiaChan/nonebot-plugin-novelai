@@ -209,7 +209,7 @@ class Config(BaseSettings):
     novelai_group_cd: int = 3  # 默认的群共享cd
     novelai_revoke: int = 0  # 是否自动撤回，该值不为0时，则为撤回时间
     novelai_size_org: int = 640  # 最大分辨率
-    novelai_size: int = 0
+    novelai_size: int = 1024
     # 允许生成的图片最大分辨率，对应(值)^2.默认为1024（即1024*1024）。如果服务器比较寄，建议改成640（640*640）或者根据能够承受的情况修改。naifu和novelai会分别限制最大长宽为1024
     no_wait_list: list = [
         f"服务器正在全力绘图中，{nickname}也在努力哦！",
@@ -614,13 +614,22 @@ async def sd_api(end_point_index):
     all_resp = await asyncio.gather(*task_list, return_exceptions=False)
     return all_resp
 
-
 current_dir = os.path.dirname(os.path.abspath(__file__))
 source_template = os.path.join(current_dir, "config_example.yaml")
 destination_folder = "config/novelai/"
 destination_file = os.path.join(destination_folder, "config.yaml")
 yaml = YAML()
 config = Config(**get_driver().config.dict())
+
+
+def merge_configs(old_config, new_config):
+    for key, value in new_config.items():
+        if key in old_config:
+            continue
+        else:
+            logger.info(f"新增配置项: {key} = {value}")
+            old_config[key] = value
+    return old_config
 
 if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")
@@ -629,20 +638,23 @@ if not config_file_path.exists():
     rewrite_yaml(config.__dict__, source_template)
 else:
     logger.info("配置文件存在,正在读取")
+
     if check_yaml_is_changed(source_template):
-        logger.info("插件新的配置已更新,正在更新")
+        yaml_ = YAML()
+        logger.info("插件新的配置已更新, 正在更新")
+
+
         with open(config_file_path, 'r', encoding="utf-8") as f:
-            old_config = yaml.load(f)
-        logger.warning(
-            '''
-            请注意新的配置文件从.env读取并且生成,旧的配置文件命名为config_old.yaml,
-            此操作是为了确保插件新的功能能运行成功.
-            请手动前往复制更改到新的config.yaml文件！！！
-            '''
-        )
-        rewrite_yaml(old_config, source_template, True)
-        copy_config(source_template, destination_file)
-        rewrite_yaml(config.__dict__, source_template)
+            old_config = yaml_.load(f)
+
+        with open(source_template, 'r', encoding="utf-8") as f:
+            new_config = yaml_.load(f)
+
+        merged_config = merge_configs(old_config, new_config)
+
+        with open(destination_file, 'w', encoding="utf-8") as f:
+            yaml_.dump(merged_config, f)
+
     else:
         with open(config_file_path, "r", encoding="utf-8") as f:
             yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
@@ -662,7 +674,7 @@ config.novelai_ControlNet_payload = [
                         "input_image": "",
                         "resize_mode": "Crop and Resize",
                         "low_vram": False,
-                        "processor_res": config.novelai_size * 1.5,
+                        "processor_res": config.novelai_size,
                         "threshold_a": 64,
                         "threshold_b": 64,
                         "guidance_start": 0.0,
@@ -682,17 +694,17 @@ config.novelai_ControlNet_payload = [
                 "model": config.control_net[1],
                 "weight": 1,
                 "lowvram": False,
-                "processor_res": config.novelai_size * 1.5,
+                "processor_res": config.novelai_size,
                 "threshold_a": 100,
                 "threshold_b": 250
             }
         ]
     }
 ]
-if config.novelai_hr:
-    config.novelai_size: int = config.novelai_size_org
-else:
-    config.novelai_size: int = config.novelai_size_org * config.novelai_hr_payload["hr_scale"]
+# if config.novelai_hr:
+#     config.novelai_size: int = config.novelai_size_org
+# else:
+#     config.novelai_size: int = config.novelai_size_org * config.novelai_hr_payload["hr_scale"]
 config.novelai_cndm = {
     "controlnet_module": "canny",
     "controlnet_processor_res": config.novelai_size,

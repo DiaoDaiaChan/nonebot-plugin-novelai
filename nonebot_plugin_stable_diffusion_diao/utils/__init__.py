@@ -41,7 +41,7 @@ aidraw_parser.add_argument("-sp", "--sampler", "-采样器", type=str,
 aidraw_parser.add_argument("-nt", "--no-tran", "-不翻译", type=str,
                            help="不需要翻译的字符串", dest="no_trans")
 aidraw_parser.add_argument("-cn", "--controlnet", "-控制网",
-                           action='store_true', help="使用控制网以图生图", dest="control_net")
+                           action='store_true', help="使用控制网以图生图", dest="control_net_control")
 aidraw_parser.add_argument("-hr_off", "--hr-off", "-ho",
                            action='store_true', help="关闭高清修复", dest="disable_hr")
 aidraw_parser.add_argument("-emb",

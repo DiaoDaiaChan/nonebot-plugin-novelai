@@ -37,7 +37,7 @@ from nonebot.typing import T_State
 from nonebot import logger
 from collections import Counter
 from copy import deepcopy
-from typing import Any, Annotated
+from typing import Any, Annotated, Union
 from bs4 import BeautifulSoup
 
 current_date = datetime.now().date()
@@ -77,9 +77,7 @@ class SdAPI:
     ):
         self.backend_site = list(config.novelai_backend_url_dict.values())[int(self.backend_index)]
 
-        async with aiofiles.open("data/novelai/models.json", "r", encoding="utf-8") as f:
-            content = await f.read()
-            models_dict = json.loads(content)
+        models_dict = await self.get_models_api(self.backend_index, True)
 
         data = models_dict[model_index]
 
@@ -106,11 +104,15 @@ class SdAPI:
 
         resp_ = await aiohttp_func("get", f"http://{self.backend_site}/sdapi/v1/options")
         current_model = resp_[0][options_endpoint]
+
         message.append(
             f"当前使用模型: {current_model}, 当前后端类型: {self.config.backend_type[self.backend_index]},\t\n\n"
         )
 
         models_info = await aiohttp_func("get", f"http://{self.backend_site}/sdapi/v1/{endpoint}")
+        if models_info[1] == 404:
+            models_info = await aiohttp_func("get", f"http://{self.backend_site}/sdapi/v1/sd-modules")
+
         for n, model_info in enumerate(models_info[0], 1):
             model_name = model_info['model_name'] if vae else model_info['title']
             dict_model[n] = model_name
@@ -216,41 +218,50 @@ class CommandHandler(SdAPI):
 
     async def get_sd_models(
         self,
-        msg: UniMsg
+        index: int,
+        model,
+        search
     ):
-        vae = False
-        plain_text = msg.extract_plain_text()
-        if "_" and "vae" in plain_text:
-            self.backend_index = plain_text.split("_")[1]
-            vae = True
+
+        is_vae = model == "vae"
+        is_lora = model == "lora"
+        is_emb = model == "emb"
+
+        if model in {"ckpt", "vae"}:
+            final_message = await self.get_models_api(index, False, is_vae)
+        elif is_lora:
+            final_message = (await get_and_process_lora(
+                index=index,
+                text_msg=search if isinstance(search, str) else None
+            ))[1]
+        elif is_emb:
+            final_message = (await get_and_process_emb(
+                index=index,
+                text_msg=search if isinstance(search, str) else None
+            ))[1]
         else:
-            if msg:
-                self.backend_index = int(plain_text[-1])
-            else:
-                self.backend_index = 0
-        final_message = await self.get_models_api(self.backend_index, False, vae)
+            final_message = await self.get_models_api(index, False, False)
+
+        logger.info(f"获取{model}模型")
 
         await risk_control(final_message, True, revoke_later=True)
 
     async def change_sd_model(
-        self,
-        msg: UniMsg,
+            self,
+            index: int,
+            model_index: int
     ):
-        try:
-            user_command = msg.extract_plain_text()
-            self.backend_index = user_command.split("_")[0]
-            index = user_command.split("_")[1]
-        except:
-            await UniMessage.text("输入错误，请按照以下格式输入 更换模型1_2 (1为后端索引,从0开始，2为模型序号)").finish()
+        self.backend_site = config.backend_name_list[index]
+        self.backend_index = index
 
         await risk_control(
-            f"收到指令，为后端 {self.backend_site} 更换模型中，后端索引-sd {self.backend_index}，请等待,期间无法出图",
+            f"收到指令，为后端 {self.backend_site} 更换模型中，后端索引-sd {index}，请等待,期间无法出图",
             False,
             reply_message=True,
             revoke_later=True
         )
 
-        data, spend_time_msg, code = await self.change_model(index)
+        data, spend_time_msg, code = await self.change_model(model_index)
 
         if code in [200, 201]:
 
@@ -372,32 +383,6 @@ class CommandHandler(SdAPI):
 
         await risk_control(message, revoke_later=True, md_temple=True)
 
-    async def get_emb(
-            self,
-            msg: UniMsg
-    ):
-        text_msg = None
-        msg = msg.extract_plain_text().strip()
-        index = msg.split('lora')[1]
-        if "_" in msg:
-            index, text_msg = msg.split("_")[0][-1], msg.split("_")[1]
-        site_, site = self.backend_name_list[int(index)], self.backend_site_list[int(index)]
-        emb_dict, embs_list = await get_and_process_emb(site, site_, text_msg)
-        await risk_control(embs_list, True, reply_message=True, revoke_later=True)
-
-    async def get_lora(
-            self,
-            msg: UniMsg
-    ):
-        text_msg = None
-        msg = msg.extract_plain_text().strip()
-        index = msg.split('lora')[1]
-        if "_" in msg:
-            index, text_msg = msg.split("_")[0][-1], msg.split("_")[1]
-        site_, site = self.config.backend_name_list[int(index)], self.config.backend_site_list[int(index)]
-        lora_dict, loras_list = await get_and_process_lora(site, site_, text_msg)
-        await risk_control(loras_list, True, reply_message=True, revoke_later=True)
-
     async def get_sampler(self):
 
         lb_resp = await sd_LoadBalance(None)
@@ -454,10 +439,10 @@ class CommandHandler(SdAPI):
             event: __SUPPORTED_MESSAGEEVENT__,
             bot: Bot,
             matcher: Matcher,
-            msg: UniMsg
+            id_: str
     ):
 
-        hash_id = msg.extract_plain_text().split("找图片")[1].strip()
+        hash_id = id_.strip()
         directory_path = "data/novelai/output"
         filenames = await asyncio.get_event_loop().run_in_executor(None, get_all_filenames, directory_path)
         txt_file_name, img_file_name = f"{hash_id}.txt", f"{hash_id}.jpg"
@@ -830,8 +815,8 @@ class CommandHandler(SdAPI):
         )
 
     @staticmethod
-    async def danbooru(msg: UniMsg):
-        msg = msg.extract_plain_text().strip().split("查tag")[1]
+    async def danbooru(tag: str):
+        msg = tag
         resp = await aiohttp_func(
             "get",
             f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit=20",
@@ -852,7 +837,7 @@ class CommandHandler(SdAPI):
         if 'yes' in resp:
             data_values = ['1girl']
 
-        await UniMessage.text('\n'.join(data_values)).send()
+        await risk_control('\n'.join(data_values), revoke_later=True, reply_message=True)
 
     @staticmethod
     async def set_config(
@@ -1011,7 +996,12 @@ async def get_random_tags(sample_num=12):
         return None
 
 
-async def get_and_process_lora(site, site_, text_msg=None):
+async def get_and_process_lora(site='', site_='', text_msg=None, index=None):
+
+    if isinstance(index, int):
+        site = config.backend_site_list[index]
+        site_ = config.backend_name_list[index]
+
     loras_list = [f"这是来自webui:{site_}的lora,\t\n注使用例<lora:xxx:0.8>\t\n或者可以使用 -lora 数字索引 , 例如 -lora 1\n"]
     n = 0
     lora_dict = {}
@@ -1042,7 +1032,12 @@ async def get_and_process_lora(site, site_, text_msg=None):
     return new_lora_dict, loras_list
 
 
-async def get_and_process_emb(site, site_, text_msg=None):
+async def get_and_process_emb(site='', site_='', text_msg=None, index=None):
+
+    if isinstance(index, int):
+        site = config.backend_site_list[index]
+        site_ = config.backend_name_list[index]
+
     embs_list = [f"这是来自webui:{site_}的embeddings,\t\n注:直接把emb加到tags里即可使用\t\n中文emb可以使用 -nt 来排除, 例如 -nt 雕雕\n"]
     n = 0
     emb_dict = {}
@@ -1201,34 +1196,36 @@ async def aiohttp_func(way, url, payload={}, text=False, proxy=False):
 #     await risk_control(bot, event, model_list+[module_list], True)
 
 #
-# llm_caption = on_command("llm", aliases={"图片分析"})
-#
-#
-# @llm_caption.handle()
-# async def __(state: T_State, png: Message = CommandArg()):
-#     if png:
-#         state['png'] = png
-#     pass
-#
-#
-# @llm_caption.got("png", "请发送你要分析的图片,请注意")
-# async def __(event: __SUPPORTED_MESSAGEEVENT__):
-#     reply = event.reply
-#     for seg in event.message['image']:
-#         url = seg.data["url"]
-#     if reply:
-#         for seg in reply.message['image']:
-#             url = seg.data["url"]
-#     if url:
-#         img, _ = await download_img(url)
-#         payload = {
-#             "image": img,
-#             "threshold": 0.3
-#         }
-#         resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
-#         if status_code not in [200, 201]:
-#             await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
-#         await risk_control([f"llm打标{resp_data['llm']}",
-#                             "自然语言模型根据图片发送者发送的图片内容生成以上内容，其生成内容的准确性和完整性无法保证，不代表本人的态度或观点."])
-#     else:
-#         await llm_caption.reject("请重新发送图片")
+
+from nonebot import on_command
+from nonebot.adapters.onebot.v11 import Message
+llm_caption = on_command("llm", aliases={"图片分析"})
+
+
+@llm_caption.handle()
+async def __(state: T_State, png: Message = CommandArg()):
+    if png:
+        state['png'] = png
+    pass
+
+
+@llm_caption.got("png", "请发送你要分析的图片,请注意")
+async def __(event: __SUPPORTED_MESSAGEEVENT__):
+    reply = event.reply
+    for seg in event.message['image']:
+        url = seg.data["url"]
+    if reply:
+        for seg in reply.message['image']:
+            url = seg.data["url"]
+    if url:
+        img, _ = await download_img(url)
+        payload = {
+            "image": img,
+            "threshold": 0.3
+        }
+        resp_data, status_code = await aiohttp_func("post", f"http://{config.novelai_tagger_site}/llm/caption", payload)
+        if status_code not in [200, 201]:
+            await llm_caption.finish(f"出错了,错误代码{status_code},请检查服务器")
+        await risk_control([f"llm打标{resp_data['llm']}"])
+    else:
+        await llm_caption.reject("请重新发送图片")

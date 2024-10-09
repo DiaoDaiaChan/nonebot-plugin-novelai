@@ -1,18 +1,25 @@
-
 from re import I
+
 
 from ..config import config, message_type, __SUPPORTED_MESSAGEEVENT__, message_event_type
 from ..utils import aidraw_parser
 from .sd_extra_api_func import CommandHandler, SdAPI
 from ..aidraw import AIDrawHandler
 
-from nonebot import on_command, on_shell_command, logger, Bot
+from nonebot import on_shell_command, logger, Bot
 from nonebot.plugin.on import on_regex
 from nonebot.rule import ArgumentParser
 from nonebot.permission import SUPERUSER
 from nonebot.params import T_State, Arg, Matcher, CommandArg
 
+from argparse import Namespace
+from nonebot.params import ShellCommandArgs
+
+from arclet.alconna import Alconna, Args, Arg
 from nonebot_plugin_alconna.uniseg import UniMsg
+from nonebot_plugin_alconna import on_alconna, Option
+
+from typing import Union, Optional
 
 superuser = SUPERUSER if config.only_super_user else None
 
@@ -20,23 +27,23 @@ __NEED__ = ["找图片", ]
 
 command_handler_instance = CommandHandler()
 
-on_command(
-    "模型目录",
+on_alconna(
+    Alconna("模型目录", Args["index", int]["model?", str]["search?", str]),
     aliases={"获取模型", "查看模型", "模型列表"},
     priority=5,
     block=True,
     handlers=[command_handler_instance.get_sd_models]
 )
 
-on_command(
-    "更换模型",
+on_alconna(
+    Alconna("更换模型", Args["index", int]["model_index", int]),
     priority=1,
     block=True,
     permission=superuser,
     handlers=[command_handler_instance.change_sd_model]
 )
 
-on_command(
+on_alconna(
     "后端",
     aliases={"查看后端"},
     priority=1,
@@ -44,29 +51,15 @@ on_command(
     handlers=[command_handler_instance.view_backend]
 )
 
-on_command(
-    "emb",
-    aliases={"embs"},
-    block=True,
-    handlers=[command_handler_instance.get_emb]
 
-)
-
-on_command(
-    "lora",
-    aliases={"loras"},
-    block=True,
-    handlers=[command_handler_instance.get_lora]
-)
-
-on_command(
+on_alconna(
     "采样器",
     aliases={"获取采样器"},
     block=True,
     handlers=[command_handler_instance.get_sampler]
 )
 
-on_command(
+on_alconna(
     "翻译",
     block=True,
     handlers=[command_handler_instance.translate]
@@ -80,20 +73,20 @@ on_shell_command(
     handlers=[command_handler_instance.random_tags]
 )
 
-on_command(
-    "找图片",
+on_alconna(
+    Alconna("找图片", Args["id_", str]),
     block=True,
     handlers=[command_handler_instance.find_image]
 )
 
-on_command(
+on_alconna(
     "词频统计",
     aliases={"tag统计"},
     block=True,
     handlers=[command_handler_instance.word_freq]
 )
 
-on_command(
+on_alconna(
     "运行截图",
     aliases={"状态"},
     block=False,
@@ -101,7 +94,7 @@ on_command(
     handlers=[command_handler_instance.screen_shot]
 )
 
-on_command(
+on_alconna(
     "审核",
     block=True,
     handlers=[command_handler_instance.audit]
@@ -122,26 +115,26 @@ on_regex(
     handlers=[command_handler_instance.another_backend_control]
 )
 
-on_command(
+on_alconna(
     "随机出图",
     aliases={"随机模型", "随机画图"},
     block=True,
     handlers=[command_handler_instance.random_pic]
 )
 
-on_command(
-    "查tag",
+on_alconna(
+    Alconna("查tag", Args["tag", str]),
     handlers=[command_handler_instance.danbooru],
     block=True
 )
 
-rembg = on_command(
+rembg = on_alconna(
     "去背景",
     aliases={"rembg", "抠图"},
     block=True
 )
 
-super_res = on_command(
+super_res = on_alconna(
     "图片修复",
     aliases={"图片超分", "超分"},
     block=True
@@ -176,7 +169,7 @@ on_shell_command(
     handlers=[command_handler_instance.style]
 )
 
-read_png_info = on_command(
+read_png_info = on_alconna(
     "读图",
     aliases={"读png", "读PNG"},
     block=True
@@ -191,7 +184,22 @@ aidraw = on_shell_command(
     block=True
 )
 
-# on_command(
+nai = on_shell_command(
+    "nai",
+    parser=aidraw_parser,
+    priority=5,
+    block=True
+)
+
+
+@nai.handle()
+async def _(bot: Bot,event: __SUPPORTED_MESSAGEEVENT__, args: Namespace = ShellCommandArgs()):
+
+    args.backend_index = 0
+
+    await AIDrawHandler().aidraw_get(bot, event, args)
+
+# on_alconna(
 #     "获取链接",
 #     block=True,
 #     priority=5,
