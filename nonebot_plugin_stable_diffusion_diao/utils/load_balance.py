@@ -3,7 +3,6 @@ import asyncio
 import random
 from nonebot import logger
 
-from .. import AIDRAW
 from ..config import config, redis_client
 import time
 from tqdm import tqdm
@@ -34,7 +33,7 @@ async def get_vram(ava_url, get_code=False):
     return vram_usage
 
 
-async def sd_LoadBalance(fifo: AIDRAW=None):
+async def sd_LoadBalance(fifo=None):
     '''
     分别返回可用后端索引, 后端对应ip和名称(元组), 显存占用
     '''
@@ -102,25 +101,30 @@ async def sd_LoadBalance(fifo: AIDRAW=None):
             logger.info("没有空闲后端")
             if len(normal_backend) == 0:
                 raise RuntimeError("没有可用后端")
-
         backend_total_work_time = {}
         avg_time_dict = await fifo.get_backend_avg_work_time()
         backend_image = fifo.set_backend_image(get=True)
 
-        for site, time_, site_, image_count in zip(avg_time_dict.items(), backend_image):
-            logger.info(f"后端: {site}, 平均工作时间: {time_}秒")
+        for (site, time_), (_, image_count) in zip(avg_time_dict.items(), backend_image.items()):
+            logger.info(f"后端: {site}, 平均工作时间: {time_}秒, 现在进行中的任务: {image_count-1}")
             if site in normal_backend:
-                if time_ is not None:
-                    backend_total_work_time[site] = time_ * image_count
-                else:
-                    backend_total_work_time[site] = 1
+                # if time_ is not None:
+                backend_total_work_time[site] = (1 if time_ is None else time_) * int(image_count)
+                # else:
+                #     backend_total_work_time[site] = 1
+
+        logger.warning(backend_total_work_time)
 
         total_time_dict = list(backend_total_work_time.values())
         rev_dict = {}
         for key, value in backend_total_work_time.items():
-            rev_dict[value] = key
+            if value in rev_dict:
+                # 如果值已存在，则使用元组作为键
+                rev_dict[(value, key)] = value
+            else:
+                rev_dict[value] = key
 
-        sorted_list = total_time_dict.sort(reverse=False)
+        sorted_list = sorted(total_time_dict)  # 使用 sorted 进行排序
         fastest_backend = sorted_list[0]
         ava_url = rev_dict[fastest_backend]
         logger.info(f"后端{ava_url}最快, 已经选择")

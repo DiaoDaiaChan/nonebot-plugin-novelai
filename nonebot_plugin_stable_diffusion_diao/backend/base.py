@@ -773,6 +773,7 @@ class AIDRAW_BASE:
         backend_sites = config.backend_site_list
 
         if cls.backend_avg_json.exists():
+            logger.info("后端平均耗时文件存在")
             async with aiofiles.open(cls.backend_avg_json, 'r') as f:
                 contents = await f.read()
                 cls.backend_avg_dict = json.loads(contents)
@@ -780,14 +781,14 @@ class AIDRAW_BASE:
         avg_time_dict = {}
         for backend_site in backend_sites:
             spend_time_list = cls.backend_avg_dict.get(backend_site, [])
-            if spend_time_list and len(spend_time_list) > 10:
+            if spend_time_list and len(spend_time_list) >= 10:
                 sorted_list = sorted(spend_time_list)
                 trimmed_list = sorted_list[1:-1]
                 avg_time = sum(trimmed_list) / len(trimmed_list) if trimmed_list else None
                 avg_time_dict[backend_site] = avg_time
             else:
                 avg_time_dict[backend_site] = None
-
+        logger.warning(str(avg_time_dict))
         return avg_time_dict
 
     @classmethod
@@ -795,7 +796,7 @@ class AIDRAW_BASE:
         spend_time_list = cls.backend_avg_dict.get(backend_site, [])
         spend_time_list.append(int(spend_time/total_images))
 
-        if len(spend_time_list) > 10:
+        if len(spend_time_list) >= 10:
             spend_time_list = spend_time_list[-10:]
 
         cls.backend_avg_dict[backend_site] = spend_time_list
@@ -807,10 +808,12 @@ class AIDRAW_BASE:
                 await f.write(json.dumps(cls.backend_avg_dict))
             cls.write_count[backend_site] = 0
 
+        logger.warning(str(cls.backend_avg_dict))
+
     @classmethod
     def set_backend_image(cls, num=0, backend_site=None, get=False) -> Union[None, dict]:
         all_backend_dict = {}
-
+        logger.warning(str(cls.backend_images))
         if backend_site:
             working_images = cls.backend_images.get(backend_site, 1)
             working_images += num
@@ -818,4 +821,4 @@ class AIDRAW_BASE:
         if get:
             for site in config.backend_site_list:
                 all_backend_dict[site] = cls.backend_images.get(site, 1)
-            return  all_backend_dict
+            return all_backend_dict
