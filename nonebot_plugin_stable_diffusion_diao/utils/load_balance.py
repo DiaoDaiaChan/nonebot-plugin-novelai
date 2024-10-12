@@ -73,7 +73,7 @@ async def sd_LoadBalance(fifo=None):
                     normal_backend = (list(status_dict.keys()))
                     vram_dict[resp_tuple[2]] = resp_tuple[4]
                 else:
-                    raise RuntimeError
+                    raise fifo.Exceptions.NoAvailableBackendError
             except RuntimeError or TypeError:
                 print(f"后端{list(config.novelai_backend_url_dict.keys())[e]}出错")
                 continue

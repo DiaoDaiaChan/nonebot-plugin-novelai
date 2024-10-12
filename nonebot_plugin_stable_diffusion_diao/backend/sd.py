@@ -340,23 +340,32 @@ class AIDRAW(AIDRAW_BASE):
                 self.set_backend_image(self.total_images, self.backend_site)
                 parameters_tuple = await self.post_parameters(failed)
                 await self.post_(*parameters_tuple)
-            except Exception:
+
+            except Exception as e:
+
+                self.set_backend_image(-self.total_images, self.backend_site)
+
                 logger.info(f"第{retry_times + 1}次尝试")
                 logger.error(traceback.format_exc())
+
+                if isinstance(e, self.Exceptions.NoAvailableBackendError):
+                    logger.error(e)
+
                 await asyncio.sleep(2)
-                # 如果指定了后端, 重试两次仍然失败的话, 使用负载均衡重新获取可用后端
+
                 if retry_times >= 1:
                     logger.warning("失败请求超过2次,10秒后将使用负载均衡自动获取后端")
                     failed = True
-                    defult_site = config.novelai_site
+                    default_site = config.novelai_site
                     self.backend_index = None
                     self.backend_site = None
 
                     await asyncio.sleep(10)
 
-                if retry_times > config.novelai_retry:
-                    self.set_backend_image(-self.total_images, self.backend_site)
-                    raise RuntimeError(f"重试{config.novelai_retry}次后仍然发生错误, 请检查服务器")
+                if retry_times >= config.novelai_retry:
+                    raise self.Exceptions.PostingFailedError(
+                        f"重试{config.novelai_retry}次后仍然发生错误, {e}, 请检查服务器")
+
             else:
                 self.set_backend_image(-self.total_images, self.backend_site)
                 if config.novelai_load_balance is False:

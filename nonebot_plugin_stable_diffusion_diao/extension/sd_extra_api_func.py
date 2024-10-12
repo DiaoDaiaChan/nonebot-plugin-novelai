@@ -177,7 +177,8 @@ class SdAPI:
         if upscale:
             payload["upscaling_resize"] = upscale
 
-        lb_resp = await sd_LoadBalance(None)
+        fifo = AIDRAW()
+        lb_resp = await sd_LoadBalance(fifo)
         backend_site = lb_resp[1][0]
 
         api_url = "http://" + backend_site + "/sdapi/v1/extra-single-image"
@@ -385,7 +386,9 @@ class CommandHandler(SdAPI):
 
     async def get_sampler(self):
 
-        lb_resp = await sd_LoadBalance(None)
+        fifo = AIDRAW()
+
+        lb_resp = await sd_LoadBalance(fifo)
         self.backend_site = lb_resp[1][0]
 
         sampler_list = []
@@ -789,8 +792,10 @@ class CommandHandler(SdAPI):
             if not tags:
                 tags = "miku"
 
+        fifo = AIDRAW()
+
         init_dict["tags"] = tags
-        _, __, normal_backend = await sd_LoadBalance(None)
+        _, __, normal_backend = await sd_LoadBalance(fifo)
         random_site = random.choice(normal_backend)
         index = config.backend_site_list.index(random_site)
         init_dict["backend_index"] = index

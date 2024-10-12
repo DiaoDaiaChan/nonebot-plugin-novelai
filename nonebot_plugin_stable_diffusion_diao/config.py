@@ -139,6 +139,7 @@ class Config(BaseSettings):
     '''
     novelai_load_balance: bool = True  # 负载均衡, 使用前请先将队列限速关闭, 目前只支持stable-diffusion-webui, 所以目前只支持novelai_mode = "sd" 时可用, 目前已知问题, 很短很短时间内疯狂画图的话无法均匀分配任务
     novelai_load_balance_mode: int = 1  # 负载均衡模式, 1为随机, 2为加权随机选择
+    load_balance_sample: int = 10  # 计算平均工作时间的样本数量
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
     novelai_backend_url_dict: dict = {
         "雕雕的后端": "api.diaodiao.online:7860",

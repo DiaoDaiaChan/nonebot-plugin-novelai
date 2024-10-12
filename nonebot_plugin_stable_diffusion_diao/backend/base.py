@@ -132,12 +132,10 @@ class AIDRAW_BASE:
             else str(event.group_id)
         )
         if config.novelai_random_scale:
-            self.scale: int = int(
-                scale 
-                or self.weighted_choice(config.novelai_random_scale_list)
-            )
+            self.scale: int = scale or self.weighted_choice(config.novelai_random_scale_list)
+
         else:
-            self.scale = int(scale or config.novelai_scale)
+            self.scale = scale or config.novelai_scale
         self.strength: float = strength or config.novelai_hr_payload["denoising_strength"]
         self.steps: int = steps or config.novelai_steps or 12
         self.noise: float = noise or 0.2
@@ -217,7 +215,7 @@ class AIDRAW_BASE:
         self.pre_tags = ''
         self.pre_ntags = ''
 
-        self.exceptions = AIDrawExceptions
+        self.Exceptions = AIDrawExceptions
 
         if self.total_images > config.novelai_max:
             self.niter = config.novelai_max // self.batch
@@ -255,10 +253,15 @@ class AIDRAW_BASE:
             separators = ["x", "X", "*"]
             for sep in separators:
                 if sep in shape:
-                    width, height, *_ = shape.split(sep)
-                    break
+                    parts = shape.split(sep)
+                    if len(parts) >= 2:
+                        width, height = parts[:2]
+                        break
+                    else:
+                        return shapemap.get(shape)
                 else:
                     return shapemap.get(shape)
+
             if width.isdigit() and height.isdigit():
                 return self.shape_set(int(width), int(height))
             else:
@@ -348,24 +351,29 @@ class AIDRAW_BASE:
         """
         设置宽高
         """
-        tmp = None
-        if self.disable_hr:
-            tmp = config.novelai_size * config.novelai_hr_payload["hr_scale"]
-        limit = extra_limit or 1024 if config.paid else 640
-        if width * height > pow(min(extra_limit or tmp or config.novelai_size, limit), 2):
+
+        config_size = config.novelai_size if config.novelai_size else 1024
+
+        limit = extra_limit or 1024 if config.novelai_paid else 640
+        if width * height > pow(min(extra_limit or config_size, limit), 2):
             if width <= height:
                 ratio = height / width
-                width: float = extra_limit or tmp or config.novelai_size / pow(ratio, 0.5)
+                width: float = extra_limit or config_size / pow(ratio, 0.5)
                 height: float = width * ratio
             else:
                 ratio = width / height
-                height: float = extra_limit or tmp or config.novelai_size / pow(ratio, 0.5)
+                height: float = extra_limit or config_size / pow(ratio, 0.5)
                 width: float = height * ratio
+
             if extra_limit:
                 return width, height
+
         base = round(max(width, height) / 64)
         if base > self.max_resolution:
             base = self.max_resolution
+
+        print(width, height, base)
+
         if width <= height:
             return (round(width / height * base) * 64, 64 * base)
         else:
@@ -676,7 +684,10 @@ class AIDRAW_BASE:
 
                     self.result_img = self.resp_json['images']
                     if self.niter != 1 or self.batch != 1:
-                        del self.result_img[0]
+                        if self.total_images == len(self.result_img):
+                            pass
+                        else:
+                            del self.result_img[0]
                     logger.debug(f"获取到返回图片，正在处理")
                     # 收到图片后处理
                     if self.open_pose or config.openpose:
@@ -776,12 +787,25 @@ class AIDRAW_BASE:
             logger.info("后端平均耗时文件存在")
             async with aiofiles.open(cls.backend_avg_json, 'r') as f:
                 contents = await f.read()
-                cls.backend_avg_dict = json.loads(contents)
+                new_data = json.loads(contents)
+                for key, values in new_data.items():
+                    if key in cls.backend_avg_dict:
+                        cls.backend_avg_dict[key].extend(
+                            values[-config.load_balance_sample:] if len(values) >= config.load_balance_sample else
+                            values
+                        )
+                    else:
+                        cls.backend_avg_dict[key] = (values[-config.load_balance_sample:] if
+                                                     len(values) >= config.load_balance_sample else values)
+
+                    cls.backend_avg_dict[key] = cls.backend_avg_dict[key][-10:]
+
+        logger.error(cls.backend_avg_dict)
 
         avg_time_dict = {}
         for backend_site in backend_sites:
             spend_time_list = cls.backend_avg_dict.get(backend_site, [])
-            if spend_time_list and len(spend_time_list) >= 10:
+            if spend_time_list and len(spend_time_list) >= config.load_balance_sample:
                 sorted_list = sorted(spend_time_list)
                 trimmed_list = sorted_list[1:-1]
                 avg_time = sum(trimmed_list) / len(trimmed_list) if trimmed_list else None
@@ -796,14 +820,14 @@ class AIDRAW_BASE:
         spend_time_list = cls.backend_avg_dict.get(backend_site, [])
         spend_time_list.append(int(spend_time/total_images))
 
-        if len(spend_time_list) >= 10:
-            spend_time_list = spend_time_list[-10:]
+        if len(spend_time_list) >= config.load_balance_sample:
+            spend_time_list = spend_time_list[-config.load_balance_sample:]
 
         cls.backend_avg_dict[backend_site] = spend_time_list
 
         cls.write_count[backend_site] = cls.write_count.get(backend_site, 0) + 1
 
-        if cls.write_count[backend_site] >= 10:
+        if cls.write_count[backend_site] >= config.load_balance_sample:
             async with aiofiles.open(cls.backend_avg_json, 'w') as f:
                 await f.write(json.dumps(cls.backend_avg_dict))
             cls.write_count[backend_site] = 0

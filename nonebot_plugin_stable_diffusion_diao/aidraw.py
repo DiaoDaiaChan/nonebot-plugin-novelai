@@ -150,14 +150,13 @@ class AIDrawHandler:
             args: Namespace = ShellCommandArgs(),
     ) -> AIDRAW:
 
+        self.__init__()
+        logger.error(id(self))
+
         self.set_tasks_num(1)
 
         self.event = event
         self.bot = bot
-        self.style_tag = ''
-        self.style_ntag = ''
-        self.model_info_ = ''
-        self.random_tags = ''
 
         self.args = args
 
@@ -666,8 +665,9 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     # 处理单个请求
     try:
         await fifo.post()
-    except RuntimeError:
-        await UniMessage.text("").send()
+    except fifo.Exceptions.PostingFailedErro as e:
+        await UniMessage.text(e).send()
+        raise RuntimeError("请求失败")
     # except ClientConnectorError:
     #     await sendtosuperuser(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
     #     raise RuntimeError(f"远程服务器拒绝连接，请检查配置是否正确，服务器是否已经启动")
