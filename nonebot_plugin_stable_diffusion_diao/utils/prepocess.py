@@ -40,6 +40,8 @@ async def prepocess_tags(
         only_trans=False, 
         return_img_url=False
 ):
+    if isinstance(tags, str):
+        tags = [tags]
     if only_trans:
         trans_result = await trans(tags)
         return trans_result

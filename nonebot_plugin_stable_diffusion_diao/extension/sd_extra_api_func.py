@@ -891,6 +891,7 @@ class CommandHandler(SdAPI):
     ):
         message_list = []
         style_dict = {}
+        style_list = []
         if redis_client:
             r = redis_client[1]
             if r.exists("style"):
@@ -909,19 +910,21 @@ class CommandHandler(SdAPI):
                     except (UnicodeDecodeError, AttributeError) as e:
                         pass
 
-                style_list = decoded_styles
-                if r.exists("user_style"):
-                    user_style_list = r.lrange("user_style", 0, -1)
-                    for index, style in enumerate(user_style_list):
-                        try:
-                            decoded_style = style.decode("utf-8")
-                            style = ast.literal_eval(decoded_style)
-                            style_list.append(style)
-                        except (ValueError, SyntaxError, UnicodeDecodeError) as e:
-                            pass
+                style_list += decoded_styles
+
+            if r.exists("user_style"):
+                user_style_list = r.lrange("user_style", 0, -1)
+                for index, style in enumerate(user_style_list):
+                    try:
+                        decoded_style = style.decode("utf-8")
+                        style = ast.literal_eval(decoded_style)
+                        style_list.append(style)
+                    except (ValueError, SyntaxError, UnicodeDecodeError) as e:
+                        pass
 
         else:
             await matcher.finish("需要redis以使用此功能")
+
         if args.delete:
             delete_name = args.delete[0] if isinstance(args.delete, list) else args.delete
             find_style = False

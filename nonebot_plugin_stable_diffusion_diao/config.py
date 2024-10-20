@@ -525,7 +525,7 @@ async def get_redis_client():
         if back_emb is not None:
             emb_dict = {}
             n = 0
-            for emb in list(back_emb["loaded"].keys()):
+            for emb in list(back_emb.get("loaded", {}).keys()):
                 n += 1
                 emb_dict[n] = emb
             backend_emb[config.backend_name_list[normal_backend_index]] = emb_dict

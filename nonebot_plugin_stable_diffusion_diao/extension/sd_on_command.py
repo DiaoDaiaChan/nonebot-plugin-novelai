@@ -199,6 +199,22 @@ async def _(bot: Bot,event: __SUPPORTED_MESSAGEEVENT__, args: Namespace = ShellC
 
     await AIDrawHandler().aidraw_get(bot, event, args)
 
+mj = on_shell_command(
+    "mj",
+    parser=aidraw_parser,
+    priority=5,
+    block=True
+)
+
+
+@mj.handle()
+async def _(bot: Bot, event: __SUPPORTED_MESSAGEEVENT__, args: Namespace = ShellCommandArgs()):
+
+    args.backend_index = 1
+
+    await AIDrawHandler().aidraw_get(bot, event, args)
+
+
 # on_alconna(
 #     "获取链接",
 #     block=True,

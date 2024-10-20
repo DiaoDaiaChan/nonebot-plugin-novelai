@@ -229,6 +229,8 @@ class AIDRAW(AIDRAW_BASE):
             parameters["alwayson_scripts"].update(config.custom_scripts[2])
         if self.dtg:
             parameters["alwayson_scripts"].update(config.custom_scripts[5])
+        if self.v_prediction:
+            parameters["alwayson_scripts"].update(config.custom_scripts[6])
         if self.custom_scripts is not None:
             parameters["alwayson_scripts"].update(config.custom_scripts[self.custom_scripts])
         if self.scripts is not None:
@@ -299,9 +301,6 @@ class AIDRAW(AIDRAW_BASE):
             parameters["override_settings"].update(
                 {"sd_vae": config.xl_config["sd_vae"]}
             )
-
-            parameters["prompt"] = "" if self.override else config.xl_config["prompt"] + self.tags
-            parameters["negative_prompt"] = config.xl_config["negative_prompt"] + self.ntags
 
         elif config.backend_type[index] == "flux":
             parameters['sampler_name'] = 'Euler'

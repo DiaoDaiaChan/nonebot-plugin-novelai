@@ -279,6 +279,24 @@ custom_scripts:
       - "KBlueLeaf/DanTagGen-delta-rev2 | ggml-model-Q6_K.gguf"
       - false
       - false
+- Advanced Model Sampling for Forge:
+    args:
+      - true
+      - "Discrete"
+      - "v_prediction"
+      - false
+      - "v_prediction"
+      - 120
+      - 0.002
+      - 120
+      - 0.002
+      - 2
+      - 2
+      - 2
+      - 1.15
+      - 0.5
+      - 1024
+      - 1024
 
 scripts:  # Ultimate SD upscale 脚本需要注意的为第一个（分块绘制大小）和最后一个参数（放大倍率）
 - name: "x/y/z plot"

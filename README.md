@@ -18,16 +18,34 @@ https://github.com/MicrosoftArchive/redis/releases
 ```
 ## 基础配置在这
 ### [基础配置](./docs/main/config.md) (请先看这里)
+## 支持的后端 / 在线网站
+### 希望小伙(hei)伴(nu)对DBAPI项目(https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI)进行完善, 有能力的小伙伴快来帮忙
+
+| 后端                      | 原生支持?(不通过DrawBridgeAPI调用) | 文生图        | 图生图   | 备注 |
+|-------------------------|---------------------------|------------|-------|--|
+| stable-diffusio-webui   | ✅                        | ✅ | ✅     |  
+| stable-diffusio-webui-forge | ✅                        | ✅ | ✅     |  
+| Comfyui                 | 通过DBAPI调用                 | ✅ | ✅ |  |
+| NovelAI                 | 通过DBAPI调用               | ✅ | 暂不支持  |
+| midjourney                        | 通过DBAPI调用               | ✅ | 暂不支持  
+| https://civitai.com/ | 通过DBAPI调用               | ✅ | 暂不支持  
+|https://fal.ai/models/fal-ai/flux/schnell |通过DBAPI调用               | ✅ | 暂不支持  
+|https://replicate.com/black-forest-labs/flux-schnell|通过DBAPI调用               | ✅ | 暂不支持  
+|https://www.liblib.art/|通过DBAPI调用               | ✅ | 暂不支持  
+|https://tusiart.com/ |通过DBAPI调用               | ✅ | 暂不支持  
+|https://www.seaart.ai/ |通过DBAPI调用               | ✅ | 暂不支持  
+|https://www.yunjie.art/|通过DBAPI调用               | ✅ | 暂不支持  
+
 ## 核心功能
 - ## 开箱即用(使用本人API) / 或者设置token使用在线服务 
 - ## 跨平台(目前支持官方QQ机器人以及obv11)
-- ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (使用DrawBridgeAPI提供comfyui支持本人用的比较少, 如有需要完善请加群或者留个issue)
+- ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (comfyui支持本人用的比较少, 如有需要完善请加群或者留个issue)
 - ### ↓ 白嫖绘图, 人人有图画 ↓ 使用此项目 (插件已整合)
-- ## 整合一个支持调用各种在线网站的多功能API https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI
+- ## 整合一个支持调用各种在线网站的多功能API 
 
 - ### 支持多后端负载均衡. 2种模式, 随机和加权随机, 以及你可以手动选择后端
 ![添加了sd负载均衡功能](./docs/main/images/help/load_balance.png)
-- ## 支持SD1.5, SDXL, FLUX, MJ(需要token), novelai (需要token, 但雕雕没有token来测试, 很久没有维护)
+- ## 支持SD1.5, SDXL, FLUX, V预测等
 - ### 丰富的绘图自定义参数(高清修复, 采样器等等)
 - ## 支持多种SD-API(打标, 超分, 更换模型, ,抠图, 更改webui设置等等)
 - ## 支持stable-diffusio-webui的多种插件 (需要适配的插件请留言)

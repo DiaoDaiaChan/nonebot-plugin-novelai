@@ -315,7 +315,7 @@ class AIDrawHandler:
                 and self.args.match is False
         ):
             r = redis_client[1]
-            if r.exists("style"):
+            if r.exists("user_style") or r.exists("style"):
                 self.info_style = ""
                 style_list: list[bytes] = r.lrange("style", 0, -1)
                 style_list_: list[bytes] = r.lrange("user_style", 0, -1)
@@ -347,11 +347,10 @@ class AIDrawHandler:
         org_tag_list = self.fifo.tags
         org_list = deepcopy(tags_list)
         new_tags_list = []
-
-        r2 = redis_client[1]
         model_info = ""
 
         if config.auto_match and not self.args.match and redis_client:
+            r2 = redis_client[1]
             turn_off_match = False
 
             try:
@@ -544,7 +543,7 @@ CFG Scale:{fifo.scale}
             tags_list: str = await prepocess_tags(self.tags_list, False, True)
         except Exception as e:
             logger.error(traceback.format_exc())
-        self.fifo.ntags = await prepocess_tags([self.fifo.ntags])
+        self.fifo.ntags = await prepocess_tags(self.fifo.ntags)
         # 检测是否有18+词条
         pattern = re.compile(f"{htags}", re.IGNORECASE)
         h_words = ""
@@ -572,16 +571,11 @@ CFG Scale:{fifo.scale}
                     except:
                         logger.info("被风控了")
 
-        # lora, emb命令参数处理
-
-        # 不希望翻译的tags
-        if self.args.no_trans:
-            tags_list = tags_list + self.args.no_trans
         # 如果使用xl, 覆盖预设提示词，使用xl设置提示词
         basetag, lowQuality = '', ''
 
         # 拼接最终prompt
-        raw_tag = tags_list + "," + ",".join(self.new_tags_list) + str(self.style_tag) + self.random_tags
+        raw_tag = tags_list + " ," + ",".join(self.new_tags_list) + str(self.style_tag) + self.random_tags
 
         # 自动dtg
         def check_tag_length(raw_tag):
@@ -599,7 +593,7 @@ CFG Scale:{fifo.scale}
         pre_tags = basetag + await config.get_value(self.group_id, "tags")
         pre_ntags = lowQuality + await config.get_value(self.group_id, "ntags")
 
-        self.fifo.tags = raw_tag
+        self.fifo.tags = raw_tag + (self.args.no_trans if self.args.no_trans else '')
         self.fifo.ntags = "," + self.fifo.ntags + str(self.style_ntag)
 
         self.fifo.pre_tags += pre_tags + "," + self.extra_model
@@ -608,6 +602,12 @@ CFG Scale:{fifo.scale}
         resp = await txt_audit(str(self.fifo.tags)+str(self.fifo.ntags))
         if 'yes' in resp:
             await UniMessage.text("对不起, 请重新输入prompt").finish()
+
+        self.fifo.tags = self.fifo.tags.replace('&#91;', '[')
+        self.fifo.tags = self.fifo.tags.replace('&#93;', ']')
+
+        self.fifo.ntags = self.fifo.ntags.replace('&#91;', '[')
+        self.fifo.ntags = self.fifo.ntags.replace('&#93;', ']')
 
         if self.fifo.dtg:
             await self.fifo.get_dtg_pre_prompt()

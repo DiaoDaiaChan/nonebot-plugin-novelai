@@ -165,10 +165,10 @@ class AIDRAW(AIDRAW_BASE):
                 image_bytes = await resp.read()
         img = Image.open(io.BytesIO(image_bytes))
         width, height = img.size
-        # calculate half width and height
+
         half_width = width // 2
         half_height = height // 2
-        # create coordinates (top-left x, top-left y, bottom-right x, bottom-right y)
+
         coordinates = [(0, 0, half_width, half_height),
                     (half_width, 0, width, half_height),
                     (0, half_height, half_width, height),

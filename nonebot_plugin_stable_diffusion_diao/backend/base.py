@@ -77,6 +77,7 @@ class AIDRAW_BASE:
         niter: int = 1,
         override: bool = False,
         model: str = None,
+        v_prediction=False,
         args: Namespace=None,
         **kwargs,
     ):
@@ -210,6 +211,7 @@ class AIDRAW_BASE:
         self.niter = niter or 1
         self.total_images = self.batch * self.niter
         self.override = override
+        self.v_prediction = v_prediction
 
         self.args = args
         self.pre_tags = ''
