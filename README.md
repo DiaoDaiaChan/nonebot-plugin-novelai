@@ -95,7 +95,7 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 
 ## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
 ### 发送 绘画帮助 , 获取详细帮助
-- [各种指令展示](nonebot_plugin_stable_diffusion_diao/extension/ADH.md)
+- [各种指令展示](nonebot_plugin_stable_diffusion_diao/docs/basic.md)
 
 ### 配置文件路径 机器人所在路径/config/novelai/config.yaml
 - [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)

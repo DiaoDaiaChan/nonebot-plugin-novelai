@@ -78,6 +78,7 @@ class AIDRAW_BASE:
         override: bool = False,
         model: str = None,
         v_prediction=False,
+        scheduler=None,
         args: Namespace=None,
         **kwargs,
     ):
@@ -137,7 +138,7 @@ class AIDRAW_BASE:
 
         else:
             self.scale = scale or config.novelai_scale
-        self.strength: float = strength or config.novelai_hr_payload["denoising_strength"]
+        self.strength: float = strength or 1
         self.steps: int = steps or config.novelai_steps or 12
         self.noise: float = noise or 0.2
         self.ntags: str = ntags
@@ -212,6 +213,7 @@ class AIDRAW_BASE:
         self.total_images = self.batch * self.niter
         self.override = override
         self.v_prediction = v_prediction
+        self.scheduler = scheduler or "Automatic"
 
         self.args = args
         self.pre_tags = ''

@@ -36,6 +36,13 @@ on_alconna(
 )
 
 on_alconna(
+    Alconna("查看预设", Args["index", int]["search?", str]),
+    priority=5,
+    block=True,
+    handlers=[command_handler_instance.get_sd_models]
+)
+
+on_alconna(
     Alconna("更换模型", Args["index", int]["model_index", int]),
     priority=1,
     block=True,

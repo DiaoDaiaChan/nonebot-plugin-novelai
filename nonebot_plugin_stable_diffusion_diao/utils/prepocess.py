@@ -10,10 +10,11 @@ async def trans(taglist):
     tagzh = ""
     tags_ = ""
     for i in taglist:
-        if re.search('[\u4e00-\u9fa5]', tag_str):
+        if re.search('[\u4e00-\u9fa5]', i):
             tagzh += f"{i},"
         else:
             tags_ += f"{i},"
+
     if tagzh:
 
         if config.ai_trans:
@@ -27,10 +28,9 @@ async def trans(taglist):
                 tags_en = await translate(tagzh, "en")
         else:
             tags_en = await translate(tagzh, "en")
-        if tags_en == tagzh:
-            return ""
-        else:
-            tags_ += tags_en
+
+        tags_ += tags_en
+
     return tags_
 
 
