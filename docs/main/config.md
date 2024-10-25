@@ -637,6 +637,9 @@ SD-DrawBridgeAPI 的配置文件路径。
 "niter": 1  # 批数
 "override": false,
 "model": null  # 使用的模型
+v_prediction=False,  # 是否需要V预测推理
+scheduler=None,  # 调度器
+styles: list = None,  # prompt style
 
 ```
 

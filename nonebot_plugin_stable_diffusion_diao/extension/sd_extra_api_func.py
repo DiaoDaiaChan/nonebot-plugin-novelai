@@ -247,6 +247,24 @@ class CommandHandler(SdAPI):
 
         await risk_control(final_message, True, revoke_later=True)
 
+    async def get_sd_prompt_style(self, index: int, search):
+
+        filter_styles = []
+
+        styles, sc = await aiohttp_func('get', f"http://{self.config.backend_site_list[index]}/v1/prompt-styles")
+
+        if sc not in [200, 201]:
+            await UniMessage.text(f"获取预设失败，错误代码 {sc}").finish()
+
+        if isinstance(search, str):
+            for i in styles:
+                if search in i["name"]:
+                    filter_styles.append(i)
+        else:
+            filter_styles = styles
+
+        await risk_control('\n'.join(filter_styles), False, revoke_later=True)
+
     async def change_sd_model(
             self,
             index: int,

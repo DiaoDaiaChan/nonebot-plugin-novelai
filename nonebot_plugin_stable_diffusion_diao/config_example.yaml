@@ -9,14 +9,14 @@ baidu_translate_key:
     SECRET_KEY: ""
     API_KEY: ""
 # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
-novelai_tagger_site: api.diaodiao.online:7865  # 分析功能的地址 例如 127.0.0.1:7860
+novelai_tagger_site: server.20020026.xyz:7865  # 分析功能的地址 例如 127.0.0.1:7860
 novelai_pic_audit_api_key:  # 你的百度云API Key
     SECRET_KEY: ""
     API_KEY: ""
 openai_api_key: ""  # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
 openai_proxy_site: api.openai.com  # 如果你想使用代理的openai api 填写这里
 proxy_site: ""  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-trans_api: api.diaodiao.online:50000  # 自建翻译API
+trans_api: server.20020026.xyz:50000  # 自建翻译API
 redis_host: ["127.0.0.1", 6379]  # redis地址和端口
 dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI监听地址以及端口
 dbapi_conf_file: './config/dbapi_config.yaml'  # SD-DrawBridgeAPI配置文件
@@ -37,7 +37,7 @@ show_progress_bar: [false, 2]  # 是否显示进度条
 save_img: true  # 是否保存图片(API侧)
 is_return_hash_info: false  # 是否返回图片哈希信息（避免被q群管家撤回）
 ai_trans: false  # ai自动翻译/生成
-dbapi_build_in: true  # 启动内置的dbapi进行生图
+dbapi_build_in: false  # 启动内置的dbapi进行生图
 send_to_bot: true  # 涩图直接发给机器人本身(避免未配置superusers)
 enable_txt_audit: false  # 启用LLM文本审核功能
 reload_model: false  # 是否自动重新加载lora/emb模型
@@ -68,17 +68,13 @@ novelai_load_balance: true  # 负载均衡, 使用前请先将队列限速关闭
 novelai_load_balance_mode: 1  # 负载均衡模式, 1为随机, 2为加权随机选择
 novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3], 注意, 要和下面的长度一致 ↓
 novelai_backend_url_dict: # 你能用到的后端, 无http头 , 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
-    "雕雕的后端": "api.diaodiao.online:7860"
-    "雕雕的后端2": "api.diaodiao.online:7863"
-    "雕雕的后端3": "api.diaodiao.online:7864"
+    "雕雕的后端": "server.20020026.xyz:7860"
     "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
     "本地后端": "127.0.0.1:7860"
-backend_type:  # 这里的长度要和上面一样哦!
+backend_type:  # 这里的长度要和上面一样哦! 支持 1.5 / xl / flux
   - 1.5
-  - flux
+  - 1.5
   - xl
-  - 1.5
-  - 1.5
 # 后端跑的是什么类型的模型? ↑
 override_backend_setting_enable: false  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
 override_backend_setting:  #覆写后端设置
@@ -117,6 +113,9 @@ override_backend_setting:  #覆写后端设置
 # "niter": 1  # 批数
 # "override": false,
 # "model": null  # 使用的模型
+# v_prediction=False,  # 是否需要V预测推理
+# scheduler=None,  # 调度器
+# styles: list = None,  # prompt style
   -
     "tags": ""
     "ntags": "easynegative"
@@ -187,7 +186,7 @@ novelai_ControlNet_post_method: 0
 control_net: 
     - "lineart_anime"
     - "control_v11p_sd15s2_lineart_anime [3825e83e]"  # 处理器和模型
-xl_config:
+xl_config:  # 注意以下配置基本上被抛弃, 请修改override_backend_setting
     sd_vae: "sdxl_vae.safetensors"
     prompt: ""
     negative_prompt: ""

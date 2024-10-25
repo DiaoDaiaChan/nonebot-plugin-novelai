@@ -136,6 +136,9 @@ cutoff插件减少关键词颜色污染
 -b 一次生成几张图
 -bc 生成几次图片
 ```
+```
+-style 使用指定的prompt style生图
+```
 ### 最后, 送你一个示例
 ```text
 绘画 plaid_skirt,looking back ，bare shoulders -t 20 -sd 0 -sp "UniPC" -c 8 -bc 3 -u nsfw

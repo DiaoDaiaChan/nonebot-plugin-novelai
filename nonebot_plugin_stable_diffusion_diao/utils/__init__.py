@@ -86,6 +86,7 @@ aidraw_parser.add_argument("-b", "--batch", "--batch-size", type=int, help="batc
 aidraw_parser.add_argument("-niter", "--batch-count", "-bc", "--niter", type=int, help="batch count", dest="niter")
 aidraw_parser.add_argument("-vpred", "--v-prediction", "--v预测", action="store_true", help="v预测推理", dest="v_prediction")
 aidraw_parser.add_argument("-sch", "--scheduler", "-调度器", type=str, help="调度器", dest="scheduler")
+aidraw_parser.add_argument("-styles", "--styles", "-style", nargs="*", help="预设", type=str, dest='styles')
 
 
 async def check_last_version(package: str):

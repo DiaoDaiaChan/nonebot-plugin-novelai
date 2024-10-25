@@ -151,7 +151,6 @@ class AIDrawHandler:
     ) -> AIDRAW:
 
         self.__init__()
-        logger.error(id(self))
 
         self.set_tasks_num(1)
 

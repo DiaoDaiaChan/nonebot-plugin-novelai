@@ -109,12 +109,13 @@ https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
 ## 插件版本推荐:
 ```shell
 # 跨平台大改前最后一个版本
- pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
+pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
+# 新版
+pip install nonebot-plugin-stable-diffusion-diao==0.5.4 stable-diffusion-drawbridge-api==1.2
 ```
 
 # 更新日志
-## 2024.10.03 0.5.4 更新 (未发包)
-- 支持跨平台(目前支持官方QQ机器人以及obv11)(堪堪能用, 还在学习alc,正在迁移)
+## 2024.10.25 0.5.4 更新 (未发包)
 ```
 # 新的配置项目
 override_backend_setting_enable: true  # 是否启用后端设置覆写功能(默认关闭), 注意,长度要和后端字典长度一致
@@ -136,12 +137,25 @@ override_backend_setting:  #覆写后端设置
 enable_txt_audit: false  # 启用LLM文本审核功能,对输入输出的文本进行审核
 reload_model: false  # 是否自动重新加载lora/emb模型
 ```
-
-- 新命令, 查tag genshin 从d站上查找tag, 需要设置代理才能连接
+- 支持为每个后端设置自定义参数(注意由于这个特性, 之前老的关于sdxl的设置已被抛弃, 请根据自己需求修改来使用,请看 - [分别为各个后端设置参数](./docs/main/config.md/#override_backend_setting))
+- 支持跨平台(目前支持官方QQ机器人以及obv11)(堪堪能用, 还在学习alc,正在迁移,写的依托,来点ALC糕手)
+- llm文本申鹤, 防止自爆步兵
+- 是否自动重新加载lora/emb模型
+- 新命令, 查tag "genshin" 从d站上查找tag, 需要设置代理才能连接
 - 优化AI prompter,确保AI输出的prompt更加SD-like
 - post失败后的重新尝试也能自动覆写参数
+- 负载均衡更改, 能根据后端的生图时间自动选择最快的后端
+- 支持V预测模型
+- 支持自定义调度器
+- 支持获取/调用webui的prompt style
+- 更改了一些逻辑: hr_off 关闭高清修复优先级最高
+- 出现新的配置项之后会保留老的配置项, 不会直接删除
+- 新的说明菜单, 更加银杏化
+- 修复了亿个BUG
+- 雕雕域名过期(
+- 支持了两个神奇的命令 (nai / mj) 自用命令, 使用dbapi来画图 novelai设置为1号后端, mj为2号
 ## 2024.09.24 0.5.3 更新
-内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000
+内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000 (默认关闭, 开启以支持novelai,comfyui等)
 ```
 dbapi_site: ["127.0.0.1", 8000]  # SD-DrawBridgeAPI监听地址以及端口
 dbapi_conf_file: ./config/dbapi_config.yaml  # 配置文件路径

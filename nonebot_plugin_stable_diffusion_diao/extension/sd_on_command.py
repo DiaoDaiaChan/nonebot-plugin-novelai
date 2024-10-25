@@ -39,7 +39,7 @@ on_alconna(
     Alconna("查看预设", Args["index", int]["search?", str]),
     priority=5,
     block=True,
-    handlers=[command_handler_instance.get_sd_models]
+    handlers=[command_handler_instance.get_sd_prompt_style]
 )
 
 on_alconna(

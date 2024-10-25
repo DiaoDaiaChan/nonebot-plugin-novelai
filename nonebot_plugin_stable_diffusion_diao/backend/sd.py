@@ -171,7 +171,8 @@ class AIDRAW(AIDRAW_BASE):
             "override_settings_restore_afterwards": False,
             "n_iter": self.niter,
             "batch_size": self.batch,
-            "scheduler": self.scheduler
+            "scheduler": self.scheduler,
+            "styles": self.styles,
         }
 
         if config.negpip:
@@ -398,5 +399,6 @@ class AIDRAW(AIDRAW_BASE):
 
         generate_info = get_generate_info(self, "生成完毕")
         logger.info(
-            f"{generate_info}")
+            f"{generate_info}"
+        )
         return self.result

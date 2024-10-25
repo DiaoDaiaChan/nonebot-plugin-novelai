@@ -79,6 +79,7 @@ class AIDRAW_BASE:
         model: str = None,
         v_prediction=False,
         scheduler=None,
+        styles: list = None,
         args: Namespace=None,
         **kwargs,
     ):
@@ -214,6 +215,7 @@ class AIDRAW_BASE:
         self.override = override
         self.v_prediction = v_prediction
         self.scheduler = scheduler or "Automatic"
+        self.styles = styles
 
         self.args = args
         self.pre_tags = ''
@@ -765,8 +767,6 @@ class AIDRAW_BASE:
                 for key, arg_value in vars(self.args).items():
                     if hasattr(self, key):
                         value = filtered_params_dict.get(key, None)
-
-                        print(f"{key}: {arg_value} - {value}")
 
                         if key == "tags":
                             # 直接接收变量

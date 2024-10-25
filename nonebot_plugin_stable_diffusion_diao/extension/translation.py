@@ -69,20 +69,26 @@ async def translate_deepl(text: str, to: str):
     try:
         to = to.upper()
         key = config.deepl_key
+        headers = {
+            "Authorization": f"DeepL-Auth-Key {key}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "text": [text],
+            "target_lang": to
+        }
+
         async with aiohttp.ClientSession() as session:
-            params = {
-                "auth_key": key,
-                "text": text,
-                "target_lang": to,
-            }
-            async with session.get('https://api-free.deepl.com/v2/translate', params=params) as resp:
+            async with session.post('https://api.deepl.com/v2/translate', headers=headers, json=data) as resp:
                 if resp.status != 200:
-                    logger.error(f"DeepL翻译接口调用失败,错误代码{resp.status},{await resp.text()}")
-                jsonresult = await resp.json()
-                result = jsonresult["translations"][0]["text"]
-                logger.debug(f"DeepL翻译启动，获取到{text},翻译后{result}")
+                    logger.error(f"DeepL翻译接口调用失败, 错误代码: {resp.status}, {await resp.text()}")
+                    return None
+                json_result = await resp.json()
+                result = json_result["translations"][0]["text"]
+                logger.debug(f"DeepL翻译启动，获取到{text}, 翻译后: {result}")
                 return result
-    except:
+    except Exception as e:
+        logger.error(f"翻译请求失败: {e}")
         return None
 
 
