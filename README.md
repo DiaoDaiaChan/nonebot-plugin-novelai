@@ -111,7 +111,7 @@ https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
 # 跨平台大改前最后一个版本
 pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
 # 新版
-pip install nonebot-plugin-stable-diffusion-diao==0.5.4 stable-diffusion-drawbridge-api==1.2
+git
 ```
 
 # 更新日志
@@ -147,12 +147,14 @@ reload_model: false  # 是否自动重新加载lora/emb模型
 - 负载均衡更改, 能根据后端的生图时间自动选择最快的后端
 - 支持V预测模型
 - 支持自定义调度器
+- 修复deepl翻译
 - 支持获取/调用webui的prompt style
 - 更改了一些逻辑: hr_off 关闭高清修复优先级最高
 - 出现新的配置项之后会保留老的配置项, 不会直接删除
 - 新的说明菜单, 更加银杏化
 - 修复了亿个BUG
 - 雕雕域名过期(
+- 现在活着的服务 novelai_tagger_site: server.20020026.xyz:7865 / "雕雕的后端": "server.20020026.xyz:7860" / "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
 - 支持了两个神奇的命令 (nai / mj) 自用命令, 使用dbapi来画图 novelai设置为1号后端, mj为2号
 ## 2024.09.24 0.5.3 更新
 内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000 (默认关闭, 开启以支持novelai,comfyui等)

@@ -79,7 +79,7 @@ class Config(BaseSettings):
     bing_key: str = ""  # bing的翻译key
     deepl_key: str = ""  # deepL的翻译key
     baidu_translate_key: dict = {}  # 例:{"SECRET_KEY": "", "API_KEY": ""} # https://console.bce.baidu.com/ai/?_=1685076516634#/ai/machinetranslation/overview/index
-    novelai_tagger_site: str = "api.diaodiao.online:7865"  # 分析功能的地址 例如 127.0.0.1:7860
+    novelai_tagger_site: str = "server.20020026.xyz:7865"  # 分析功能的地址 例如 127.0.0.1:7860
     tagger_model: str = "wd14-vit-v2-git"  # 分析功能, 审核功能使用的模型
     vits_site: str = "api.diaodiao.online:5877"
     novelai_pic_audit_api_key: dict = {
@@ -89,7 +89,7 @@ class Config(BaseSettings):
     openai_api_key: str = "" # 如果要使用ChatGPTprompt生成功能, 请填写你的OpenAI API Key
     openai_proxy_site: str = "api.openai.com"  # 如果你想使用代理的openai api 填写这里
     proxy_site: str = ""  # 只支持http代理, 设置代理以便访问C站, OPENAI, 翻译等, 经过考虑, 还请填写完整的URL, 例如 "http://192.168.5.1:11082"
-    trans_api: str = "api.diaodiao.online:50000"  # 自建翻译API
+    trans_api: str = "server.20020026.xyz:50000"  # 自建翻译API
     redis_host: list = ["127.0.0.1", 6379]  # redis地址和端口
     bing_cookie: list = []  # bing的cookie们
     dbapi_site: list = ["127.0.0.1", 8000]  # SD-DrawBridgeAPI地址以及端口
@@ -119,9 +119,9 @@ class Config(BaseSettings):
     enalbe_xl: bool = False  # 是否默认使用xl模式
     auto_dtg: bool = False  # prompt少于10的时候自动启动dtg补全tag同时生效于二次元的我
     ai_trans: bool = False   # ai自动翻译/生成
-    dbapi_build_in: bool = True  # 启动内置的dbapi进行生图
+    dbapi_build_in: bool = False  # 启动内置的dbapi进行生图
     send_to_bot: bool = True  # 涩图直接发给机器人本身(避免未配置superusers)
-    enable_txt_audit: bool = False  #启动LLM文字审核
+    enable_txt_audit: bool = False  # 启动LLM文字审核
     reload_model: bool = False  # 是否自动重新加载lora/emb模型
     '''
     模式选择
@@ -131,7 +131,7 @@ class Config(BaseSettings):
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图, 5为直接发送！爆了！
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_picaudit: int = 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    novelai_picaudit: int = 4   # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     tagger_model_path: str = ''  # 本地审核模型路径
     novelai_todaygirl: int = 1  # 可选值 1 和 2 两种不同的方式
     '''
@@ -142,12 +142,11 @@ class Config(BaseSettings):
     load_balance_sample: int = 10  # 计算平均工作时间的样本数量
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
     novelai_backend_url_dict: dict = {
-        "雕雕的后端": "api.diaodiao.online:7860",
-        "雕雕的后端2": "api.diaodiao.online:7863",
-        "雕雕的后端3": "api.diaodiao.online:7864",
-        "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
+        "雕雕的后端": "server.20020026.xyz:7860",
+        "雕雕DrawBridgeAPI": "la.20020026.xyz:8000",
+        "本地后端": "127.0.0.1:7860"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
-    backend_type: list = ["1.5", "xl", "flux", "1.5"]
+    backend_type: list = ["1.5", "1.5", "xl"]  # 支持 1.5 / xl / flux
     override_backend_setting_enable: bool = True  # 是否启用后端设置覆写功能, 注意,长度要和后端字典长度一致
     override_backend_setting: list = []  # 覆写后端设置
     '''
@@ -156,7 +155,7 @@ class Config(BaseSettings):
     novelai_tags: str = ""  # 内置的tag
     novelai_ntags: str = ""  # 内置的反tag
     novelai_steps: int = 20  # 默认步数
-    novelai_max_steps:int = 36  # 默认最大步数
+    novelai_max_steps: int = 36  # 默认最大步数
     novelai_scale: int = 7  # CFG Scale 请你自己设置, 每个模型都有适合的值
     novelai_random_scale: bool = False  # 是否开启随机CFG
     novelai_random_scale_list: list[Tuple[int, float]] = [(5, 0.4), (6, 0.4), (7, 0.2)]
@@ -632,6 +631,7 @@ def merge_configs(old_config, new_config):
             old_config[key] = value
     return old_config
 
+
 if not config_file_path.exists():
     logger.info("配置文件不存在,正在创建")
     config_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -641,24 +641,23 @@ else:
     logger.info("配置文件存在,正在读取")
 
     if check_yaml_is_changed(source_template):
-        yaml_ = YAML()
+        yaml_2 = YAML()
         logger.info("插件新的配置已更新, 正在更新")
 
         with open(config_file_path, 'r', encoding="utf-8") as f:
-            old_config = yaml_.load(f)
+            old_config = yaml_2.load(f)
 
         with open(source_template, 'r', encoding="utf-8") as f:
-            new_config = yaml_.load(f)
+            new_config = yaml_2.load(f)
 
         merged_config = merge_configs(old_config, new_config)
 
         with open(destination_file, 'w', encoding="utf-8") as f:
-            yaml_.dump(merged_config, f)
+            yaml_2.dump(merged_config, f)
 
-    else:
-        with open(config_file_path, "r", encoding="utf-8") as f:
-            yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
-            config = Config(**yaml_config)
+    with open(config_file_path, "r", encoding="utf-8") as f:
+        yaml_config = yaml_.load(f, Loader=yaml_.FullLoader)
+        config = Config(**yaml_config)
 
 
 config.novelai_ControlNet_payload = [
