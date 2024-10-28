@@ -27,12 +27,9 @@ from nonebot.log import logger
 from nonebot.params import ShellCommandArgs
 from nonebot import Bot
 from nonebot_plugin_alconna import UniMessage
-from nonebot_plugin_alconna.matcher import  AlconnaMatcher
-from nonebot_plugin_alconna.model import Match
 
-
-from .config import config, redis_client, __SUPPORTED_MESSAGEEVENT__
-from .utils import aidraw_parser, txt_audit
+from .config import config, redis_client, __SUPPORTED_MESSAGEEVENT__, message_event_type
+from .utils import aidraw_parser, txt_audit, get_generate_info
 from .utils.data import lowQuality, basetag, htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_set
@@ -42,6 +39,7 @@ from .utils.prepocess import prepocess_tags
 from .utils import revoke_msg, run_later
 from .version import version
 from .utils import sendtosuperuser, tags_to_list
+from .extension.safe_method import send_forward_msg
 
 cd = {}
 user_models_dict = {}
@@ -189,7 +187,6 @@ class AIDrawHandler:
         finally:
             self.set_tasks_num(-1)
 
-        logger.warning(dict(self))
         return self.fifo
 
     async def obv11_handler(self, bot, event):
@@ -510,29 +507,50 @@ class AIDrawHandler:
 
         await version.check_update()
 
-    @staticmethod
-    async def send_result_msg(fifo, unimsg):
+    async def send_result_msg(self, fifo, unimsg: UniMessage):
+
+        pure = (
+                await config.get_value(fifo.group_id, "pure") or
+                await config.get_value(fifo.group_id, "pure") is None and config.novelai_pure or
+                fifo.pure
+        )
+
         try:
             if len(fifo.extra_info) != 0:
                 fifo.extra_info += "\n使用'-match_off'参数以关闭自动匹配功能\n"
-            r = await unimsg.send(reply_to=True)
+            if isinstance(self.event, message_event_type[1]):
+
+                msg_list = [await unimsg.export(), get_generate_info(fifo, ""), f'''
+当前后端:{fifo.backend_name}
+采样器:{fifo.sampler}
+CFG Scale:{fifo.scale}
+{fifo.extra_info}
+{fifo.audit_info}
+''']
+
+                if not pure:
+                    r = await send_forward_msg(
+                        self.bot,
+                        self.event,
+                        fifo.user_id,
+                        fifo.user_id,
+                        msg_list,
+                    )
+                    r = r["message_id"]
+
+                else:
+                    r = await unimsg.send(reply_to=True)
+
+            elif isinstance(self.event, message_event_type[0]):
+                r = await unimsg.send(reply_to=True)
+
         except:
             r = await unimsg.send(reply_to=True)
 
         # 撤回图片
         revoke = await config.get_value(fifo.group_id, "revoke")
         if revoke:
-            await run_later(revoke_msg(r, revoke), 2)
-        if not fifo.pure:
-            await send_msg_and_revoke(
-f'''
-当前后端:{fifo.backend_name}
-采样器:{fifo.sampler}
-CFG Scale:{fifo.scale}
-{fifo.extra_info}
-{fifo.audit_info}
-'''
-            )
+            await run_later(revoke_msg(r, revoke, self.bot), 2)
         if fifo.video:
             await UniMessage.video(path=Path(fifo.video)).send(reply_to=True)
 
@@ -635,7 +653,7 @@ CFG Scale:{fifo.scale}
                     async with aiohttp.ClientSession() as session:
                         logger.info(f"检测到图片，自动切换到以图生图，正在获取图片")
                         async with session.get(img_url) as resp:
-                            await self.fifo.add_image(await resp.read(), self.args.control_net)
+                            await self.fifo.add_image(await resp.read(), self.args.control_net_control)
                         self.message += f"，已切换至以图生图" + self.message
                 else:
                     await UniMessage.text(f"以图生图功能已禁用").finish()

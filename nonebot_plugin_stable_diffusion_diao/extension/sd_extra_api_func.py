@@ -251,7 +251,7 @@ class CommandHandler(SdAPI):
 
         filter_styles = []
 
-        styles, sc = await aiohttp_func('get', f"http://{self.config.backend_site_list[index]}/v1/prompt-styles")
+        styles, sc = await aiohttp_func('get', f"http://{self.config.backend_site_list[index]}/sdapi/v1/prompt-styles")
 
         if sc not in [200, 201]:
             await UniMessage.text(f"获取预设失败，错误代码 {sc}").finish()
@@ -263,7 +263,11 @@ class CommandHandler(SdAPI):
         else:
             filter_styles = styles
 
-        await risk_control('\n'.join(filter_styles), False, revoke_later=True)
+        resp_list = []
+        for index, style in enumerate(filter_styles):
+            resp_list.append(f"{index + 1}: {style['name']}: prompt: {style['prompt']}, negative_prompt: {style['negative_prompt']}\n")
+
+        await risk_control('\n'.join(resp_list), False, revoke_later=True)
 
     async def change_sd_model(
             self,
@@ -928,7 +932,7 @@ class CommandHandler(SdAPI):
                     except (UnicodeDecodeError, AttributeError) as e:
                         pass
 
-                style_list += decoded_styles
+                style_list = decoded_styles
 
             if r.exists("user_style"):
                 user_style_list = r.lrange("user_style", 0, -1)
@@ -947,7 +951,7 @@ class CommandHandler(SdAPI):
             delete_name = args.delete[0] if isinstance(args.delete, list) else args.delete
             find_style = False
             style_index = -1
-            for style in user_style_list:
+            for style in style_list:
                 style_index += 1
                 if style["name"] == delete_name:
                     pipe = r.pipeline()

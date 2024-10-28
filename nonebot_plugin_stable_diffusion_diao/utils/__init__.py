@@ -1,4 +1,6 @@
 from io import BytesIO
+
+import nonebot
 from PIL import Image
 import re
 import asyncio
@@ -282,8 +284,13 @@ async def set_res(new_img: Image) -> str:
     return img_base64
 
 
-async def revoke_msg(r, time=None):
-    await r.recall(delay=time or random.randint(60, 100), index=0)
+async def revoke_msg(r, time=None, bot=None):
+    if isinstance(r, str):
+        if bot is None:
+            bot = nonebot.get_bot()
+        await bot.delete_msg(message_id=r)
+    else:
+        await r.recall(delay=time or random.randint(60, 100), index=0)
 
 
 async def run_later(func, delay=1):

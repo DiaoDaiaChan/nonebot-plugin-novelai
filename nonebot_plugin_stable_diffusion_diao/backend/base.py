@@ -123,6 +123,8 @@ class AIDRAW_BASE:
                 self.width, self.height = self.extract_shape(shape)
             else:
                 self.width, self.height = self.extract_shape(man_shape)
+
+        self.man_shape = man_shape
         self.status: int = 0
         self.result: list = []
         self.signal: asyncio.Event = None
@@ -215,7 +217,7 @@ class AIDRAW_BASE:
         self.override = override
         self.v_prediction = v_prediction
         self.scheduler = scheduler or "Automatic"
-        self.styles = styles
+        self.styles = styles or [""]
 
         self.args = args
         self.pre_tags = ''
@@ -250,6 +252,7 @@ class AIDRAW_BASE:
         self.novelai_hr_payload["hr_scale"] = self.hiresfix_scale
         self.hiresfix = bool(self.hiresfix_scale)
         self.hiresfix_scale = 1 if self.hiresfix_scale is None else self.hiresfix_scale
+        self.width, self.height = self.extract_shape(self.man_shape)
 
     def extract_shape(self, shape: str):
         """
@@ -329,10 +332,11 @@ class AIDRAW_BASE:
         self.image = str(base64.b64encode(image), "utf-8")
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
+        self.strength = 0.6
         hr_scale = self.img2img_hr or 1
         
         if self.img2img_hr:
-            self.width, self.height = self.width * hr_scale , self.height * hr_scale
+            self.width, self.height = self.width * hr_scale, self.height * hr_scale
             
         if self.outpaint:
             logger.info("outpaint模式启动")

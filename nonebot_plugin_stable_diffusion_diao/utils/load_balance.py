@@ -113,8 +113,6 @@ async def sd_LoadBalance(fifo=None):
                 # else:
                 #     backend_total_work_time[site] = 1
 
-        logger.warning(backend_total_work_time)
-
         total_time_dict = list(backend_total_work_time.values())
         rev_dict = {}
         for key, value in backend_total_work_time.items():
