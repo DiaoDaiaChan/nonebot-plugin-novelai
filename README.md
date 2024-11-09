@@ -1,11 +1,9 @@
-# 首先 这个项目fork自https://github.com/sena-nana/nonebot-plugin-novelai
-### 感谢 sena喵 感谢 sena喵 感谢 sena喵
-
-# 支持中文关键词的基于nonebot2的stable-diffusion绘图插件支持多种webui插件和脚本以及更多玩法, 接入API, 支持白嫖绘图
-### 插件讨论反馈群：687904502  
-### 雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀 
-
-# 简要说明
+# 首先 这个项目fork自https://github.com/sena-nana/nonebot-plugin-novelai 
+# 支持中文关键词的基于nonebot2的stable-diffusion多后端绘图插件支持多种webui插件和脚本以及更多玩法, 接入API, 支持白嫖绘图
+## 在这里推荐大家使用Comfy UI绘图 (可玩性更高, 不用适配API调用插件), 请看https://github.com/DiaoDaiaChan/nonebot-plugin-comfyui
+### 插件讨论反馈群：687904502  /  雕雕的银趴群：116994235 不会用或者想玩机器人都可以进来呀
+***
+# 简要说明/开始之前
 推荐使用nonebot插件管理进行安装
 ```
 nb plugin install nonebot-plugin-stable-diffusion-diao
@@ -16,8 +14,10 @@ windows用户请看,下载msi安装即可
 https://github.com/MicrosoftArchive/redis/releases
 成熟的linux用户会自己安装（
 ```
+***
 ## 基础配置在这
-### [基础配置](./docs/main/config.md) (请先看这里)
+### [基础配置](./docs/main/config.md) (请先看这里, 不看的是猪)
+***
 ## 支持的后端 / 在线网站
 ### 希望小伙(hei)伴(nu)对DBAPI项目(https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI)进行完善, 有能力的小伙伴快来帮忙
 
@@ -35,14 +35,35 @@ https://github.com/MicrosoftArchive/redis/releases
 |https://tusiart.com/ |通过DBAPI调用               | ✅ | 暂不支持  
 |https://www.seaart.ai/ |通过DBAPI调用               | ✅ | 暂不支持  
 |https://www.yunjie.art/|通过DBAPI调用               | ✅ | 暂不支持  
+***
 
+## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
+### 发送 绘画帮助 , 获取详细帮助
+- [各种指令展示](nonebot_plugin_stable_diffusion_diao/docs/basic.md)
+
+### 配置文件路径 机器人所在路径/config/novelai/config.yaml
+- [配置文件](./nonebot_plugin_stable_diffusion_diao/config_example.yaml)
+
+
+### 本人模型站链接, 请支持!))
+https://huggingface.co/diaodiao/DiaoDaia_Mix  
+https://civitai.com/user/DiaoDaiaYoChan  
+https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
+
+## 插件版本推荐:
+```shell
+# 跨平台大改前最后一个版本
+pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
+# 新版
+pip install nonebot-plugin-stable-diffusion-diao==0.5.4.3 stable-diffusion-drawbridge-api==1.2.2
+```
+***
 ## 核心功能
 - ## 开箱即用(使用本人API) / 或者设置token使用在线服务 
 - ## 跨平台(目前支持官方QQ机器人以及obv11)
 - ## 支持stable-diffusio-webui / stable-diffusio-webui-forge / comfyui (comfyui支持本人用的比较少, 如有需要完善请加群或者留个issue)
 - ### ↓ 白嫖绘图, 人人有图画 ↓ 使用此项目 (插件已整合)
-- ## 整合一个支持调用各种在线网站的多功能API 
-
+- ## 整合一个支持调用各种在线网站的多功能API (https://github.com/DiaoDaiaChan/Stable-Diffusion-DrawBridgeAPI)
 - ### 支持多后端负载均衡. 2种模式, 随机和加权随机, 以及你可以手动选择后端
 ![添加了sd负载均衡功能](./docs/main/images/help/load_balance.png)
 - ## 支持SD1.5, SDXL, FLUX, V预测等
@@ -83,6 +104,7 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 - ### 提示词预设 [预设命令预览](#710-030更新)
 - ### 从civitai搜索模型/下载模型到sd后端/运行模型 [C站更新](#87-041更新-更新c站httpscivitaicom搜索-下载模型功能)
 - ### 支持为每个不同的后端单独设置参数(见配置项override_backend_setting), 比如请求到1号后端自动使用一套prompt和参数,2号后端又是另一套参数
+- ### 从danbooru上查看打标数据(方便画出某某角色或者动作等等)
 
 - ### 后端  
 ![后端](./docs/main/images/help/backend.png)  
@@ -91,31 +113,10 @@ https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg
 绘画@人也能生成那个人的头像的图片  
 添加了更多的追踪信息  
 还有挺多细节的更改就不一一列出力
-敬请阅读下面的日志或者来雕雕的银趴玩(  
-
-## ↓ 由于本插件是个较大项目, 所以请仔细阅读,指令示例, 快看快看快看, 一定要仔细看哦 ↓ 
-### 发送 绘画帮助 , 获取详细帮助
-- [各种指令展示](nonebot_plugin_stable_diffusion_diao/docs/basic.md)
-
-### 配置文件路径 机器人所在路径/config/novelai/config.yaml
-- [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)
-
-
-### 本人模型站链接, 请支持!))
-https://huggingface.co/diaodiao/DiaoDaia_Mix  
-https://civitai.com/user/DiaoDaiaYoChan  
-https://www.liblib.art/userpage/af0c2d832e124f13836734243a9bb942/publish
-
-## 插件版本推荐:
-```shell
-# 跨平台大改前最后一个版本
-pip install nonebot-plugin-stable-diffusion-diao==0.5.3.1 stable-diffusion-drawbridge-api==1.1.3
-# 新版
-pip install nonebot-plugin-stable-diffusion-diao==0.5.4.3 stable-diffusion-drawbridge-api==1.2.2
-```
+敬请阅读下面的日志或者来雕雕的银趴玩(
 
 # 更新日志
-## 2024.10.25 0.5.4 更新 (未发包)
+## 2024.10.25 0.5.4 更新
 ```
 # 新的配置项目
 override_backend_setting_enable: true  # 是否启用后端设置覆写功能(默认关闭), 注意,长度要和后端字典长度一致
@@ -160,6 +161,11 @@ reload_model: false  # 是否自动重新加载lora/emb模型
 - 查看预设功能补全
 - 修复pure转发
 - 调用comfyui工作流
+### 11.09
+- 查tag 功能, 会返回预览图
+- 继续优化说明
+- 修复图生图降噪强度问题
+- 修复了私聊图图串到群聊的问题
 ## 2024.09.24 0.5.3 更新
 内建drawbridgeAPI, 没有显卡的小伙伴也能画图了, 默认监听 127.0.0.1:8000 (默认关闭, 开启以支持novelai,comfyui等)
 ```

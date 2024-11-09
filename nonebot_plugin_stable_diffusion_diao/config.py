@@ -30,7 +30,6 @@ from nonebot.adapters.qq import Message as QQMessage
 from nonebot.adapters.onebot.v11 import Message as OnebotV11Message
 
 import pydantic
-from packaging import version
 
 require("nonebot_plugin_alconna")
 
@@ -44,16 +43,7 @@ __SUPPORTED_MESSAGE__ = Union[QQMessage, OnebotV11Message]
 message_event_type = (QQMessageEvent, OnebotV11MessageEvent)
 message_type = (QQMessage, OnebotV11Message)
 
-if version.parse(pyd_version) < version.parse("2.0"):
-    from pydantic import BaseSettings
-else:
-    try:
-        from pydantic_settings import BaseSettings
-    except:
-        traceback.print_exc()
-        import subprocess
-        subprocess.run([sys.executable, "-m", "pip", "install", "pydantic_settings"])
-        from pydantic_settings import BaseSettings
+from pydantic import BaseModel
 
 jsonpath = Path("data/novelai/config.json").resolve()
 lb_jsonpath = Path("data/novelai/load_balance.json").resolve()
@@ -67,7 +57,7 @@ nickname = list(get_driver().config.nickname)[0] if len(
 superusers = list(get_driver().config.superusers)
 
 
-class Config(BaseSettings):
+class Config(BaseModel):
     novelai_ControlNet_payload: list = []
     backend_name_list: list = []
     backend_site_list: list = []
@@ -131,7 +121,7 @@ class Config(BaseSettings):
     novelai_paid: int = 3  # 0为禁用付费模式，1为点数制，2为不限制
     novelai_htype: int = 3  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图(, 3发送二维码(无论参数如何都会保存图片到本地),4为不发送色图, 5为直接发送！爆了！
     novelai_h: int = 2  # 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许
-    novelai_picaudit: int = 4   # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+    novelai_picaudit: int = 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 请去百度云免费领取 https://ai.baidu.com/tech/imagecensoring 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
     tagger_model_path: str = ''  # 本地审核模型路径
     novelai_todaygirl: int = 1  # 可选值 1 和 2 两种不同的方式
     '''
@@ -142,8 +132,7 @@ class Config(BaseSettings):
     load_balance_sample: int = 10  # 计算平均工作时间的样本数量
     novelai_load_balance_weight: list = []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3]
     novelai_backend_url_dict: dict = {
-        "雕雕的后端": "server.20020026.xyz:7860",
-        "雕雕DrawBridgeAPI": "la.20020026.xyz:8000",
+        "雕雕的后端": "server.20020026.xyz:7865",
         "本地后端": "127.0.0.1:7860"
     } # 你能用到的后端, 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"
     backend_type: list = ["1.5", "1.5", "xl"]  # 支持 1.5 / xl / flux
@@ -194,9 +183,9 @@ class Config(BaseSettings):
         "hr_upscaler": "Lanczos",  # 超分模型, 使用前请先确认此模型是否可用, 推荐使用R-ESRGAN 4x+ Anime6B
         "hr_second_pass_steps": 6,  # 高清修复步数, 个人建议7是个不错的选择, 速度质量都不错}
         },
-        "xl_base_factor": None # xl生图倍率 此倍率为基础分辨率的倍率
+        "xl_base_factor": None  # xl生图倍率 此倍率为基础分辨率的倍率
     }# XL使用参数
-    xl_sd_model_checkpoint: str = "" # 默认xl模型
+    xl_sd_model_checkpoint: str = ""  # 默认xl模型
     '''
     插件设置
     '''

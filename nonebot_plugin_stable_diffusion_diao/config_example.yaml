@@ -58,7 +58,7 @@ novelai_save: 2  # 是否保存图片至本地,0为不保存，1保存，2, 同�
 novelai_daylimit_type: 2  # 限制模式, 1为张数限制, 2为画图所用时间计算(推荐)
 novelai_htype: 1  # 1为发现H后私聊用户返回图片, 2为返回群消息但是只返回图片url并且主人直接私吞H图, 3发送二维码(无论参数如何都会保存图片到本地), 4为不发送色图
 novelai_h: 2  # 涩涩prompt检测, 是否允许H, 0为不允许, 1为删除屏蔽词, 2允许(推荐直接使用图片审核功能)
-novelai_picaudit: 4  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
+novelai_picaudit: 3  # 1为百度云图片审核,暂时不要使用百度云啦,要用的话使用4 , 2为本地审核功能, 3为关闭, 4为使用webui，api,地址为novelai_tagger_site设置的
 tagger_model_path: 'SmilingWolf/wd-v1-4-convnextv2-tagger-v2'  # 本地审核模型路径/仓库路径
 novelai_todaygirl: 1  # 可选值 1 和 2 两种不同的方式
 # --------------------------------
@@ -68,11 +68,9 @@ novelai_load_balance: true  # 负载均衡, 使用前请先将队列限速关闭
 novelai_load_balance_mode: 1  # 负载均衡模式, 1为随机, 2为加权随机选择
 novelai_load_balance_weight: []  # 设置列表, 列表长度为你的后端数量, 数值为随机权重, 例[0.2, 0.5, 0.3], 注意, 要和下面的长度一致 ↓
 novelai_backend_url_dict: # 你能用到的后端, 无http头 , 键为名称, 值为url, 例:backend_url_dict = {"NVIDIA P102-100": "192.168.5.197:7860","NVIDIA CMP 40HX": "127.0.0.1:7860"}
-    "雕雕的后端": "server.20020026.xyz:7860"
-    "雕雕DrawBridgeAPI": "la.20020026.xyz:8000"
+    "雕雕的后端": "server.20020026.xyz:7865"
     "本地后端": "127.0.0.1:7860"
 backend_type:  # 这里的长度要和上面一样哦! 支持 1.5 / xl / flux
-  - 1.5
   - 1.5
   - xl
 # 后端跑的是什么类型的模型? ↑
@@ -128,7 +126,6 @@ override_backend_setting:  #覆写后端设置
   -
     "tags": "score_9..."
     "ntags": "score_3..."
-  -
 
 # --------------------------------
 # post参数设置

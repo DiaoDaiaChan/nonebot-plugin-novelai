@@ -332,7 +332,7 @@ class AIDRAW_BASE:
         self.image = str(base64.b64encode(image), "utf-8")
         self.img2img = True
         self.control_net["control_net"] = True if control_net else False
-        self.strength = 0.6
+        self.strength = 0.5 if self.strength == 1.0 else self.strength
         hr_scale = self.img2img_hr or 1
         
         if self.img2img_hr:

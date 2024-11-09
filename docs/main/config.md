@@ -12,23 +12,25 @@ tag:
 - [配置文件](../../nonebot_plugin_stable_diffusion_diao/config_example.yaml)
 #### DrawBridgeAPI默认配置文件路径  机器人所在路径/config/dbapi_config.yaml
 - [DBAPI](./DrawBridgeAPI.md) (DBAPI启动时会自动将自己添加到后端列表里, 不需要再额外配置)
-
+***
 # 后端准备
 ## 秋叶启动器 / 使用自己的API
 ![后端](../main/images/help/aki-webui.png)  
 请注意, API选项一定要打开, 然后我们记住端口和地址, 这里为(127.0.0.1:7860)  
 
 - [修改画图后端](#novelai_backend_url_dict)  
-
-![后端](../main/images/help/set_backend_site.png)  
+![后端](../main/images/help/set_backend_site.png)
+***
 ## 使用LibLibAI / DrawBridgeAPI  
-### 插件默认打开DBAPI, 不需要手动添加到后端字典里面, 需要根据以下来修改配置文件设置token↓
+### 插件默认关闭DBAPI(如果需要novelai, comfyui等再将它打开), 不需要手动添加到后端字典里面, 需要根据以下来修改配置文件设置token↓
 
 - [DBAPI](./DrawBridgeAPI.md)
+- [NOVELAI](./novelai.md)
 
 ## 不进行设置, 使用雕雕后端 (开箱即用)
-### la.20020026.xyz:8000 (DBAPI)
-### api.diaodiao.online:7860 (SD-WEBUI)
+### server.20020026.xyz:7865 (DBAPI)
+***
+# 与插件有关的ENV设置 / 重要, 请注意COMMAND_START
 ### 下面是一份配置文件(ENV)的示例，包含了 nonebot 自带的配置
 ### 注意 COMMAND_START=["/","","#"] , 需要这个机器人才能响应命令
 ```
@@ -42,7 +44,7 @@ SUPERUSERS=[""]  # 配置 NoneBot 超级用户
 NICKNAME=["Mutsuki"]  # 配置机器人的昵称
 COMMAND_START=["/","","#"]  # 配置命令起始字符  # 机器人响应什么开头的命令, 如此例子, 响应 /绘画 ; 绘画 ; #绘画
 ```
-
+***
 ## 需要留意的配置项(插件默认配置已经为你配置好了, 可以启动即画, 如果你想要使用自己的API的话, 请留意以下配置)
 ### 以下配置config.yaml中均有备注
 - [修改画图后端](#novelai_backend_url_dict)

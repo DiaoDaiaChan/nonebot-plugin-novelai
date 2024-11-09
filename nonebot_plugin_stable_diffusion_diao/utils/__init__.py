@@ -16,6 +16,7 @@ from nonebot.rule import ArgumentParser
 from nonebot import logger
 from nonebot.adapters.onebot.v11 import PrivateMessageEvent
 
+from nonebot.rule import ArgumentParser
 aidraw_parser = ArgumentParser()
 aidraw_parser.add_argument("tags", nargs="*", help="标签", type=str)
 aidraw_parser.add_argument("-r", "--resolution", "-形状",

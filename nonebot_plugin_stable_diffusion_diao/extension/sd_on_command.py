@@ -4,7 +4,9 @@ from re import I
 from ..config import config, message_type, __SUPPORTED_MESSAGEEVENT__, message_event_type
 from ..utils import aidraw_parser
 from .sd_extra_api_func import CommandHandler, SdAPI
-from ..aidraw import AIDrawHandler
+from ..aidraw import first_handler
+
+from ..amusement.chatgpt_tagger import llm_prompt
 
 from nonebot import on_shell_command, logger, Bot
 from nonebot.plugin.on import on_regex
@@ -15,9 +17,10 @@ from nonebot.params import T_State, Arg, Matcher, CommandArg
 from argparse import Namespace
 from nonebot.params import ShellCommandArgs
 
-from arclet.alconna import Alconna, Args, Arg
+from arclet.alconna import Alconna, Args, Arg, Option
 from nonebot_plugin_alconna.uniseg import UniMsg
-from nonebot_plugin_alconna import on_alconna, Option
+from nonebot_plugin_alconna import on_alconna
+
 
 from typing import Union, Optional
 
@@ -130,7 +133,7 @@ on_alconna(
 )
 
 on_alconna(
-    Alconna("查tag", Args["tag", str]),
+    Alconna("查tag", Args["tag", str]["limit?", int]),
     handlers=[command_handler_instance.danbooru],
     block=True
 )
@@ -182,12 +185,12 @@ read_png_info = on_alconna(
     block=True
 )
 
-aidraw = on_shell_command(
+on_shell_command(
     ".aidraw",
     aliases=config.novelai_command_start,
     parser=aidraw_parser,
     priority=5,
-    handlers=[AIDrawHandler().aidraw_get],
+    handlers=[first_handler],
     block=True
 )
 
@@ -204,7 +207,7 @@ async def _(bot: Bot,event: __SUPPORTED_MESSAGEEVENT__, args: Namespace = ShellC
 
     args.backend_index = 0
 
-    await AIDrawHandler().aidraw_get(bot, event, args)
+    await first_handler(bot, event, args)
 
 mj = on_shell_command(
     "mj",
@@ -219,7 +222,7 @@ async def _(bot: Bot, event: __SUPPORTED_MESSAGEEVENT__, args: Namespace = Shell
 
     args.backend_index = 1
 
-    await AIDrawHandler().aidraw_get(bot, event, args)
+    await first_handler(bot, event, args)
 
 
 # on_alconna(
@@ -320,3 +323,12 @@ async def __(event: message_event_type[1], bot: Bot, matcher: Matcher):
 #     await aidraw_get(bot, event, args)
 #
 
+
+on_shell_command(
+    "帮我画",
+    aliases={"帮我画画"},
+    parser=aidraw_parser,
+    priority=5,
+    block=True,
+    handlers=[llm_prompt]
+)

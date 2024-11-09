@@ -60,7 +60,7 @@ async def audit_all_image(fifo, img_bytes):
     for i in img_bytes:
         task_list.append(check_safe(i, fifo))
 
-    result = await asyncio.gather(*task_list)
+    result = await asyncio.gather(*task_list, return_exceptions=False)
 
     return result
 
@@ -234,20 +234,19 @@ async def check_safe(img_bytes: BytesIO, fifo, is_check=False):
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'
 }
-    picaudit = await config.get_value(fifo.group_id, "picaudit") or config.novelai_picaudit
+    picaudit = await config.get_value(fifo.group_id, 'picaudit') or config.novelai_picaudit
     if picaudit == 4 or picaudit == 2:
         message = "N/A"
         img_base64 = base64.b64encode(img_bytes).decode()
         try:
             possibilities, message = await pic_audit_standalone(img_base64, False, True)
         except:
-            return None, None, None
+            # 露出色图太危险力, 直接一刀切
+            raise
         value = list(possibilities.values())
         value.sort(reverse=True)
         reverse_dict = {value: key for key, value in possibilities.items()}
         logger.info(message)
-        if is_check:
-            return possibilities
         return "explicit" if reverse_dict[value[0]] == "questionable" else reverse_dict[value[0]], value[0] * 100, message
 
     elif picaudit == 3:

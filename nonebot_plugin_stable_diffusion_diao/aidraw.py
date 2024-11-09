@@ -3,17 +3,15 @@ import re
 import random
 import json
 import ast
-import aiofiles
 import traceback
 import aiohttp
 
 from collections import deque
 from copy import deepcopy
-from aiohttp.client_exceptions import ClientConnectorError, ClientOSError
 from argparse import Namespace
-from nonebot import get_bot, on_shell_command
+from nonebot import get_bot
 from pathlib import Path
-from typing import Union, Optional, List
+from typing import Union
 
 from nonebot.adapters.onebot.v11 import (
     MessageEvent,
@@ -29,8 +27,8 @@ from nonebot import Bot
 from nonebot_plugin_alconna import UniMessage
 
 from .config import config, redis_client, __SUPPORTED_MESSAGEEVENT__, message_event_type
-from .utils import aidraw_parser, txt_audit, get_generate_info
-from .utils.data import lowQuality, basetag, htags
+from .utils import txt_audit, get_generate_info
+from .utils.data import htags
 from .backend import AIDRAW
 from .extension.anlas import anlas_set
 from .extension.daylimit import count
@@ -38,7 +36,7 @@ from .extension.explicit_api import check_safe_method
 from .utils.prepocess import prepocess_tags
 from .utils import revoke_msg, run_later
 from .version import version
-from .utils import sendtosuperuser, tags_to_list
+from .utils import tags_to_list
 from .extension.safe_method import send_forward_msg
 
 cd = {}
@@ -86,6 +84,52 @@ async def send_msg_and_revoke(message: Union[UniMessage, str], reply_to=False, r
         return
 
     await run_later(main(message, reply_to, r), 2)
+
+
+async def first_handler(
+            bot: Bot,
+            event: __SUPPORTED_MESSAGEEVENT__,
+            args: Namespace = ShellCommandArgs(),
+):
+    handler = AIDrawHandler(event, bot, args)
+    handler.set_tasks_num(1)
+
+    handler.event = event
+    handler.bot = bot
+
+    handler.args = args
+
+    logger.debug(handler.args.tags)
+    logger.debug(handler.fifo)
+
+    if isinstance(event, MessageEvent):
+        handler.user_id = event.user_id
+        if isinstance(event, PrivateMessageEvent):
+            handler.group_id = str(event.user_id) + "_private"
+        else:
+            handler.group_id = str(event.group_id)
+
+        await handler.exec_generate(event, bot)
+
+    elif isinstance(event, QQMessageEvent):
+        handler.user_id = event.get_user_id()
+        handler.group_id = event.get_session_id()
+
+        await handler.exec_generate(event, bot)
+
+    build_msg = f"{random.choice(config.no_wait_list)}, {handler.message}, 你前面还有{handler.get_tasks_num()}个人"
+
+    if not handler.fifo.pure:
+        await send_msg_and_revoke(build_msg)
+
+    try:
+        await handler.fifo_gennerate(event, bot)
+    except:
+        pass
+    finally:
+        handler.set_tasks_num(-1)
+
+    return handler.fifo
 
 
 class AIDrawHandler:
@@ -141,65 +185,6 @@ class AIDrawHandler:
         self.group_id = group_id
         self.nickname = nickname
 
-    async def aidraw_get(
-            self,
-            bot: Bot,
-            event: __SUPPORTED_MESSAGEEVENT__,
-            args: Namespace = ShellCommandArgs(),
-    ) -> AIDRAW:
-
-        self.__init__()
-
-        self.set_tasks_num(1)
-
-        self.event = event
-        self.bot = bot
-
-        self.args = args
-
-        logger.debug(self.args.tags)
-        logger.debug(self.fifo)
-
-        if isinstance(event, MessageEvent):
-            self.user_id = event.user_id
-            if isinstance(event, PrivateMessageEvent):
-                self.group_id = str(event.user_id) + "_private"
-            else:
-                self.group_id = str(event.group_id)
-
-            await self.obv11_handler(bot, event)
-
-        elif isinstance(event, QQMessageEvent):
-            self.user_id = event.get_user_id()
-            self.group_id = event.get_session_id()
-
-            await self.qq_handler(bot, event)
-
-        build_msg = f"{random.choice(config.no_wait_list)}, {self.message}, 你前面还有{self.get_tasks_num()}个人"
-
-        if not self.fifo.pure:
-            await send_msg_and_revoke(build_msg)
-
-        try:
-            await self.fifo_gennerate(event, bot)
-        except:
-            pass
-        finally:
-            self.set_tasks_num(-1)
-
-        return self.fifo
-
-    async def obv11_handler(self, bot, event):
-        await self.exec_generate(event, bot)
-
-    async def qq_handler(self, bot, event):
-
-        await self.pre_process_args()
-        await self.cd_(event, bot)
-        await self.auto_match()
-        await self.match_models()
-        await self.post_process_tags(event)
-
     def __iter__(self):
         yield from {
             "event": self.event,
@@ -226,13 +211,6 @@ class AIDrawHandler:
     async def pre_process_args(self):
         if self.args.pu:
             await UniMessage.text("正在为你生成视频，请注意耗时较长").send()
-        # if self.args.bing:
-        #     await bot.send(event, "bing正在为你生成图像")
-        #     try:
-        #         message_data = await bing.get_and_send_bing_img(bot, event, self.args.tags)
-        #     except GetBingImageFailed as e:
-        #         await bot.send(event, f"bing生成失败{e}")
-        #     return
 
         if self.args.ai:
             from .amusement.chatgpt_tagger import get_user_session
@@ -262,6 +240,7 @@ class AIDrawHandler:
 
             # 判断cd
             nowtime = time.time()
+
             async def group_cd():
                 deltatime_ = nowtime - cd.get(self.group_id, 0)
                 gcd = int(config.novelai_group_cd)
@@ -269,6 +248,7 @@ class AIDrawHandler:
                     await UniMessage.text(f"本群共享剩余CD为{gcd - int(deltatime_)}s").finish()
                 else:
                     cd[self.group_id] = nowtime
+
             # 群组CD
             if isinstance(event, GroupMessageEvent):
                 await group_cd()
@@ -693,7 +673,10 @@ async def _run_gennerate(fifo: AIDRAW, bot: Bot, event) -> UniMessage:
     #     raise RuntimeError(f"服务器崩掉了欸……请等待主人修复吧")
 
     message = UniMessage.text(f"{config.novelai_mode}绘画完成~")
-    message = await check_safe_method(fifo, event, fifo.result, message, bot.self_id)
+    try:
+        message = await check_safe_method(fifo, event, fifo.result, message, bot.self_id)
+    except:
+        raise RuntimeError("审核失败")
 
     try:
         if config.is_return_hash_info:

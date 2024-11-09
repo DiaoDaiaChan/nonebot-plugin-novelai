@@ -1,11 +1,9 @@
 ## 其他API功能
 
 ```
-以图绘图 
-# 调用controlnet以图绘图, 标准命令格式: 以图绘图 关键词 [图片], 例如: 以图绘图 miku [图片], 直接 以图绘图[图片] 也是可以的
-controlnet 
-# 返回control模块和模型, 如果带上图片则返回经过control模块处理后的图片, 例如  controlnet [图片]
 随机模型
+# 随机一个模型画一张图,也可以 随机出图miku来指定prompt
+查tag "genshin impact" 10  # 从danbooru上查找关于"genshin impact"的10个词条
 ```
 ```
 图片修复 

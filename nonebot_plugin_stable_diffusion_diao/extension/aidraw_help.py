@@ -13,6 +13,7 @@ import aiofiles
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
+
 # aidraw_help = on_command("绘画帮助", aliases={"帮助", "help"}, priority=1, block=True)
 
 aidraw_help = on_alconna(
@@ -71,7 +72,9 @@ async def _(sub):
 绘画帮助 预设
 绘画帮助 其他生图
 绘画帮助 其他命令
-            ''')
+项目地址: github.com/DiaoDaiaChan/nonebot-plugin-stable-diffusion-diao
+友情: github.com/DiaoDaiaChan/nonebot-plugin-comfyui
+''')
 
     async with aiofiles.open(path_to_md, 'r', encoding='utf-8') as f:
         content = await f.read()

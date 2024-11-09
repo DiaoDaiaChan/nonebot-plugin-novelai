@@ -8,8 +8,8 @@ from ..backend.mj import AIDRAW as MJ_AIDRAW
 from ..extension.translation import translate
 from ..config import config, __SUPPORTED_MESSAGEEVENT__, message_event_type
 from ..utils.save import save_img
-from ..utils import revoke_msg, aidraw_parser, run_later, tags_to_list
-from ..aidraw import get_message_at, AIDrawHandler, send_msg_and_revoke
+from ..utils import revoke_msg, aidraw_parser, run_later
+from ..aidraw import get_message_at, first_handler, send_msg_and_revoke
 
 import random
 import time
@@ -1384,7 +1384,7 @@ async def _(bot: Bot,
             await revoke_msg(r)
     
     else:
-        await AIDrawHandler().aidraw_get(bot, event, args)
+        await first_handler(bot, event, args)
 
 
 

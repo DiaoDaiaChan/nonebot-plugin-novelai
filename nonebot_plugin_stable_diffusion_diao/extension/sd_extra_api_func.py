@@ -25,8 +25,9 @@ from ..utils import unload_and_reload, pic_audit_standalone, aidraw_parser, run_
 from ..utils.load_balance import sd_LoadBalance, get_vram
 from ..utils.prepocess import prepocess_tags
 from .safe_method import send_forward_msg, risk_control
-from ..aidraw import  send_msg_and_revoke, get_message_at, AIDrawHandler
-from nonebot import  on_shell_command
+from ..aidraw import  send_msg_and_revoke, get_message_at, first_handler
+from nonebot import on_shell_command, Bot
+from nonebot.adapters import Event
 from nonebot.params import CommandArg, Arg, ShellCommandArgs, Matcher, RegexGroup
 
 from nonebot_plugin_alconna import UniMessage, CommandResult, AlconnaResult
@@ -457,7 +458,7 @@ class CommandHandler(SdAPI):
         args.match = True
         args.pure = True
 
-        await AIDrawHandler().aidraw_get(bot, event, args)
+        await first_handler(bot, event, args)
 
     @staticmethod
     async def find_image(
@@ -627,7 +628,7 @@ class CommandHandler(SdAPI):
                 for key, value in fifo_info.items():
                     setattr(args, key, value)
 
-                await AIDrawHandler().aidraw_get(bot, event, args)
+                await first_handler(bot, event, args)
             else:
                 await matcher.finish("你还没画过图, 这个功能用不了哦!")
         else:
@@ -833,7 +834,7 @@ class CommandHandler(SdAPI):
             revoke_later=True
         )
 
-        fifo = await AIDrawHandler().aidraw_get(bot, event, args)
+        fifo = await first_handler(bot, event, args)
 
         await risk_control(
             f"主人~, 这是来自{fifo.backend_name}的{fifo.model}模型哦!\n" + f"\n后端索引是{fifo.backend_index}",
@@ -842,11 +843,18 @@ class CommandHandler(SdAPI):
         )
 
     @staticmethod
-    async def danbooru(tag: str):
+    async def danbooru(bot: Bot, event: Event, tag: str, limit):
+
+        if isinstance(limit, int):
+            limit = limit
+
+        else:
+            limit = 3
+
         msg = tag
         resp = await aiohttp_func(
             "get",
-            f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit=20",
+            f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit={limit}",
             text=True,
             proxy=True
         )
@@ -855,16 +863,56 @@ class CommandHandler(SdAPI):
         tags = soup.find_all('li', class_='ui-menu-item')
 
         data_values = []
+        raw_data_values = []
         for tag in tags:
             data_value = tag['data-autocomplete-value']
+            raw_data_values.append(data_value)
             data_value_space = data_value.replace('_', ' ') 
             data_values.append(data_value_space)
+
+        tag_image_url = {}
+        build_msg = []
+
+        for tag in raw_data_values:
+            build_msg.append(f"{tag}:")
+            tag = tag.replace(' ', '_').replace('(', '%28').replace(')', '%29')
+
+            image_resp = await aiohttp_func(
+                "get",
+                f"https://danbooru.donmai.us/posts?tags={tag}",
+                text=True,
+                proxy=True
+            )
+
+            soup = BeautifulSoup(image_resp[0], 'html.parser')
+            img_urls = [img['src'] for img in soup.find_all('img') if img['src'].startswith('http')][:2]
+
+            async def process_image(image_url):
+                base64_image, bytes_image = await download_img(image_url)
+                if await pic_audit_standalone(base64_image, return_none=True):
+                    return "太涩了"
+                else:
+                    unimsg = UniMessage.image(raw=bytes_image)
+                    return await unimsg.export()
+
+            async def process_images(img_urls):
+                tasks = [process_image(url) for url in img_urls]
+                results = await asyncio.gather(*tasks)
+                return results
+
+            results = await process_images(img_urls)
+            build_msg.extend(results)
+
+            tag_image_url[tag] = img_urls
 
         resp = await txt_audit(str(data_values))
         if 'yes' in resp:
             data_values = ['1girl']
+            await risk_control('\n'.join(data_values), revoke_later=True, reply_message=True)
+        else:
+            await risk_control('\n'.join(data_values), revoke_later=True, reply_message=True)
+            await send_forward_msg(bot, event, bot.self_id, event.get_user_id(), build_msg)
 
-        await risk_control('\n'.join(data_values), revoke_later=True, reply_message=True)
 
     @staticmethod
     async def set_config(
@@ -1097,10 +1145,10 @@ async def get_and_process_emb(site='', site_='', text_msg=None, index=None):
     return new_emb_dict, embs_list 
 
 
-async def download_img(url):
+async def download_img(url, proxy=False):
     url = url.replace("gchat.qpic.cn", "multimedia.nt.qq.com.cn")
     async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
+        async with session.get(url, proxy=config.proxy_site if proxy else None) as resp:
             img_bytes = await resp.read()
             img_base64 = base64.b64encode(img_bytes).decode("utf-8")
             return img_base64, img_bytes
