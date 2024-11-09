@@ -233,7 +233,7 @@ class AIDRAW_BASE:
         if self.steps <= 0 or self.steps > (max_steps):
             self.steps = max_steps
         if self.strength < 0 or self.strength > 1:
-            self.strength = 0.7
+            self.strength = 1.0
         if self.noise < 0 or self.noise > 1:
             self.noise = 0.2
         if self.scale <= 0 or self.scale > 30:
@@ -283,41 +283,6 @@ class AIDRAW_BASE:
         更新cost
         """
         self.cost = 0
-        # if config.novelai_paid == 1:
-        #     anlas = 0
-        #     if (self.width * self.height > 409600) or self.image > 1:
-        #     # if (self.width * self.height > 409600) or self.image or self.batch > 1:
-        #         anlas = round(
-        #             self.width
-        #             * self.height
-        #             * self.strength
-        #             # * self.batch
-        #             * self.steps
-        #             / 2293750
-        #         )
-        #         if anlas < 2:
-        #             anlas = 2
-        #     if self.user_id in get_driver().config.superusers:
-        #         self.cost = 0
-        #     else:
-        #         self.cost = anlas
-        # elif config.novelai_paid == 2:
-        #     anlas = round(
-        #         self.width
-        #         * self.height
-        #         * self.strength
-        #         # * self.batch
-        #         * self.steps
-        #         / 2293750
-        #     )
-        #     if anlas < 2:
-        #         anlas = 2
-        #     if self.user_id in get_driver().config.superusers:
-        #         self.cost = 0
-        #     else:
-        #         self.cost = anlas
-        # else:
-        #     self.cost = 0
 
     async def add_image(self, image: bytes, control_net=None):
         """
@@ -352,10 +317,6 @@ class AIDRAW_BASE:
                 else:
                     self.tags = ",".join(caption_tags)
         self.update_cost()
-
-    # def set_max_step(self):
-    #     target_steps = self.steps
-    #     self.steps = int(target_steps / self.strength)
 
     def shape_set(self, width: int, height: int, extra_limit=None):
         """

@@ -209,7 +209,7 @@ class AIDRAW(AIDRAW_BASE):
                 }
             )
         else:
-            if self.disable_hr is False:
+            if self.disable_hr is False and self.man_hr_scale:
                 parameters.update(self.novelai_hr_payload)
 
         # 脚本以及插件
