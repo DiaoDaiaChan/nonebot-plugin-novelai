@@ -120,6 +120,7 @@ override_backend_setting:  #覆写后端设置
     "scale": 7
     "steps": 16
     "sampler": Euler a
+    "eye_fix": true
   -
     "steps": 4
     "model": "flux1-schnell-bnb-nf4.safetensors"

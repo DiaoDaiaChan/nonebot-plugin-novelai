@@ -61,7 +61,7 @@ class VITS:
         end_point="/voice/speakers",
         params={},
         read=False
-    ) -> aiohttp.ClientResponse or bytes:
+    ) -> aiohttp.ClientResponse | bytes:
         url = f"http://{config.vits_site}{end_point}"
         if method == 1:
             async with aiohttp.ClientSession() as session:

@@ -133,7 +133,7 @@ class SdAPI:
 
     @staticmethod
     async def super_res_api_func(
-            img: str or bytes,
+            img: str | bytes,
             size: int = 0,
             compress=True,
             upscale=2,
@@ -518,8 +518,12 @@ class CommandHandler(SdAPI):
                 else:
                     await bot.send(event, message="哼！想看涩图，自己看私聊去！")
                     try:
-                        await bot.send_private_msg(event.get_user_id(), UniMessage.image(raw=content).export())
+                        await bot.send_private_msg(
+                            user_id=event.user_id,
+                            message=f"悄悄给你看哦{await UniMessage.image(raw=content).export()}+AI绘图模型根据用户QQ{event.user_id}指令生成图片，可能会生成意料之外的内容，不代表本人观点或者态度"
+                        )
                     except:
+                        traceback.print_exc()
                         await bot.send(event, f"呜呜,{event.sender.nickname}你不加我好友我怎么发图图给你!")
             else:
                 try:
@@ -845,6 +849,8 @@ class CommandHandler(SdAPI):
     @staticmethod
     async def danbooru(bot: Bot, event: Event, tag: str, limit):
 
+        db_base_url = "https://danbooru.donmai.us"
+
         if isinstance(limit, int):
             limit = limit
 
@@ -854,7 +860,7 @@ class CommandHandler(SdAPI):
         msg = tag
         resp = await aiohttp_func(
             "get",
-            f"https://danbooru.donmai.us/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit={limit}",
+            f"{db_base_url}/autocomplete?search%5Bquery%5D={msg}&search%5Btype%5D=tag_query&version=1&limit={limit}",
             text=True,
             proxy=True
         )
@@ -874,18 +880,22 @@ class CommandHandler(SdAPI):
         build_msg = []
 
         for tag in raw_data_values:
-            build_msg.append(f"{tag}:")
+            build_msg.append(f"({tag}:1)")
             tag = tag.replace(' ', '_').replace('(', '%28').replace(')', '%29')
 
             image_resp = await aiohttp_func(
                 "get",
-                f"https://danbooru.donmai.us/posts?tags={tag}",
+                f"{db_base_url}/posts?tags={tag}",
                 text=True,
                 proxy=True
             )
 
             soup = BeautifulSoup(image_resp[0], 'html.parser')
             img_urls = [img['src'] for img in soup.find_all('img') if img['src'].startswith('http')][:2]
+            # post_links = [a['href'] for a in soup.find_all('a', class_='post-preview-link') if 'href' in a.attrs][:2]
+            # for post in post_links:
+            #     target_url = f"{db_base_url}{post}"
+            # logger.error(post_links)
 
             async def process_image(image_url):
                 base64_image, bytes_image = await download_img(image_url)
@@ -912,7 +922,6 @@ class CommandHandler(SdAPI):
         else:
             await risk_control('\n'.join(data_values), revoke_later=True, reply_message=True)
             await send_forward_msg(bot, event, bot.self_id, event.get_user_id(), build_msg)
-
 
     @staticmethod
     async def set_config(

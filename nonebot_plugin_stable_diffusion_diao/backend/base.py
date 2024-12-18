@@ -51,7 +51,7 @@ class AIDRAW_BASE:
         strength: float = None,
         noise: float = None,
         man_shape: str = None,
-        sampler: None or str = None,
+        sampler: None | str = None,
         backend_index: str = None,
         disable_hr: bool = False if config.novelai_hr else True,
         hiresfix_scale: float = None,
@@ -654,11 +654,11 @@ class AIDRAW_BASE:
                             await unload_and_reload(backend_site=self.backend_site)
 
                     self.result_img = self.resp_json['images']
-                    if self.niter != 1 or self.batch != 1:
-                        if self.total_images == len(self.result_img):
-                            pass
-                        else:
-                            del self.result_img[0]
+                    # if self.niter != 1 or self.batch != 1:
+                    #     if self.total_images == len(self.result_img):
+                    #         pass
+                    #     else:
+                    #         del self.result_img[0]
                     logger.debug(f"获取到返回图片，正在处理")
                     # 收到图片后处理
                     if self.open_pose or config.openpose:

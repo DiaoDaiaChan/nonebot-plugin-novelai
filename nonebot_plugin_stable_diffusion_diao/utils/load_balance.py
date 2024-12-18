@@ -73,8 +73,8 @@ async def sd_LoadBalance(fifo=None):
                     normal_backend = (list(status_dict.keys()))
                     vram_dict[resp_tuple[2]] = resp_tuple[4]
                 else:
-                    raise fifo.Exceptions.NoAvailableBackendError
-            except RuntimeError or TypeError:
+                    raise RuntimeError
+            except (RuntimeError, TypeError):
                 print(f"后端{list(config.novelai_backend_url_dict.keys())[e]}出错")
                 continue
             else:
@@ -100,7 +100,7 @@ async def sd_LoadBalance(fifo=None):
         if is_avaiable == 0:
             logger.info("没有空闲后端")
             if len(normal_backend) == 0:
-                raise RuntimeError("没有可用后端")
+                raise fifo.Exceptions.NoAvailableBackendError
         backend_total_work_time = {}
         avg_time_dict = await fifo.get_backend_avg_work_time()
         backend_image = fifo.set_backend_image(get=True)

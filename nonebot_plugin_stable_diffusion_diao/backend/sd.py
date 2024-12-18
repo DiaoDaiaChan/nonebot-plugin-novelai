@@ -392,6 +392,7 @@ class AIDRAW(AIDRAW_BASE):
 
                 if match:
                     model_name = match.group(1).strip()
+                if match2:
                     model_hash = match2.group(1).strip()
                 self.model = f"{model_name} [{model_hash}]"
                 self.extra_info += res_msg

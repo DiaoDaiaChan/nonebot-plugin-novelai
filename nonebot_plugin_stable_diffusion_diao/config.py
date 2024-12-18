@@ -550,7 +550,7 @@ async def get_redis_client():
     return redis_client
 
 
-async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict or None:
+async def get_(site: str, end_point="/sdapi/v1/prompt-styles") -> dict | None:
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=100)) as session:
             async with session.get(url=f"http://{site}{end_point}") as resp:

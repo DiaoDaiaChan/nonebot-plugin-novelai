@@ -92,7 +92,6 @@ async def first_handler(
             args: Namespace = ShellCommandArgs(),
 ):
     handler = AIDrawHandler(event, bot, args)
-    handler.set_tasks_num(1)
 
     handler.event = event
     handler.bot = bot
@@ -123,6 +122,7 @@ async def first_handler(
         await send_msg_and_revoke(build_msg)
 
     try:
+        handler.set_tasks_num(1)
         await handler.fifo_gennerate(event, bot)
     except:
         pass
@@ -134,7 +134,7 @@ async def first_handler(
 
 class AIDrawHandler:
 
-    tasks_num = -1
+    tasks_num = 0
 
     @classmethod
     def get_tasks_num(cls):
@@ -227,42 +227,43 @@ class AIDrawHandler:
 
         if await config.get_value(self.group_id, "on"):
 
-            if config.novelai_daylimit and not await SUPERUSER(bot, event):
-                left = await count(str(self.user_id), 1)
-                if left < 0:
-                    await UniMessage.text("今天你的次数不够了哦").finish()
-                else:
-                    if config.novelai_daylimit_type == 2:
-                        message_ = f"今天你还能画{left}秒"
-                    else:
-                        message_ = f"，今天你还能够生成{left}张"
-                    self.message += message_
-
-            # 判断cd
-            nowtime = time.time()
-
-            async def group_cd():
-                deltatime_ = nowtime - cd.get(self.group_id, 0)
-                gcd = int(config.novelai_group_cd)
-                if deltatime_ < gcd:
-                    await UniMessage.text(f"本群共享剩余CD为{gcd - int(deltatime_)}s").finish()
-                else:
-                    cd[self.group_id] = nowtime
-
-            # 群组CD
-            if isinstance(event, GroupMessageEvent):
-                await group_cd()
-
-            elif isinstance(event, QQMessageEvent):
-                await group_cd()
-
-            # 个人CD
-            deltatime = nowtime - cd.get(self.user_id, 0)
-            cd_ = int(await config.get_value(self.group_id, "cd"))
-            if deltatime < cd_:
-                await UniMessage.text(f"你冲的太快啦，请休息一下吧，剩余CD为{cd_ - int(deltatime)}s").finish()
+            pass
+        if config.novelai_daylimit and not await SUPERUSER(bot, event):
+            left = await count(str(self.user_id), 1)
+            if left < 0:
+                await UniMessage.text("今天你的次数不够了哦").finish()
             else:
-                cd[self.user_id] = nowtime
+                if config.novelai_daylimit_type == 2:
+                    message_ = f"今天你还能画{left}秒"
+                else:
+                    message_ = f"，今天你还能够生成{left}张"
+                self.message += message_
+
+        # 判断cd
+        nowtime = time.time()
+
+        async def group_cd():
+            deltatime_ = nowtime - cd.get(self.group_id, 0)
+            gcd = int(config.novelai_group_cd)
+            if deltatime_ < gcd:
+                await UniMessage.text(f"本群共享剩余CD为{gcd - int(deltatime_)}s").finish()
+            else:
+                cd[self.group_id] = nowtime
+
+        # 群组CD
+        if isinstance(event, GroupMessageEvent):
+            await group_cd()
+
+        elif isinstance(event, QQMessageEvent):
+            await group_cd()
+
+        # 个人CD
+        deltatime = nowtime - cd.get(self.user_id, 0)
+        cd_ = int(await config.get_value(self.group_id, "cd"))
+        if deltatime < cd_:
+            await UniMessage.text(f"你冲的太快啦，请休息一下吧，剩余CD为{cd_ - int(deltatime)}s").finish()
+        else:
+            cd[self.user_id] = nowtime
 
     async def auto_match(self):
 
